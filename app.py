@@ -1049,49 +1049,51 @@ class CanteenApp(ctk.CTk):
                 card.grid_remove()
 
     def _apply_stock_deduction(self, conn, menu_id, qty_sold, sale_id, today):
+        """Calculate COGS per portion sold.
+        
+        NOTE: Inventory stock is NOT deducted here.
+        Ingredients are already fully deducted when the menu/batch is created.
+        This function only computes the cost-of-goods-sold (COGS) for profit
+        tracking and logs the sale event to the stock_ledger for audit purposes.
+        """
         recipes = conn.execute(
             "SELECT r.inv_id, r.qty_per_unit "
             "FROM recipes r WHERE r.menu_id=?", (menu_id,)).fetchall()
-        cpu = 0.0
+        cpu        = 0.0
         deductions = []
-        warnings   = []
         for rc in recipes:
             inv = conn.execute(
                 "SELECT id, item, unit, cp, stock FROM inventory WHERE id=?",
                 (rc["inv_id"],)).fetchone()
             if not inv:
                 continue
-            inv_id        = inv["id"]
-            item_name     = inv["item"]
-            unit          = inv["unit"]
-            qty_per_unit  = rc["qty_per_unit"]
-            total_deduct  = qty_per_unit * qty_sold
-            cpu          += qty_per_unit * (inv["cp"] or 0)
-            current_stock = inv["stock"] or 0.0
-            if current_stock < total_deduct:
-                warnings.append(
-                    f"⚠ Low stock: {item_name} needs {total_deduct:.2f}{unit}, "
-                    f"only {current_stock:.2f}{unit} left")
-            new_stock = max(0.0, current_stock - total_deduct)
-            conn.execute(
-                "UPDATE inventory SET stock=?, updated=? WHERE id=?",
-                (new_stock, today, inv_id))
+            inv_id       = inv["id"]
+            item_name    = inv["item"]
+            unit         = inv["unit"]
+            qty_per_unit = rc["qty_per_unit"]
+            total_used   = qty_per_unit * qty_sold
+            cpu         += qty_per_unit * (inv["cp"] or 0)
+
+            # Audit-only log — stock NOT deducted again here.
+            # Ingredients were already deducted at menu/batch creation.
             conn.execute(
                 "INSERT INTO stock_ledger "
                 "(date, inv_id, transaction_type, qty_change, notes) "
-                "VALUES (?, ?, 'Sale', ?, ?)",
-                (today, inv_id, -total_deduct,
+                "VALUES (?, ?, 'Sale_COGS', 0, ?)",
+                (today, inv_id,
                  f"Sale:{sale_id} | {item_name} "
-                 f"({qty_per_unit:.4f} {unit}/portion x {qty_sold} portions)"))
+                 f"({qty_per_unit:.4f} {unit}/portion x {qty_sold} portions | "
+                 f"COGS only — stock deducted at batch creation)"))
+
             deductions.append({
                 "item":           item_name,
                 "unit":           unit,
                 "qty_per_unit":   qty_per_unit,
-                "total_deducted": total_deduct,
-                "stock_before":   current_stock,
-                "stock_after":    new_stock,
+                "total_deducted": total_used,
+                "stock_before":   inv["stock"],
+                "stock_after":    inv["stock"],  # unchanged
             })
-        return cpu, deductions, warnings
+        return cpu, deductions, []
 
     def _save_one_sale(self, menu_id, meal, sp, eq, epm):
         """Always creates a NEW sale record. Never edits existing."""
