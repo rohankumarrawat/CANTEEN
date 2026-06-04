@@ -1,0 +1,75 @@
+# Byte-compiled / optimized / DLL archive
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script, but they can be
+#  nested in the build directory or created locally.
+*.manifest
+*.spec
+
+# Keep the specific build spec file we want to use, but ignore others if any.
+# Since we have build_exe.spec, we can explicitly allow it.
+!build_exe.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nosexyproject/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Databases
+*.db
+*.db.backup_*
+*.db.bak_*
+*.sqlite
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.venv312/
+
+# macOS system files
+.DS_Store
+
+# PyCharm/VSCode directories
+.idea/
+.vscode/

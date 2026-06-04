@@ -1,0 +1,48 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main, master, dev ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # Allows manual trigger from the GitHub repository page
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip' # caching pip dependencies to speed up future runs
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        if (Test-Path requirements.txt) { pip install -r requirements.txt }
+
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller build_exe.spec --clean --noconfirm
+
+    - name: Verify build output
+      run: |
+        if (Test-Path dist/AWWA_Lunch_Project.exe) {
+          echo "Build successful! EXE found."
+        } else {
+          echo "Error: EXE not found!"
+          exit 1
+        }
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: AWWA-Lunch-Project-Windows-EXE
+        path: dist/AWWA_Lunch_Project.exe
+        if-no-files-found: error
