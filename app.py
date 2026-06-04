@@ -2068,12 +2068,12 @@ class CanteenApp(ctk.CTk):
             inv    = conn.execute("SELECT * FROM inventory ORDER BY cat,item").fetchall()
 
         rev   = sum(r["sp"]*r["sold"] for r in s_rows)
-        cogs  = sum(r["cogs"] for r in s_rows)
         meals = sum(r["sold"] for r in s_rows)
         waste = int(w_row["t"] or 0)
         exp   = sum(r["t"] or 0 for r in e_rows)
-        gp    = rev - cogs
-        net   = gp - exp - waste
+        # Net Profit = Revenue - Expenditure - WasteCost
+        # (matches dashboard — raw material cost already in Expenditure, COGS not subtracted separately)
+        net   = rev - exp - waste
         cash_a = sum(r["sp"]*r["sold"] for r in s_rows if r["payment"]=="Cash")
         upi_a  = sum(r["sp"]*r["sold"] for r in s_rows if r["payment"]=="UPI")
         card_a = sum(r["sp"]*r["sold"] for r in s_rows if r["payment"]=="Card")
@@ -2270,8 +2270,8 @@ class CanteenApp(ctk.CTk):
         # KPI summary
         kpi_d = [
             [Paragraph("Total Revenue", TH), Paragraph(f"₹ {rev:,.0f}", TD),
-             Paragraph("Total COGS",   TH), Paragraph(f"₹ {cogs:,.0f}", TD),
-             Paragraph("Net Profit",   TH), Paragraph(f"₹ {net:,.0f}",  TD)],
+             Paragraph("Expenditure",   TH), Paragraph(f"₹ {exp:,.0f}", TD),
+             Paragraph("Net Profit",    TH), Paragraph(f"₹ {net:,.0f}",  TD)],
         ]
         kpi_t = Table(kpi_d, colWidths=[3*cm, 3.5*cm, 3*cm, 3.5*cm, 3*cm, 3.5*cm])
         kpi_t.setStyle(TableStyle([
