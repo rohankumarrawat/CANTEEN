@@ -676,11 +676,14 @@ class CanteenApp(ctk.CTk):
                 "SELECT cat, SUM(stock) as total FROM inventory GROUP BY cat").fetchall()
 
         rev    = sum(r["sp"]*r["sold"] for r in sales)
-        cogs   = sum(r["cogs"] for r in sales)
         meals  = sum(r["sold"] for r in sales)
         wcost  = sum(w["cost_lost"] or 0 for w in waste)
         low    = [i for i in inv if i["stock"] < i["min_lvl"]]
-        profit = rev - cogs - exp - wcost  # net after COGS, expenditure & waste
+        # Profit = Revenue - Expenditure (includes raw material cost logged at batch creation)
+        #          - WasteCost (production waste logged separately)
+        # COGS is stored per sale for reporting only — NOT subtracted here to avoid double-counting
+        # since raw material cost is already captured in Expenditure.
+        profit = rev - exp - wcost
 
         # Main scrollable body for dashboard
         scroll = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
@@ -2205,11 +2208,10 @@ class CanteenApp(ctk.CTk):
             inv    = conn.execute("SELECT * FROM inventory ORDER BY cat,item").fetchall()
 
         rev    = sum(r["sp"]*r["sold"] for r in s_rows)
-        cogs   = sum(r["cogs"] for r in s_rows)
         meals  = sum(r["sold"] for r in s_rows)
         waste  = sum(w["cost_lost"] or 0 for w in w_rows)
         exp    = sum(r["amount"] for r in e_rows)
-        net    = rev - cogs - exp - waste
+        net    = rev - exp - waste   # matches dashboard: Revenue - Expenditure - WasteCost
 
         # ReportLab colours
         OliveGreen = RL_COLORS.HexColor("#1F3320")
@@ -3159,9 +3161,20 @@ class CanteenApp(ctk.CTk):
                         "UPDATE menu SET cogs=? WHERE id=?",
                         (round(total_cogs, 4), new_mid))
 
-                    # Note: We NO LONGER log total raw material cost as expenditure here.
-                    # Doing so caused a double-deduction bug because the cost is already 
-                    # accounted for as COGS when a sale is made, and as Waste Cost for waste.
+                    # Log total raw material cost as Expenditure so net profit
+                    # immediately reflects the spend when the menu/batch is created.
+                    # (Waste is tracked separately in waste_tracker.)
+                    total_raw_cost = sum(
+                        ing["raw"] * inv_data.get(ing["name"], {}).get("cp", 0)
+                        for ing in valid_ings
+                    )
+                    if total_raw_cost > 0:
+                        conn.execute(
+                            "INSERT INTO expenditure (date, amount, category, notes) "
+                            "VALUES (?,?,?,?)",
+                            (today_str, round(total_raw_cost, 2),
+                             "Raw Material",
+                             f"Batch: {nm} | {today_str}"))
                 msg = "Created '" + nm + "' @ ₹" + str(int(sp))
                 if valid_ings:
                     wc_total  = sum(i["waste_cost"] for i in valid_ings)
@@ -3548,14 +3561,23 @@ class CanteenApp(ctk.CTk):
                     "UPDATE menu SET cogs=? WHERE id=?",
                     (round(new_cogs, 4), menu_id))
 
-                # 6. Update raw material expenditure entry for this menu item
-                #    Delete old entry and insert updated cost so Net Profit reflects
-                #    only the actual current raw material spend (delta-correct)
+                # 6. Update raw material expenditure entry for this batch
+                #    Delete old entry and insert updated total so Net Profit
+                #    always reflects the current actual ingredient spend.
                 new_raw_cost = sum(
                     r["total_raw"] * r["cp"] for r in all_recipes
                 )
-                # Note: We NO LONGER update raw material expenditure here to prevent double-deduction.
-                # Cost is tracked via COGS during sales and Waste Cost during waste entry.
+                note_pattern = f"Batch: {menu_name} | %"
+                conn.execute(
+                    "DELETE FROM expenditure WHERE category='Raw Material' "
+                    "AND notes LIKE ?", (note_pattern,))
+                if new_raw_cost > 0:
+                    conn.execute(
+                        "INSERT INTO expenditure (date, amount, category, notes) "
+                        "VALUES (?,?,?,?)",
+                        (today_str, round(new_raw_cost, 2),
+                         "Raw Material",
+                         f"Batch: {menu_name} | {today_str}"))
 
             # Build summary toast
             parts = []
