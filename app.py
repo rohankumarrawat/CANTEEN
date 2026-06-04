@@ -3159,20 +3159,9 @@ class CanteenApp(ctk.CTk):
                         "UPDATE menu SET cogs=? WHERE id=?",
                         (round(total_cogs, 4), new_mid))
 
-                    # 7. Log total raw material cost as expenditure
-                    #    so it is deducted from dashboard Net Profit immediately
-                    total_raw_cost = sum(
-                        ing["raw"] * inv_data.get(ing["name"], {}).get("cp", 0)
-                        for ing in valid_ings
-                    )
-                    if total_raw_cost > 0:
-                        conn.execute(
-                            "INSERT INTO expenditure (date, amount, category, notes) "
-                            "VALUES (?,?,?,?)",
-                            (today_str, round(total_raw_cost, 2),
-                             "Raw Material",
-                             f"Batch: {nm} | {today_str}"))
-
+                    # Note: We NO LONGER log total raw material cost as expenditure here.
+                    # Doing so caused a double-deduction bug because the cost is already 
+                    # accounted for as COGS when a sale is made, and as Waste Cost for waste.
                 msg = "Created '" + nm + "' @ ₹" + str(int(sp))
                 if valid_ings:
                     wc_total  = sum(i["waste_cost"] for i in valid_ings)
@@ -3565,17 +3554,8 @@ class CanteenApp(ctk.CTk):
                 new_raw_cost = sum(
                     r["total_raw"] * r["cp"] for r in all_recipes
                 )
-                note_pattern = f"Batch: {menu_name} | %"
-                conn.execute(
-                    "DELETE FROM expenditure WHERE category='Raw Material' "
-                    "AND notes LIKE ?", (note_pattern,))
-                if new_raw_cost > 0:
-                    conn.execute(
-                        "INSERT INTO expenditure (date, amount, category, notes) "
-                        "VALUES (?,?,?,?)",
-                        (today_str, round(new_raw_cost, 2),
-                         "Raw Material",
-                         f"Batch: {menu_name} | {today_str}"))
+                # Note: We NO LONGER update raw material expenditure here to prevent double-deduction.
+                # Cost is tracked via COGS during sales and Waste Cost during waste entry.
 
             # Build summary toast
             parts = []
