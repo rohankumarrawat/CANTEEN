@@ -25,7 +25,6 @@ OutputBaseFilename=AWWA_Canteen_Setup_v5
 ; Visuals
 SetupIconFile=app_icon.ico
 WizardStyle=modern
-WizardSmallImageFile=app_icon.ico
 
 ; Compression
 Compression=lzma2
@@ -49,8 +48,8 @@ PrivilegesRequiredOverridesAllowed=dialog
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon";   Description: "Create a &Desktop shortcut";       GroupDescription: "Additional icons:"; Flags: checked
-Name: "startmenuicon"; Description: "Create a &Start Menu shortcut";    GroupDescription: "Additional icons:"; Flags: checked
+Name: "desktopicon";   Description: "Create a &Desktop shortcut";    GroupDescription: "Additional icons:"
+Name: "startmenuicon"; Description: "Create a &Start Menu shortcut"; GroupDescription: "Additional icons:"
 
 [Files]
 ; Main application executable
