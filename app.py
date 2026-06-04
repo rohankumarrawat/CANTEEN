@@ -35,7 +35,16 @@ except ImportError:
     PDF_AVAILABLE = False
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import sys
+
+if getattr(sys, "frozen", False):
+    # Running as a PyInstaller bundle: put the database NEXT TO the .exe
+    # so it persists across runs and is not wiped from the temp folder.
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    # Running as a normal Python script
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 DB_PATH  = os.path.join(BASE_DIR, "canteen.db")
 BCK_DIR  = os.path.join(BASE_DIR, "backups")
 os.makedirs(BCK_DIR, exist_ok=True)
@@ -2755,9 +2764,9 @@ class CanteenApp(ctk.CTk):
                 lbl(hrow, col_t, size=9, weight="bold", color=GOLD_LT
                     ).pack(side="left", padx=4, expand=True)
 
-            # Scrollable ingredients area - fixed height so footer is always visible
-            ing_sf = ctk.CTkScrollableFrame(right, fg_color="transparent", height=200)
-            ing_sf.pack(fill="x", expand=False)
+            # Scrollable ingredients area — expands to fill available right-panel space
+            ing_sf = ctk.CTkScrollableFrame(right, fg_color="transparent")
+            ing_sf.pack(fill="both", expand=True)
 
             # Live cost panel
             cost_panel = ctk.CTkFrame(right, fg_color=BG_SAF, corner_radius=8,
@@ -3004,17 +3013,21 @@ class CanteenApp(ctk.CTk):
             lbl(content, "Staff see this price on the sales screen. You can edit it anytime.",
                 size=10, color=MID, wraplength=580).pack(anchor="w", pady=(4,0))
 
-            # Ingredient summary table
+            # Ingredient summary table — wrapped in a scrollable frame so all rows are visible
             valid_rows = [r for r in snapshot_rows if r.get("name","") not in ("", "(none)", "")]
             if valid_rows:
                 sep(content, color=BORDER, h=1).pack(fill="x", pady=(12,6))
                 lbl(content, "Ingredient Summary", size=11, weight="bold", color=ARMY_BG
                     ).pack(anchor="w", pady=(0,4))
+                # Sticky table header
                 th = ctk.CTkFrame(content, fg_color=ARMY_BG, corner_radius=6, height=26)
                 th.pack(fill="x"); th.pack_propagate(False)
                 for col in ["Ingredient", "Raw", "Made", "Waste", "Serve/Plate", "Waste Cost", "Rs./plate"]:
                     lbl(th, col, size=10, weight="bold", color=GOLD_LT).pack(
                         side="left", expand=True, padx=5)
+                # Scrollable body — max 220px tall so Save button is always visible
+                tbl_sf = ctk.CTkScrollableFrame(content, fg_color="transparent", height=220)
+                tbl_sf.pack(fill="x", expand=False, pady=(0,4))
                 for ix, row in enumerate(valid_rows):
                     iname = row["name"]
                     raw   = row.get("raw",   0.0)
@@ -3028,7 +3041,7 @@ class CanteenApp(ctk.CTk):
                     per_plt = per_p * serve
                     waste_c = wst * cp
                     bg2 = WHITE if ix % 2 == 0 else STRIPE
-                    rf = ctk.CTkFrame(content, fg_color=bg2, corner_radius=0, height=28)
+                    rf = ctk.CTkFrame(tbl_sf, fg_color=bg2, corner_radius=0, height=28)
                     rf.pack(fill="x"); rf.pack_propagate(False)
                     for val in [iname, str(round(raw,2)), str(int(made)),
                                 str(round(wst,2)), str(round(serve,1)) + " pcs",

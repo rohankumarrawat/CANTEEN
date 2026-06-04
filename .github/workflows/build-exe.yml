@@ -40,9 +40,28 @@ jobs:
           exit 1
         }
 
-    - name: Upload Build Artifact
+    - name: Copy canteen.db next to EXE
+      run: |
+        # If a canteen.db exists in the repo (committed), copy it next to the exe.
+        # If not, the app will auto-create a fresh one on first launch.
+        if (Test-Path canteen.db) {
+          Copy-Item canteen.db dist\canteen.db
+          echo "canteen.db copied to dist folder."
+        } else {
+          echo "No canteen.db found in repo - client will get a fresh database on first run."
+        }
+
+    - name: Package EXE + database into a ZIP
+      run: |
+        Compress-Archive -Path dist\AWWA_Lunch_Project.exe, dist\canteen.db -DestinationPath dist\AWWA_Canteen_Install.zip -ErrorAction SilentlyContinue
+        if (-not (Test-Path dist\AWWA_Canteen_Install.zip)) {
+          # canteen.db might not exist, zip only the exe
+          Compress-Archive -Path dist\AWWA_Lunch_Project.exe -DestinationPath dist\AWWA_Canteen_Install.zip
+        }
+
+    - name: Upload Complete Install Package
       uses: actions/upload-artifact@v4
       with:
-        name: AWWA-Lunch-Project-Windows-EXE
-        path: dist/AWWA_Lunch_Project.exe
+        name: AWWA-Canteen-Windows-Package
+        path: dist/AWWA_Canteen_Install.zip
         if-no-files-found: error

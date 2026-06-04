@@ -54,8 +54,8 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# Databases
-*.db
+# Databases — allow the main database but exclude backups/temp copies
+!canteen.db
 *.db.backup_*
 *.db.bak_*
 *.sqlite
