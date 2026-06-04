@@ -2796,8 +2796,8 @@ class CanteenApp(ctk.CTk):
             cost_lbl_ref[0] = cost_lbl
 
             def _auto_serve(row_dict):
-                """Auto-fill Serve/Plate = Made / Raw (items per unit raw material).
-                e.g. 200 roti from 10 kg aata -> 200/10 = 20 roti per kg
+                """Auto-fill Serve/Plate = Raw / Made (quantity per plate).
+                e.g. 5 kg gas for 100 plates -> 5/100 = 0.05 kg per plate
                 Only auto-fills if user has not manually edited the serve field.
                 """
                 try:    made = float(row_dict["made"].get())
@@ -2805,7 +2805,7 @@ class CanteenApp(ctk.CTk):
                 try:    raw  = float(row_dict["raw"].get())
                 except: raw  = 0.0
                 if made > 0 and raw > 0:
-                    serve_val = round(made / raw, 2)
+                    serve_val = round(raw / made, 4)
                     row_dict["serve"].delete(0, "end")
                     row_dict["serve"].insert(0, str(serve_val))
 
@@ -2823,7 +2823,7 @@ class CanteenApp(ctk.CTk):
                     try:    serve = float(row["serve"].get())
                     except: serve = 0.0
                     if serve <= 0 and made > 0 and raw > 0:
-                        serve = round(made / raw, 2)
+                        serve = round(raw / made, 4)
                     if iname in inv_data and made > 0:
                         cp = inv_data[iname]["cp"]
                         usable = max(raw - waste, 0)
@@ -2832,7 +2832,7 @@ class CanteenApp(ctk.CTk):
                         total_plate += cost_per_plate
                         unit_str = inv_data[iname].get("unit", "")
                         lines.append(
-                            f"  {iname}:  {serve:.1f} items/unit  |  "
+                            f"  {iname}:  {serve:.4f} {unit_str}/plate  |  "
                             f"₹{cost_per_plate:.2f}/plate  |  "
                             f"waste ₹{wc:.1f}  |  deducts {raw} {unit_str}")
                         max_p = max(max_p, int(made))
@@ -3059,7 +3059,7 @@ class CanteenApp(ctk.CTk):
                     rf = ctk.CTkFrame(tbl_sf, fg_color=bg2, corner_radius=0, height=28)
                     rf.pack(fill="x"); rf.pack_propagate(False)
                     for val in [iname, str(round(raw,2)), str(int(made)),
-                                str(round(wst,2)), str(round(serve,1)) + " pcs",
+                                str(round(wst,2)), str(round(serve,4)) + " qty",
                                 "Rs." + str(round(waste_c,1)), "Rs." + str(round(per_plt,2))]:
                         lbl(rf, val, size=10, color=DARK).pack(side="left", expand=True, padx=5)
 
@@ -3079,9 +3079,9 @@ class CanteenApp(ctk.CTk):
                     made  = row.get("made",  0.0)
                     wst   = row.get("waste", 0.0)
                     serve = row.get("serve", 0.0)
-                    # serve = Made / Raw (items per unit raw), fallback to Made/Raw
+                    # serve = Raw / Made (quantity per plate)
                     if serve <= 0 and made > 0 and raw > 0:
-                        serve = made / raw
+                        serve = raw / made
                     if made > 0:
                         usable = max(raw - wst, 0)
                         # qty_per_unit = usable raw per plate = usable / Made
