@@ -167,6 +167,14 @@ def init_db():
         if not _has_col(c, "menu", "cogs"):
             c.execute("ALTER TABLE menu ADD COLUMN cogs REAL DEFAULT 0")
 
+        # Performance indexes (CREATE IF NOT EXISTS is idempotent)
+        c.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_inventory_cat  ON inventory(cat);
+            CREATE INDEX IF NOT EXISTS idx_inventory_item ON inventory(item);
+            CREATE INDEX IF NOT EXISTS idx_sales_date     ON sales(date);
+            CREATE INDEX IF NOT EXISTS idx_stock_ledger_date ON stock_ledger(date);
+        """)
+
         c.executemany("INSERT OR IGNORE INTO roles (role,label) VALUES (?,?)", [
             ("admin","System Admin"), ("manager","Canteen Manager"),
             ("officer","Officer (Read-Only)"), ("waste_mgr","Waste Manager"),
@@ -510,6 +518,9 @@ class CanteenApp(ctk.CTk):
             b.configure(fg_color=SAFFRON if p == page else "transparent",
                         text_color=ARMY_BG if p == page else "#8AAA8A")
         for w in self._area.winfo_children(): w.destroy()
+        # Clear inventory cache on page switch so re-entry always fetches fresh data
+        if hasattr(self, "_inv_data_cache"):
+            del self._inv_data_cache
         {
             "dashboard":   self._pg_dashboard,
             "sales":       self._pg_sales,
@@ -899,7 +910,7 @@ class CanteenApp(ctk.CTk):
                                          placeholder_text="🔍  Search meals...",
                                          height=34, corner_radius=10)
         self._sale_search.pack(fill="x")
-        self._sale_search.bind("<KeyRelease>", lambda e: self._filter_sale_cards())
+        self._sale_search.bind("<KeyRelease>", lambda e: self._debounce("_sale_search_job", self._filter_sale_cards))
 
         wrap = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
         wrap.pack(fill="both", expand=True, padx=PAD, pady=(8, PAD))
@@ -1226,7 +1237,7 @@ class CanteenApp(ctk.CTk):
         self._batch_search = ctk.CTkEntry(search_bar, placeholder_text="\U0001f50d  Search meals...",
                                           height=34, corner_radius=10)
         self._batch_search.pack(fill="x")
-        self._batch_search.bind("<KeyRelease>", lambda e: self._filter_batch_cards())
+        self._batch_search.bind("<KeyRelease>", lambda e: self._debounce("_batch_search_job", self._filter_batch_cards))
 
         wrap = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
         wrap.pack(fill="both", expand=True, padx=PAD, pady=(8,PAD))
@@ -1365,7 +1376,7 @@ class CanteenApp(ctk.CTk):
         self._inv_search = ctk.CTkEntry(sb, placeholder_text="\U0001f50d  Search inventory items...",
                                         height=34, corner_radius=10)
         self._inv_search.pack(fill="x")
-        self._inv_search.bind("<KeyRelease>", lambda e: self._inv_filter_search())
+        self._inv_search.bind("<KeyRelease>", lambda e: self._debounce("_inv_search_job", self._inv_filter_search))
 
         # Action bar
         ab = ctk.CTkFrame(self._area, fg_color="transparent")
@@ -1400,40 +1411,79 @@ class CanteenApp(ctk.CTk):
         for c, b in self._inv_fb.items():
             b.configure(fg_color=ARMY_BG if c==cat else STRIPE,
                         text_color=WHITE if c==cat else DARK)
-        for w in self._inv_sf.winfo_children(): w.destroy()
-        self._inv_loadrows()
+        # Reload from DB then re-render with current search query
+        q = self._inv_search.get().strip().lower() if hasattr(self, "_inv_search") else ""
+        self._inv_loadrows(search_q=q, reload_db=True)
 
-    def _inv_loadrows(self, search_q=""):
-        """Load inventory rows, optionally filtered by search_q."""
-        with get_db() as conn:
-            if self._inv_filter == "All":
-                data = conn.execute("SELECT * FROM inventory ORDER BY cat,item").fetchall()
-            else:
-                data = conn.execute("SELECT * FROM inventory WHERE cat=? ORDER BY item",
-                                    (self._inv_filter,)).fetchall()
+    def _inv_loadrows(self, search_q="", reload_db=False):
+        """Load inventory rows with debounced search and threaded DB fetch.
+        
+        - reload_db=True  → fetch fresh data from DB in a background thread
+        - reload_db=False → filter the in-memory cache only (instant, no DB hit)
+        """
+        # If we have a fresh cache and no DB reload needed, filter in-memory immediately
+        if not reload_db and hasattr(self, "_inv_data_cache"):
+            self._inv_render_rows(self._inv_data_cache, search_q)
+            return
+
+        # Otherwise fetch from DB in a background thread
+        cat_filter = self._inv_filter
+
+        def _fetch():
+            with get_db() as conn:
+                if cat_filter == "All":
+                    data = conn.execute(
+                        "SELECT * FROM inventory ORDER BY cat, item").fetchall()
+                else:
+                    data = conn.execute(
+                        "SELECT * FROM inventory WHERE cat=? ORDER BY item",
+                        (cat_filter,)).fetchall()
+            # Convert to plain dicts so we can use them off the Row object
+            data = [dict(d) for d in data]
+            # Schedule render back on main thread
+            if self.winfo_exists():
+                self.after(0, lambda: self._inv_on_data_ready(data, search_q))
+
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def _inv_on_data_ready(self, data, search_q):
+        """Called on the main thread after DB fetch completes."""
+        self._inv_data_cache = data          # store for in-memory searches
+        self._inv_render_rows(data, search_q)
+
+    def _inv_render_rows(self, data, search_q=""):
+        """Destroy old rows and paint filtered rows — always runs on main thread."""
+        if not hasattr(self, "_inv_sf") or not self._inv_sf.winfo_exists():
+            return
+
+        # Apply in-memory filter
         if search_q:
             data = [d for d in data if search_q in d["item"].lower()]
+
+        # Clear existing rows
+        for w in self._inv_sf.winfo_children():
+            w.destroy()
 
         ci = {"Dry":"🌾","Fresh":"🥦","Dairy":"🥛","Bakery":"🥐","Prepared":"🍲"}
         widths = [w for _, w in self._inv_hdr]
 
         for ix, item in enumerate(data):
-            low  = item["stock"] < item["min_lvl"]
-            bg2  = "#FEE2E2" if low else (WHITE if ix % 2 == 0 else STRIPE)
+            low = item["stock"] < item["min_lvl"]
+            bg2 = "#FEE2E2" if low else (WHITE if ix % 2 == 0 else STRIPE)
 
             rf = ctk.CTkFrame(self._inv_sf, fg_color=bg2, corner_radius=0, height=40)
             rf.pack(fill="x"); rf.pack_propagate(False)
 
             cat_icon = ci.get(item["cat"], "•")
             vals = [
-                (f"  {item['item']}",                       True,  DARK),
-                (f"{cat_icon} {item['cat']}",               False, MID),
-                (item["unit"],                              False, MID),
-                (f"{item['opening']:.1f}",                  False, MID),
-                (f"{item['received']:.1f}",                 False, MID),
-                (f"{item['stock']:.1f}",                    True,  RED if low else GREEN),
-                (f"{item['min_lvl']:.1f}",                  False, MID),
-                ("⚠ LOW" if low else "✓ OK",               True,  RED if low else GREEN),
+                (f"  {item['item']}",        True,  DARK),
+                (f"{cat_icon} {item['cat']}", False, MID),
+                (item["unit"],               False, MID),
+                (f"{item['opening']:.1f}",   False, MID),
+                (f"{item['received']:.1f}",  False, MID),
+                (f"{item['stock']:.1f}",     True,  RED if low else GREEN),
+                (f"{item['min_lvl']:.1f}",   False, MID),
+                ("⚠ LOW" if low else "✓ OK", True,  RED if low else GREEN),
             ]
 
             for (val, bold, color), w in zip(vals, widths):
@@ -2299,11 +2349,21 @@ class CanteenApp(ctk.CTk):
             if q in name: w.grid()
             else: w.grid_remove()
 
+    def _debounce(self, job_attr, fn, delay_ms=250):
+        """Cancel any pending call stored in job_attr and schedule fn after delay_ms."""
+        existing = getattr(self, job_attr, None)
+        if existing:
+            try:
+                self.after_cancel(existing)
+            except Exception:
+                pass
+        setattr(self, job_attr, self.after(delay_ms, fn))
+
     def _inv_filter_search(self):
         if not hasattr(self, "_inv_sf") or not hasattr(self, "_inv_hdr"): return
         q = self._inv_search.get().strip().lower() if hasattr(self, "_inv_search") else ""
-        for w in self._inv_sf.winfo_children(): w.destroy()
-        self._inv_loadrows(search_q=q)
+        # Use in-memory cache for instant filtering; no DB hit needed
+        self._inv_loadrows(search_q=q, reload_db=False)
 
     # ==============================================================================
     # MASTER DATA — Menu + Inventory tabs
