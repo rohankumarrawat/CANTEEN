@@ -2186,7 +2186,12 @@ class CanteenApp(ctk.CTk):
             return
 
         fname = f"DailyReport_{start}_to_{end}.pdf"
-        out   = os.path.join(BASE_DIR, fname)
+
+        # Save reports to the user's Documents folder (always writable on Windows)
+        # Creates subfolder: Documents\AWWA Canteen Reports\
+        docs_dir = os.path.join(os.path.expanduser("~"), "Documents", "AWWA Canteen Reports")
+        os.makedirs(docs_dir, exist_ok=True)
+        out = os.path.join(docs_dir, fname)
 
         with get_db() as conn:
             s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC",
@@ -2346,9 +2351,17 @@ class CanteenApp(ctk.CTk):
                                 topMargin=2*cm, bottomMargin=1.5*cm)
         doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
 
-        self._popup("✅ PDF Exported!", f"Report saved to:\n{fname}")
+        self._popup("✅ PDF Exported!",
+                    f"Report saved to:\n{out}\n\n"
+                    f"(Documents → AWWA Canteen Reports)")
+        # Auto-open the PDF using the correct command for the platform
         try:
-            import subprocess; subprocess.Popen(["open", out])
+            if sys.platform == "win32":
+                os.startfile(out)                                    # Windows
+            elif sys.platform == "darwin":
+                import subprocess; subprocess.Popen(["open", out])  # macOS
+            else:
+                import subprocess; subprocess.Popen(["xdg-open", out])  # Linux
         except Exception:
             pass
 
