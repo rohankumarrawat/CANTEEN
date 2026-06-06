@@ -14,8 +14,8 @@ AppPublisherURL=https://github.com/rohankumarrawat/CANTEEN
 AppSupportURL=https://github.com/rohankumarrawat/CANTEEN
 AppUpdatesURL=https://github.com/rohankumarrawat/CANTEEN
 
-; Installation directory
-DefaultDirName={autopf}\AWWA Lunch Project
+; Installation directory — use LocalAppData so no admin rights are needed
+DefaultDirName={localappdata}\AWWA Lunch Project
 DefaultGroupName=AWWA Lunch Project
 
 ; Output
@@ -62,14 +62,14 @@ Source: "canteen.db";                   DestDir: "{app}"; Flags: onlyifdoesntexi
 Source: "app_icon.ico";                 DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-; Desktop shortcut
-Name: "{commondesktop}\AWWA Canteen"; Filename: "{app}\AWWA_Lunch_Project.exe"; IconFilename: "{app}\app_icon.ico"; Comment: "AWWA Lunch Project — Canteen Management System v5.0"; Tasks: desktopicon
+; Desktop shortcut — {userdesktop} = current user's Desktop (no admin needed)
+Name: "{userdesktop}\AWWA Canteen"; Filename: "{app}\AWWA_Lunch_Project.exe"; IconFilename: "{app}\app_icon.ico"; Comment: "AWWA Lunch Project - Canteen Management System v5.0"; Tasks: desktopicon
 
-; Start Menu group
-Name: "{group}\AWWA Canteen Management"; Filename: "{app}\AWWA_Lunch_Project.exe"; IconFilename: "{app}\app_icon.ico"; Comment: "AWWA Lunch Project — Canteen Management System v5.0"; Tasks: startmenuicon
+; Start Menu — {userprograms} = current user's Start Menu (no admin needed)
+Name: "{userprograms}\AWWA Canteen Management"; Filename: "{app}\AWWA_Lunch_Project.exe"; IconFilename: "{app}\app_icon.ico"; Comment: "AWWA Lunch Project - Canteen Management System v5.0"; Tasks: startmenuicon
 
 ; Uninstaller in Start Menu
-Name: "{group}\Uninstall AWWA Canteen"; Filename: "{uninstallexe}"
+Name: "{userprograms}\Uninstall AWWA Canteen"; Filename: "{uninstallexe}"
 
 [Run]
 ; Offer to launch after install
