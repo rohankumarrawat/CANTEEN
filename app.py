@@ -1833,58 +1833,129 @@ class CanteenApp(ctk.CTk):
                         _build_csv(inner)
 
                 def _build_single(p):
-                    lbl(p, "Inventory Item", size=11, weight="bold",
-                        color=ARMY_BG).pack(anchor="w", pady=(0, 3))
-                    se2 = ctk.CTkEntry(p, placeholder_text="🔍 Search...", height=32)
-                    se2.pack(fill="x", pady=(0, 4))
-                    iom2 = ctk.CTkOptionMenu(p, values=inv_items or ["(none)"],
-                                             font=ctk.CTkFont(size=12), height=36)
-                    if inv_items:
-                        iom2.set(inv_items[0])
-                    iom2.pack(fill="x", pady=(0, 8))
-                    def _fi2(*a, e=se2, i=iom2, opts=inv_items):
-                        q = e.get().lower()
-                        fil = [x for x in opts if q in x.lower()]
-                        i.configure(values=fil or ["(none)"])
-                        if fil:
-                            i.set(fil[0])
-                    se2.bind("<KeyRelease>", _fi2)
-                    fields["item_om"] = iom2
+                    # Is this item NEW or EXISTING?
+                    item_mode_var = ctk.StringVar(value="existing")
+                    mf = ctk.CTkFrame(p, fg_color="transparent"); mf.pack(fill="x", pady=(0, 8))
+                    eb = ctk.CTkButton(mf, text="📦  Update Existing", width=148, height=28,
+                                       corner_radius=6, fg_color=TEAL, text_color=WHITE,
+                                       font=ctk.CTkFont(size=10, weight="bold"), hover_color=ARMY_HVR,
+                                       command=lambda: _set_item_mode("existing"))
+                    eb.pack(side="left", padx=(0, 6))
+                    nb = ctk.CTkButton(mf, text="✦  Add New Item", width=148, height=28,
+                                       corner_radius=6, fg_color=STRIPE, text_color=DARK,
+                                       font=ctk.CTkFont(size=10, weight="bold"), hover_color=ARMY_HVR,
+                                       command=lambda: _set_item_mode("new"))
+                    nb.pack(side="left")
+                    fields["item_mode"] = item_mode_var
 
-                    qr = ctk.CTkFrame(p, fg_color="transparent")
-                    qr.pack(fill="x")
-                    qr.grid_columnconfigure(0, weight=1)
-                    qr.grid_columnconfigure(1, weight=1)
-                    lbl(qr, "Qty Received", size=11, weight="bold",
-                        color=ARMY_BG).grid(row=0, column=0, sticky="w", pady=(0, 3))
-                    eq2 = entry(qr, ph="e.g. 10.0", h=38)
-                    eq2.grid(row=1, column=0, sticky="ew", padx=(0, 8))
-                    fields["qty"] = eq2
-                    lbl(qr, "Cost Price ₹/unit (optional)", size=11, weight="bold",
-                        color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0, 3))
-                    ecp2 = entry(qr, ph="leave blank to keep current", h=38)
-                    ecp2.grid(row=1, column=1, sticky="ew")
-                    fields["cp"] = ecp2
+                    item_form = ctk.CTkFrame(p, fg_color="transparent"); item_form.pack(fill="x")
 
-                    lbl(p, "Notes (optional)", size=11, weight="bold",
-                        color=ARMY_BG).pack(anchor="w", pady=(8, 3))
-                    en2 = entry(p, ph="e.g. Monthly ration received", h=38)
-                    en2.pack(fill="x")
-                    fields["notes"] = en2
+                    def _set_item_mode(m):
+                        item_mode_var.set(m)
+                        eb.configure(fg_color=TEAL if m=="existing" else STRIPE,
+                                     text_color=WHITE if m=="existing" else DARK)
+                        nb.configure(fg_color=TEAL if m=="new" else STRIPE,
+                                     text_color=WHITE if m=="new" else DARK)
+                        for w in item_form.winfo_children(): w.destroy()
+                        if m == "existing":
+                            _form_existing(item_form)
+                        else:
+                            _form_new(item_form)
+
+                    CATS = ["Dry", "Fresh", "Dairy", "Bakery", "Prepared", "Misc"]
+
+                    def _form_existing(fp):
+                        lbl(fp, "Inventory Item", size=11, weight="bold",
+                            color=ARMY_BG).pack(anchor="w", pady=(0, 3))
+                        se2 = ctk.CTkEntry(fp, placeholder_text="🔍 Search...", height=32)
+                        se2.pack(fill="x", pady=(0, 4))
+                        iom2 = ctk.CTkOptionMenu(fp, values=inv_items or ["(none)"],
+                                                 font=ctk.CTkFont(size=12), height=36)
+                        if inv_items: iom2.set(inv_items[0])
+                        iom2.pack(fill="x", pady=(0, 8))
+                        def _fi2(*a, e=se2, i=iom2, opts=inv_items):
+                            q = e.get().lower()
+                            fil = [x for x in opts if q in x.lower()]
+                            i.configure(values=fil or ["(none)"])
+                            if fil: i.set(fil[0])
+                        se2.bind("<KeyRelease>", _fi2)
+                        fields["item_om"] = iom2
+
+                        qr = ctk.CTkFrame(fp, fg_color="transparent"); qr.pack(fill="x")
+                        qr.grid_columnconfigure(0, weight=1); qr.grid_columnconfigure(1, weight=1)
+                        lbl(qr, "Qty Received", size=11, weight="bold",
+                            color=ARMY_BG).grid(row=0, column=0, sticky="w", pady=(0, 3))
+                        eq2 = entry(qr, ph="e.g. 10.0", h=38)
+                        eq2.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+                        fields["qty"] = eq2
+                        lbl(qr, "Cost Price ₹/unit (optional)", size=11, weight="bold",
+                            color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0, 3))
+                        ecp2 = entry(qr, ph="leave blank to keep current", h=38)
+                        ecp2.grid(row=1, column=1, sticky="ew")
+                        fields["cp"] = ecp2
+
+                        lbl(fp, "Notes (optional)", size=11, weight="bold",
+                            color=ARMY_BG).pack(anchor="w", pady=(8, 3))
+                        en2 = entry(fp, ph="e.g. Monthly ration received", h=38)
+                        en2.pack(fill="x")
+                        fields["notes"] = en2
+
+                    def _form_new(fp):
+                        lbl(fp, "Item Name  (must not already exist)", size=11, weight="bold",
+                            color=ARMY_BG).pack(anchor="w", pady=(0, 3))
+                        e_nm = entry(fp, ph="e.g., Mustard Oil", h=38); e_nm.pack(fill="x", pady=(0, 6))
+                        fields["new_name"] = e_nm
+
+                        r1 = ctk.CTkFrame(fp, fg_color="transparent"); r1.pack(fill="x")
+                        r1.grid_columnconfigure(0, weight=1); r1.grid_columnconfigure(1, weight=1)
+                        lbl(r1, "Category", size=11, weight="bold",
+                            color=ARMY_BG).grid(row=0, column=0, sticky="w", pady=(0, 3))
+                        cat_om = ctk.CTkOptionMenu(r1, values=CATS,
+                                                   font=ctk.CTkFont(size=11), height=34)
+                        cat_om.set("Dry")
+                        cat_om.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+                        fields["new_cat"] = cat_om
+                        lbl(r1, "Unit  (kg / ltr / pcs)", size=11, weight="bold",
+                            color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0, 3))
+                        e_unit = entry(r1, ph="e.g., kg", h=34)
+                        e_unit.grid(row=1, column=1, sticky="ew")
+                        fields["new_unit"] = e_unit
+
+                        r2 = ctk.CTkFrame(fp, fg_color="transparent"); r2.pack(fill="x", pady=(6, 0))
+                        r2.grid_columnconfigure(0, weight=1); r2.grid_columnconfigure(1, weight=1)
+                        lbl(r2, "Opening Stock (qty)", size=11, weight="bold",
+                            color=ARMY_BG).grid(row=0, column=0, sticky="w", pady=(0, 3))
+                        e_stk = entry(r2, ph="e.g., 50", h=38)
+                        e_stk.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+                        fields["new_stock"] = e_stk
+                        lbl(r2, "Min Level Alert", size=11, weight="bold",
+                            color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0, 3))
+                        e_min = entry(r2, ph="e.g., 5", h=38)
+                        e_min.grid(row=1, column=1, sticky="ew")
+                        fields["new_min"] = e_min
+
+                        lbl(fp, "Cost Price ₹/unit", size=11, weight="bold",
+                            color=ARMY_BG).pack(anchor="w", pady=(8, 3))
+                        e_cp2 = entry(fp, ph="e.g., 90", h=38); e_cp2.pack(fill="x")
+                        fields["new_cp"] = e_cp2
+
+                    _form_existing(item_form)   # default
 
                 def _build_csv(p):
                     # Format info box
                     info = ctk.CTkFrame(p, fg_color=BG_GRN, corner_radius=8)
                     info.pack(fill="x", pady=(0, 8))
-                    lbl(info, "CSV Format — header required, one item per row:",
+                    lbl(info, "CSV Format — same as Import Data page:",
                         size=10, weight="bold", color=ARMY_BG).pack(anchor="w", padx=10, pady=(6, 2))
-                    lbl(info, "item, qty_received, cost_price, notes",
+                    lbl(info, "item, qty_received, category, unit, min_level, cost_price, notes",
                         size=9, color=DARK).pack(anchor="w", padx=10)
-                    lbl(info, "Example:  RICE, 50, 45.00, Weekly ration",
+                    lbl(info, "Example:  RICE, 50, Dry, kg, 10, 45.00, Weekly ration",
                         size=9, color=MID).pack(anchor="w", padx=10)
-                    lbl(info, "• cost_price and notes columns are optional",
+                    lbl(info, "• category, unit, min_level, cost_price, notes → optional",
                         size=9, color=MID).pack(anchor="w", padx=10)
-                    lbl(info, "• Existing items → qty ADDED to current stock",
+                    lbl(info, "• Existing item → qty ADDED to stock",
+                        size=9, weight="bold", color=TEAL).pack(anchor="w", padx=10)
+                    lbl(info, "• New item (not in inventory) → CREATED if category+unit present",
                         size=9, weight="bold", color=ARMY_BG).pack(anchor="w", padx=10, pady=(0, 6))
 
                     # File picker row
@@ -1920,6 +1991,7 @@ class CanteenApp(ctk.CTk):
                         for w in prev.winfo_children():
                             w.destroy()
                         rows_ok, rows_bad = [], []
+                        VALID_CATS = {"dry","fresh","dairy","bakery","prepared","misc"}
                         try:
                             with open(fp, newline="", encoding="utf-8-sig") as f:
                                 reader = csv_mod.DictReader(f)
@@ -1933,6 +2005,9 @@ class CanteenApp(ctk.CTk):
                                         continue
                                     qty_s = (row.get("qty_received")
                                              or row.get("qty") or "").strip()
+                                    cat_s = (row.get("category") or row.get("cat") or "").strip()
+                                    unit_s= (row.get("unit") or "").strip()
+                                    min_s = (row.get("min_level") or row.get("min") or "").strip()
                                     cp_s  = (row.get("cost_price")
                                              or row.get("cp") or "").strip()
                                     nt_s  = (row.get("notes")
@@ -1945,39 +2020,51 @@ class CanteenApp(ctk.CTk):
                                     if qty_f <= 0:
                                         rows_bad.append(f"Zero qty: '{raw_item}'")
                                         continue
-                                    matched = inv_upper.get(raw_item.upper())
+                                    matched      = inv_upper.get(raw_item.upper())
+                                    can_create   = (not matched
+                                                    and bool(cat_s) and bool(unit_s))
                                     rows_ok.append({
-                                        "item":   matched or raw_item,
-                                        "qty":    qty_f,
-                                        "cp":     cp_s,
-                                        "notes":  nt_s,
-                                        "exists": matched is not None
+                                        "item":       matched or raw_item,
+                                        "qty":        qty_f,
+                                        "cat":        cat_s,
+                                        "unit":       unit_s,
+                                        "min":        float(min_s) if min_s else 0,
+                                        "cp":         cp_s,
+                                        "notes":      nt_s,
+                                        "exists":     matched is not None,
+                                        "can_create": can_create
                                     })
                             fields["csv_rows"] = rows_ok
-                            skip = len(rows_bad)
-                            ok   = len(rows_ok)
-                            lbl(prev,
-                                f"  ✅  {ok} row(s) ready"
-                                + (f"   ⚠ {skip} skipped" if skip else ""),
-                                size=10, weight="bold",
-                                color=GREEN if ok else RED
+                            upd = sum(1 for r in rows_ok if r["exists"])
+                            new = sum(1 for r in rows_ok if not r["exists"] and r["can_create"])
+                            skp = sum(1 for r in rows_ok if not r["exists"] and not r["can_create"])
+                            bad = len(rows_bad)
+                            summary = (f"  ↑ {upd} update   ✦ {new} new"
+                                       + (f"   ✗ {skp} skip" if skp else "")
+                                       + (f"   ⚠ {bad} bad qty" if bad else ""))
+                            lbl(prev, summary, size=10, weight="bold",
+                                color=GREEN if (upd + new) > 0 else RED
                                 ).pack(anchor="w", padx=10, pady=(6, 2))
                             for r in rows_ok[:8]:
-                                flag = "↑ update" if r["exists"] else "✗ not in inventory"
-                                clr  = DARK if r["exists"] else RED
+                                if r["exists"]:
+                                    flag, clr = "↑ update", DARK
+                                elif r["can_create"]:
+                                    flag, clr = f"✦ NEW ({r['cat']}/{r['unit']})", TEAL
+                                else:
+                                    flag, clr = "✗ skip — add category+unit", RED
                                 lbl(prev,
-                                    f"  {r['item'][:28]:28s}  +{r['qty']}"
+                                    f"  {r['item'][:26]:26s}  +{r['qty']}"
                                     + (f"  @₹{r['cp']}" if r["cp"] else "")
                                     + f"  [{flag}]",
                                     size=9, color=clr).pack(anchor="w", padx=10)
-                            if ok > 8:
-                                lbl(prev, f"  … {ok - 8} more rows",
+                            if len(rows_ok) > 8:
+                                lbl(prev, f"  … {len(rows_ok) - 8} more rows",
                                     size=9, color=MID).pack(anchor="w", padx=10)
                             for b in rows_bad[:3]:
                                 lbl(prev, f"  ⚠ {b}", size=9,
                                     color=RED).pack(anchor="w", padx=10)
                             if rows_bad:
-                                lbl(prev, "  (rows with bad/missing qty are skipped)",
+                                lbl(prev, "  (rows with bad/zero qty are skipped)",
                                     size=8, color=MID).pack(anchor="w", padx=10, pady=(0, 6))
                         except Exception as ex:
                             fields["csv_rows"] = []
@@ -2063,14 +2150,15 @@ class CanteenApp(ctk.CTk):
             # ── Stock Received ────────────────────────────────────────────────
             if t == "stock":
                 mode = fields.get("mode_var") and fields["mode_var"].get() or "single"
+                CATS_VALID = ["Dry", "Fresh", "Dairy", "Bakery", "Prepared", "Misc"]
 
                 def _do_stock_update(conn, item_name, qty, cp_str, notes_str):
-                    """Add qty to existing item. Returns (ok, msg)."""
+                    """Add qty to an EXISTING item. Returns (ok, msg)."""
                     row = conn.execute(
                         "SELECT id, stock, cp FROM inventory WHERE item=? COLLATE NOCASE",
                         (item_name,)).fetchone()
                     if not row:
-                        return False, f"'{item_name}' not found — skipped"
+                        return False, f"'{item_name}' not found"
                     new_stock = (row["stock"] or 0) + qty
                     new_cp    = float(cp_str) if cp_str else (row["cp"] or 0)
                     conn.execute(
@@ -2085,60 +2173,111 @@ class CanteenApp(ctk.CTk):
                         "INSERT INTO goods_received (date, inv_id, qty, total_cost) "
                         "VALUES (?,?,?,?)",
                         (date_str, row["id"], qty, qty * new_cp))
-                    return True, f"{item_name} stock +{qty}"
+                    return True, f"{item_name} +{qty}"
+
+                def _do_stock_create(conn, item_name, qty, cat, unit, min_lvl,
+                                     cp_str, notes_str):
+                    """CREATE a new inventory item then log stock receipt. Returns (ok, msg)."""
+                    try:
+                        cp_val = float(cp_str) if cp_str else 0.0
+                        conn.execute(
+                            "INSERT INTO inventory "
+                            "(item, cat, unit, stock, min_lvl, opening, cp) "
+                            "VALUES (?,?,?,?,?,?,?)",
+                            (item_name, cat, unit, qty, min_lvl, qty, cp_val))
+                        new_id = conn.execute(
+                            "SELECT id FROM inventory WHERE item=? COLLATE NOCASE",
+                            (item_name,)).fetchone()["id"]
+                        conn.execute(
+                            "INSERT INTO stock_ledger "
+                            "(date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Opening',?,?)",
+                            (date_str, new_id, qty, notes_str or f"New item via import — {date_str}"))
+                        return True, f"{item_name} created ({cat}/{unit}) +{qty}"
+                    except sqlite3.IntegrityError:
+                        return False, f"'{item_name}' duplicate — skipped"
 
                 if mode == "single":
-                    item = fields.get("item_om") and fields["item_om"].get() or ""
-                    if item in ("", "(none)"):
-                        self._popup("⚠️ No Item", "Select an inventory item."); return
-                    try:    qty = float(fields["qty"].get() or 0)
-                    except: self._popup("⚠️ Invalid Qty", "Enter a numeric quantity."); return
-                    if qty <= 0:
-                        self._popup("⚠️ Zero Qty", "Quantity must be > 0."); return
-                    cp_str = fields.get("cp") and fields["cp"].get().strip() or ""
-                    notes  = fields.get("notes") and fields["notes"].get().strip() or \
-                             f"Stock received — {date_str}"
-                    with get_db() as conn:
-                        ok, msg = _do_stock_update(conn, item, qty, cp_str, notes)
-                    if ok:
-                        self._toast(f"✅ {msg}  ({date_str})")
-                        close(); self._live_refresh("inventory")
-                    else:
-                        self._popup("⚠️ Not Found", msg)
+                    item_mode = fields.get("item_mode") and fields["item_mode"].get() or "existing"
+
+                    if item_mode == "existing":
+                        item = fields.get("item_om") and fields["item_om"].get() or ""
+                        if item in ("", "(none)"):
+                            self._popup("⚠️ No Item", "Select an inventory item."); return
+                        try:    qty = float(fields["qty"].get() or 0)
+                        except: self._popup("⚠️ Invalid Qty", "Enter a numeric quantity."); return
+                        if qty <= 0:
+                            self._popup("⚠️ Zero Qty", "Quantity must be > 0."); return
+                        cp_str = fields.get("cp") and fields["cp"].get().strip() or ""
+                        notes  = (fields.get("notes") and fields["notes"].get().strip()
+                                  or f"Stock received — {date_str}")
+                        with get_db() as conn:
+                            ok, msg = _do_stock_update(conn, item, qty, cp_str, notes)
+                        if ok:
+                            self._toast(f"✅ {msg}  ({date_str})")
+                            close(); self._live_refresh("inventory")
+                        else:
+                            self._popup("⚠️ Not Found", msg)
+
+                    else:  # new item
+                        nm   = fields.get("new_name") and fields["new_name"].get().strip() or ""
+                        cat  = fields.get("new_cat")  and fields["new_cat"].get() or ""
+                        unit = fields.get("new_unit") and fields["new_unit"].get().strip() or ""
+                        if not nm:
+                            self._popup("⚠️ No Name", "Enter an item name."); return
+                        if not unit:
+                            self._popup("⚠️ No Unit", "Enter the unit (kg / ltr / pcs)."); return
+                        try:    stk = float(fields["new_stock"].get() or 0)
+                        except: self._popup("⚠️ Invalid Stock", "Enter numeric opening stock."); return
+                        try:    mn  = float(fields["new_min"].get() or 0)
+                        except: mn = 0
+                        cp_str = fields.get("new_cp") and fields["new_cp"].get().strip() or ""
+                        with get_db() as conn:
+                            ok, msg = _do_stock_create(
+                                conn, nm, stk, cat, unit, mn, cp_str, "")
+                        if ok:
+                            self._toast(f"✅ {msg}")
+                            close(); self._live_refresh("inventory")
+                        else:
+                            self._popup("⚠️ Error", msg)
 
                 else:  # CSV mode
                     rows = fields.get("csv_rows") or []
                     if not rows:
                         self._popup("⚠️ No Data",
                                     "Load a CSV file first and confirm the preview."); return
-                    updated, skipped, skip_names = 0, 0, []
+                    updated, created, skipped = 0, 0, []
                     with get_db() as conn:
                         for r in rows:
-                            if not r["exists"]:
-                                skipped += 1
-                                skip_names.append(r["item"])
-                                continue
                             notes_r = r["notes"] or f"Bulk CSV import — {date_str}"
-                            ok, _ = _do_stock_update(
-                                conn, r["item"], r["qty"], r["cp"], notes_r)
-                            if ok:
-                                updated += 1
+                            if r["exists"]:
+                                ok, _ = _do_stock_update(
+                                    conn, r["item"], r["qty"], r["cp"], notes_r)
+                                if ok: updated += 1
+                                else:  skipped.append(r["item"])
+                            elif r["can_create"]:
+                                cat_val = r["cat"] or "Dry"
+                                ok, _ = _do_stock_create(
+                                    conn, r["item"], r["qty"],
+                                    cat_val, r["unit"], r["min"],
+                                    r["cp"], notes_r)
+                                if ok: created += 1
+                                else:  skipped.append(r["item"])
                             else:
-                                skipped += 1
-                                skip_names.append(r["item"])
+                                skipped.append(r["item"] + " (missing category/unit)")
 
-                    msg = f"✅ CSV import complete — {updated} item(s) updated"
+                    msg = f"✅ CSV complete — {updated} updated, {created} new items created"
                     if skipped:
-                        msg += f",  {skipped} skipped (not in inventory)"
+                        msg += f", {len(skipped)} skipped"
                     self._toast(msg, duration_ms=5000)
-                    if skip_names:
+                    if skipped:
                         self._popup(
-                            "⚠️ Some Items Skipped",
-                            f"{skipped} item(s) were not found in inventory "
-                            f"and were skipped:\n\n" + "\n".join(skip_names[:15])
-                            + ("\n..." if len(skip_names) > 15 else "")
-                            + "\n\nAdd these items to Inventory first, "
-                            "then re-import.")
+                            "⚠️ Items Skipped",
+                            f"{len(skipped)} item(s) skipped:\n\n"
+                            + "\n".join(skipped[:15])
+                            + ("\n..." if len(skipped) > 15 else "")
+                            + "\n\nFor new items, make sure 'category' and 'unit' "
+                              "columns are filled in the CSV.")
                     close(); self._live_refresh("inventory")
 
 
