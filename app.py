@@ -1513,42 +1513,74 @@ class CanteenApp(ctk.CTk):
                     color=color).pack(anchor="w", padx=10, pady=6)
 
     def _dlg_inv_add(self):
-        body, card, close = self._show_modal("＋  Add New Inventory Item", 540, 500)
+        body, card, close = self._show_modal("＋  Add New Inventory Item", 540, 520)
         fields = {}
         CATEGORIES = ["Dry", "Fresh", "Dairy", "Bakery", "Prepared", "Misc"]
 
-        for lbl_t, ph, attr, is_menu in [
-            ("Item Name", "e.g., Mustard Oil", "name", False),
-            ("Unit (kg / ltr / pcs)", "e.g., kg", "unit", False),
-            ("Opening Stock", "e.g., 20", "stock", False),
-            ("Minimum Level Alert", "e.g., 5", "min_lvl", False),
-            ("Cost Price per Unit (₹)", "e.g., 90", "cp", False),
-        ]:
-            lbl(body, lbl_t, size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(8,3))
-            e = entry(body, ph=ph, h=38); e.pack(fill="x")
-            fields[attr] = e
+        # ── CSV-order hint ────────────────────────────────────────────────────
+        hint = ctk.CTkFrame(body, fg_color=BG_GRN, corner_radius=8)
+        hint.pack(fill="x", pady=(0, 10))
+        lbl(hint, "Fields match the CSV import format:",
+            size=9, weight="bold", color=ARMY_BG).pack(anchor="w", padx=10, pady=(5, 1))
+        lbl(hint, "item → category → unit → opening_stock → min_level → cost_price",
+            size=9, color=MID).pack(anchor="w", padx=10, pady=(0, 5))
 
-        lbl(body, "Category", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(8,3))
-        cat_menu = ctk.CTkOptionMenu(body, values=CATEGORIES,
-                                     font=ctk.CTkFont(size=12))
+        # ── Item Name ─────────────────────────────────────────────────────────
+        lbl(body, "Item Name", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4, 3))
+        e_name = entry(body, ph="e.g., Mustard Oil", h=38); e_name.pack(fill="x")
+        fields["name"] = e_name
+
+        # ── Category ─────────────────────────────────────────────────────────
+        lbl(body, "Category", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(8, 3))
+        cat_menu = ctk.CTkOptionMenu(body, values=CATEGORIES, font=ctk.CTkFont(size=12), height=36)
         cat_menu.set("Dry"); cat_menu.pack(fill="x")
+
+        # ── Unit ──────────────────────────────────────────────────────────────
+        lbl(body, "Unit  (kg / ltr / pcs / gm)", size=11, weight="bold",
+            color=ARMY_BG).pack(anchor="w", pady=(8, 3))
+        e_unit = entry(body, ph="e.g., kg", h=38); e_unit.pack(fill="x")
+        fields["unit"] = e_unit
+
+        # ── Opening Stock + Min Level (side by side) ──────────────────────────
+        rf = ctk.CTkFrame(body, fg_color="transparent"); rf.pack(fill="x", pady=(8, 0))
+        rf.grid_columnconfigure(0, weight=1); rf.grid_columnconfigure(1, weight=1)
+
+        lbl(rf, "Opening Stock", size=11, weight="bold",
+            color=ARMY_BG).grid(row=0, column=0, sticky="w", pady=(0, 3))
+        e_stock = entry(rf, ph="e.g., 20", h=38)
+        e_stock.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        fields["stock"] = e_stock
+
+        lbl(rf, "Min Level Alert", size=11, weight="bold",
+            color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0, 3))
+        e_min = entry(rf, ph="e.g., 5", h=38)
+        e_min.grid(row=1, column=1, sticky="ew")
+        fields["min_lvl"] = e_min
+
+        # ── Cost Price ────────────────────────────────────────────────────────
+        lbl(body, "Cost Price per Unit (₹)", size=11, weight="bold",
+            color=ARMY_BG).pack(anchor="w", pady=(8, 3))
+        e_cp = entry(body, ph="e.g., 90", h=38); e_cp.pack(fill="x")
+        fields["cp"] = e_cp
 
         def save():
             try:
-                nm  = fields["name"].get().strip()
+                nm   = fields["name"].get().strip()
                 unit = fields["unit"].get().strip()
-                stk = float(fields["stock"].get() or 0)
-                mn  = float(fields["min_lvl"].get() or 0)
-                cp  = float(fields["cp"].get() or 0)
-                cat = cat_menu.get()
+                stk  = float(fields["stock"].get() or 0)
+                mn   = float(fields["min_lvl"].get() or 0)
+                cp   = float(fields["cp"].get() or 0)
+                cat  = cat_menu.get()
             except ValueError:
                 self._popup("⚠️ Invalid", "Enter numeric values for stock/min/cost."); return
             if not nm or not unit:
                 self._popup("⚠️ Missing", "Item name and unit are required."); return
             with get_db() as conn:
                 try:
-                    conn.execute("INSERT INTO inventory (item,cat,unit,stock,min_lvl,opening,cp) VALUES (?,?,?,?,?,?,?)",
-                                 (nm, cat, unit, stk, mn, stk, cp))
+                    conn.execute(
+                        "INSERT INTO inventory (item,cat,unit,stock,min_lvl,opening,cp) "
+                        "VALUES (?,?,?,?,?,?,?)",
+                        (nm, cat, unit, stk, mn, stk, cp))
                 except sqlite3.IntegrityError:
                     self._popup("⚠️ Duplicate", f"'{nm}' already exists."); return
             self._popup("✅ Added!", f"{nm} ({cat}) added to inventory.")
@@ -1556,6 +1588,7 @@ class CanteenApp(ctk.CTk):
 
         btn(card, "✅  Add Item", save, fg=GREEN, hv=DGREEN, h=46).pack(
             padx=18, pady=12, fill="x", side="bottom")
+
 
     def _dlg_inv_receive(self):
         with get_db() as conn:
