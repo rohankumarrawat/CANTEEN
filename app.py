@@ -885,6 +885,8 @@ class CanteenApp(ctk.CTk):
         hf = self._hdr("🍽️  Sales Entry", f"📅  {today_disp}")
         btn(hf, "📄  Export PDF", lambda: self._export_pdf_report(today, today),
             fg=ARMY_BG, hv=ARMY_HVR, h=32).pack(side="right", padx=PAD)
+        btn(hf, "📅  Past Entry", lambda: self._dlg_backdated_entry("sales"),
+            fg=SAFFRON, hv="#D97706", h=32).pack(side="right")
 
         with get_db() as conn:
             meals       = conn.execute("SELECT id,name,sp FROM menu WHERE active=1 ORDER BY name").fetchall()
@@ -1205,6 +1207,8 @@ class CanteenApp(ctk.CTk):
         today = datetime.now().strftime("%Y-%m-%d")
         today_disp = datetime.now().strftime("%d %B %Y")
         hf = self._hdr("🧑‍🍳  Batch Preparation", f"📅  {today_disp}")
+        btn(hf, "📅  Past Entry", lambda: self._dlg_backdated_entry("batch"),
+            fg=SAFFRON, hv="#D97706", h=32).pack(side="right", padx=PAD)
 
         with get_db() as conn:
             meals = conn.execute("SELECT id,name,sp FROM menu WHERE active=1 ORDER BY name").fetchall()
@@ -1399,6 +1403,8 @@ class CanteenApp(ctk.CTk):
         btn(ab, "📥  Receive Stock",   self._dlg_inv_receive, fg=TEAL,    hv=ARMY_BG, h=36).pack(side="left", padx=8)
         btn(ab, "✏️  Edit Item",        self._dlg_inv_edit,   fg=BLUE,    hv=DBLUE,   h=36).pack(side="left")
         btn(ab, "🗑  Delete Item",      self._dlg_inv_del,    fg=RED,     hv=DRED,    h=36).pack(side="left", padx=8)
+        btn(ab, "📅  Past Stock",       lambda: self._dlg_backdated_entry("stock"),
+            fg=SAFFRON, hv="#D97706", h=36).pack(side="left")
 
         # Table — fixed-width columns so header & rows align
         tc = card(self._area)
@@ -1684,6 +1690,310 @@ class CanteenApp(ctk.CTk):
             close(); self._go("inventory")
 
         btn(body, "🗑  Delete Permanently", delete, fg=RED, hv=DRED, h=46).pack(fill="x")
+
+    # ==============================================================================
+    # HISTORICAL / BACKDATED ENTRY  (Stock • Batch Prep • Sales for any date)
+    # ==============================================================================
+    def _dlg_backdated_entry(self, default_type="sales"):
+        """
+        Modal dialog to record Stock Received, Batch Prep, or Sales
+        for any past (or current) date.  All relevant tables are updated
+        with the chosen date so reports stay consistent.
+        """
+        with get_db() as conn:
+            inv_items  = [r["item"] for r in
+                          conn.execute("SELECT item FROM inventory ORDER BY item")]
+            inv_cp     = {r["item"]: (r["id"], r["cp"] or 0, r["stock"] or 0)
+                          for r in conn.execute("SELECT item,id,cp,stock FROM inventory")}
+            menu_rows  = conn.execute(
+                "SELECT id,name,sp FROM menu WHERE active=1 ORDER BY name").fetchall()
+
+        menu_names = [m["name"] for m in menu_rows]
+        menu_map   = {m["name"]: {"id": m["id"], "sp": m["sp"]} for m in menu_rows}
+
+        body, card_w, close = self._show_modal(
+            "📅  Historical / Backdated Entry", width=580, height=580)
+
+        # ── Date ──────────────────────────────────────────────────────────────
+        lbl(body, "Entry Date  (YYYY-MM-DD)",
+            size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
+        e_date = entry(body, ph="e.g. 2026-06-01", h=38)
+        e_date.pack(fill="x", pady=(0,10))
+        e_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
+
+        # ── Type selector ─────────────────────────────────────────────────────
+        lbl(body, "Entry Type",
+            size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(0,4))
+        type_var  = ctk.StringVar(value=default_type)
+        type_btns = {}
+        tf = ctk.CTkFrame(body, fg_color="transparent"); tf.pack(fill="x", pady=(0,12))
+        TYPES = [("stock", "📦  Stock Received", TEAL),
+                 ("batch", "🧑‍🍳  Batch Prep",   ARMY_BG),
+                 ("sales", "🍽  Sales",           GREEN)]
+
+        form_frame = ctk.CTkFrame(body, fg_color="transparent")
+        form_frame.pack(fill="x")
+        fields = {}
+
+        def _select_type(code):
+            type_var.set(code)
+            for c2, b2 in type_btns.items():
+                _, _, clr2 = next(x for x in TYPES if x[0] == c2)
+                b2.configure(fg_color=clr2 if c2 == code else STRIPE,
+                             text_color=WHITE if c2 == code else DARK)
+            _refresh_form()
+
+        for code, label, clr in TYPES:
+            b = ctk.CTkButton(tf, text=label, width=165, height=34, corner_radius=8,
+                              fg_color=clr if code == default_type else STRIPE,
+                              text_color=WHITE if code == default_type else DARK,
+                              hover_color=ARMY_HVR,
+                              font=ctk.CTkFont(size=11, weight="bold"),
+                              command=lambda c=code: _select_type(c))
+            b.pack(side="left", padx=3)
+            type_btns[code] = b
+
+        # ── Dynamic form ──────────────────────────────────────────────────────
+        def _refresh_form():
+            for w in form_frame.winfo_children():
+                w.destroy()
+            fields.clear()
+            t = type_var.get()
+
+            if t == "stock":
+                lbl(form_frame, "Inventory Item", size=11, weight="bold",
+                    color=ARMY_BG).pack(anchor="w", pady=(4,3))
+                se = ctk.CTkEntry(form_frame, placeholder_text="🔍 Search...", height=32)
+                se.pack(fill="x", pady=(0,4))
+                iom = ctk.CTkOptionMenu(form_frame, values=inv_items or ["(none)"],
+                                        font=ctk.CTkFont(size=12), height=36)
+                if inv_items: iom.set(inv_items[0])
+                iom.pack(fill="x", pady=(0,8))
+                def _fi(*a, e=se, i=iom, opts=inv_items):
+                    q = e.get().lower()
+                    fil = [x for x in opts if q in x.lower()]
+                    i.configure(values=fil or ["(none)"])
+                    if fil: i.set(fil[0])
+                se.bind("<KeyRelease>", _fi)
+                fields["item_om"] = iom
+
+                rf = ctk.CTkFrame(form_frame, fg_color="transparent"); rf.pack(fill="x")
+                rf.grid_columnconfigure(0, weight=1); rf.grid_columnconfigure(1, weight=1)
+                lbl(rf, "Qty Received", size=11, weight="bold",
+                    color=ARMY_BG).grid(row=0, column=0, sticky="w", pady=(0,3))
+                e_qty = entry(rf, ph="e.g. 10.0", h=38)
+                e_qty.grid(row=1, column=0, sticky="ew", padx=(0,8))
+                fields["qty"] = e_qty
+                lbl(rf, "Cost Price ₹/unit (optional)", size=11, weight="bold",
+                    color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0,3))
+                e_cp = entry(rf, ph="leave blank to keep current", h=38)
+                e_cp.grid(row=1, column=1, sticky="ew")
+                fields["cp"] = e_cp
+
+                lbl(form_frame, "Notes (optional)", size=11, weight="bold",
+                    color=ARMY_BG).pack(anchor="w", pady=(8,3))
+                e_notes = entry(form_frame, ph="e.g. Monthly ration received", h=38)
+                e_notes.pack(fill="x")
+                fields["notes"] = e_notes
+
+            elif t == "batch":
+                lbl(form_frame, "Menu Item", size=11, weight="bold",
+                    color=ARMY_BG).pack(anchor="w", pady=(4,3))
+                mom = ctk.CTkOptionMenu(form_frame, values=menu_names or ["(none)"],
+                                        font=ctk.CTkFont(size=12), height=36)
+                if menu_names: mom.set(menu_names[0])
+                mom.pack(fill="x", pady=(0,8))
+                fields["menu_om"] = mom
+
+                lbl(form_frame, "Qty Prepared (portions)", size=11, weight="bold",
+                    color=ARMY_BG).pack(anchor="w", pady=(0,3))
+                e_qty = entry(form_frame, ph="e.g. 100", h=38)
+                e_qty.pack(fill="x", pady=(0,8))
+                fields["qty"] = e_qty
+
+                dv = ctk.BooleanVar(value=True)
+                ctk.CTkCheckBox(form_frame, text="Deduct raw material stock",
+                                variable=dv, text_color=ARMY_BG,
+                                font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(0,4))
+                fields["deduct"] = dv
+
+                ev = ctk.BooleanVar(value=True)
+                ctk.CTkCheckBox(form_frame, text="Log raw material cost as Expenditure",
+                                variable=ev, text_color=ARMY_BG,
+                                font=ctk.CTkFont(size=11)).pack(anchor="w")
+                fields["log_exp"] = ev
+
+            elif t == "sales":
+                lbl(form_frame, "Menu Item", size=11, weight="bold",
+                    color=ARMY_BG).pack(anchor="w", pady=(4,3))
+                mom = ctk.CTkOptionMenu(form_frame, values=menu_names or ["(none)"],
+                                        font=ctk.CTkFont(size=12), height=36)
+                if menu_names: mom.set(menu_names[0])
+                mom.pack(fill="x", pady=(0,8))
+                fields["menu_om"] = mom
+
+                rf = ctk.CTkFrame(form_frame, fg_color="transparent"); rf.pack(fill="x")
+                rf.grid_columnconfigure(0, weight=1); rf.grid_columnconfigure(1, weight=1)
+                lbl(rf, "Qty Sold", size=11, weight="bold",
+                    color=ARMY_BG).grid(row=0, column=0, sticky="w", pady=(0,3))
+                e_qty = entry(rf, ph="e.g. 50", h=38)
+                e_qty.grid(row=1, column=0, sticky="ew", padx=(0,8), pady=(0,8))
+                fields["qty"] = e_qty
+
+                m_name = mom.get()
+                default_sp = str(int(menu_map[m_name]["sp"])) if m_name in menu_map else ""
+                lbl(rf, "Selling Price ₹/plate", size=11, weight="bold",
+                    color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0,3))
+                e_sp = entry(rf, ph="e.g. 45", h=38)
+                e_sp.grid(row=1, column=1, sticky="ew", pady=(0,8))
+                if default_sp: e_sp.insert(0, default_sp)
+                fields["sp"] = e_sp
+
+                lbl(form_frame, "Payment Method", size=11, weight="bold",
+                    color=ARMY_BG).pack(anchor="w", pady=(0,3))
+                pm = ctk.CTkOptionMenu(form_frame, values=["Cash","UPI","Card"],
+                                       font=ctk.CTkFont(size=12), height=36)
+                pm.pack(fill="x")
+                fields["payment"] = pm
+
+        _refresh_form()
+
+        # ── Save ──────────────────────────────────────────────────────────────
+        def _save():
+            date_str = e_date.get().strip()
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                self._popup("⚠️ Invalid Date",
+                            "Use format YYYY-MM-DD\ne.g. 2026-06-01"); return
+
+            t = type_var.get()
+
+            # ── Stock Received ────────────────────────────────────────────────
+            if t == "stock":
+                item = fields["item_om"].get()
+                if item in ("", "(none)"):
+                    self._popup("⚠️ No Item", "Select an inventory item."); return
+                try:    qty = float(fields["qty"].get() or 0)
+                except: self._popup("⚠️ Invalid Qty", "Enter a numeric quantity."); return
+                if qty <= 0:
+                    self._popup("⚠️ Zero Qty", "Quantity must be > 0."); return
+                cp_str = fields["cp"].get().strip()
+                notes  = fields["notes"].get().strip() or f"Backdated receipt — {date_str}"
+
+                with get_db() as conn:
+                    row = conn.execute(
+                        "SELECT id, stock, cp FROM inventory WHERE item=?",
+                        (item,)).fetchone()
+                    if not row:
+                        self._popup("⚠️ Not Found",
+                                    f"'{item}' not found in inventory."); return
+                    new_stock = (row["stock"] or 0) + qty
+                    new_cp    = float(cp_str) if cp_str else (row["cp"] or 0)
+                    conn.execute(
+                        "UPDATE inventory SET stock=?, cp=?, updated=? WHERE id=?",
+                        (new_stock, new_cp, date_str, row["id"]))
+                    conn.execute(
+                        "INSERT INTO stock_ledger "
+                        "(date, inv_id, transaction_type, qty_change, notes) "
+                        "VALUES (?,?,'Received',?,?)",
+                        (date_str, row["id"], qty, notes))
+                    conn.execute(
+                        "INSERT INTO goods_received (date, inv_id, qty, total_cost) "
+                        "VALUES (?,?,?,?)",
+                        (date_str, row["id"], qty, qty * new_cp))
+
+                self._toast(f"✅ {item} +{qty} stock received for {date_str}")
+                close(); self._live_refresh("inventory")
+
+            # ── Batch Prep ────────────────────────────────────────────────────
+            elif t == "batch":
+                menu_name = fields["menu_om"].get()
+                if menu_name not in menu_map:
+                    self._popup("⚠️ No Menu", "Select a valid menu item."); return
+                try:    qty = int(fields["qty"].get() or 0)
+                except: self._popup("⚠️ Invalid Qty", "Whole number required."); return
+                if qty <= 0:
+                    self._popup("⚠️ Zero Qty", "Quantity must be > 0."); return
+                menu_id   = menu_map[menu_name]["id"]
+                do_deduct = fields["deduct"].get()
+                do_exp    = fields["log_exp"].get()
+
+                with get_db() as conn:
+                    conn.execute(
+                        "INSERT INTO batch_prep (date, menu_id, qty_prepared) "
+                        "VALUES (?,?,?)", (date_str, menu_id, qty))
+
+                    recipes = conn.execute(
+                        "SELECT r.inv_id, r.qty_per_unit, i.item, i.unit, i.cp "
+                        "FROM recipes r JOIN inventory i ON i.id=r.inv_id "
+                        "WHERE r.menu_id=?", (menu_id,)).fetchall()
+
+                    total_raw_cost = 0.0
+                    for rc in recipes:
+                        used = rc["qty_per_unit"] * qty
+                        total_raw_cost += used * (rc["cp"] or 0)
+                        if do_deduct:
+                            conn.execute(
+                                "UPDATE inventory SET stock=MAX(0,stock-?) WHERE id=?",
+                                (used, rc["inv_id"]))
+                            conn.execute(
+                                "INSERT INTO stock_ledger "
+                                "(date, inv_id, transaction_type, qty_change, notes) "
+                                "VALUES (?,?,'Batch_Prep',?,?)",
+                                (date_str, rc["inv_id"], -used,
+                                 f"Backdated batch: {menu_name} ×{qty} on {date_str}"))
+
+                    if do_exp and total_raw_cost > 0:
+                        conn.execute(
+                            "INSERT INTO expenditure "
+                            "(date, amount, category, notes) VALUES (?,?,?,?)",
+                            (date_str, round(total_raw_cost, 2),
+                             "Raw Material",
+                             f"Batch: {menu_name} | {date_str}"))
+
+                self._toast(
+                    f"✅ Batch: {menu_name} ×{qty} logged for {date_str}"
+                    + (f"  |  ₹{total_raw_cost:,.0f} expenditure" if do_exp else ""))
+                close(); self._live_refresh("batch")
+
+            # ── Sales ─────────────────────────────────────────────────────────
+            elif t == "sales":
+                menu_name = fields["menu_om"].get()
+                if menu_name not in menu_map:
+                    self._popup("⚠️ No Menu", "Select a valid menu item."); return
+                try:    qty = int(fields["qty"].get() or 0)
+                except: self._popup("⚠️ Invalid Qty", "Whole number required."); return
+                if qty <= 0:
+                    self._popup("⚠️ Zero Qty", "Quantity must be > 0."); return
+                try:    sp = float(fields["sp"].get() or 0)
+                except: self._popup("⚠️ Invalid Price", "Enter a numeric price."); return
+                if sp <= 0:
+                    self._popup("⚠️ Zero Price", "Selling price must be > 0."); return
+                payment = fields["payment"].get()
+                menu_id = menu_map[menu_name]["id"]
+
+                with get_db() as conn:
+                    cur = conn.execute(
+                        "INSERT INTO sales "
+                        "(date,menu_id,meal,sp,sold,wastage,cogs,payment) "
+                        "VALUES (?,?,?,?,?,0,0.0,?)",
+                        (date_str, menu_id, menu_name, sp, qty, payment))
+                    new_sale_id = cur.lastrowid
+                    # Compute COGS for audit (no stock deduction — batch already handles it)
+                    cpu, _, _ = self._apply_stock_deduction(
+                        conn, menu_id, qty, new_sale_id, date_str)
+                    conn.execute(
+                        "UPDATE sales SET cogs=? WHERE id=?",
+                        (qty * cpu, new_sale_id))
+
+                self._toast(
+                    f"✅ Sale: {menu_name} ×{qty} @ ₹{sp:.0f} ({payment}) for {date_str}"
+                    f"  |  Revenue ₹{sp*qty:,.0f}")
+                close(); self._live_refresh("sales")
+
+        btn(card_w, "✅  Save Entry", _save, fg=GREEN, hv=DGREEN, h=46).pack(
+            padx=18, pady=12, fill="x", side="bottom")
 
     # ==============================================================================
     # EXPENDITURE
