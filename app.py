@@ -282,10 +282,11 @@ def thead(parent, col_defs, bg=ARMY_BG, tc=GOLD_LT, h=36, padx=14):
     hdr = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0, height=h)
     hdr.pack(fill="x")
     hdr.pack_propagate(False)
+    uid = abs(hash(tuple(wt for _, wt in col_defs)))
     for j, (name, wt) in enumerate(col_defs):
         lbl(hdr, name, size=10, weight="bold", color=tc).grid(
             row=0, column=j, padx=padx, pady=0, sticky="w")
-        hdr.grid_columnconfigure(j, weight=wt)
+        hdr.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}_{j}")
     return hdr
 
 def trow(parent, cols_vals, col_weights, colors=None, bolds=None,
@@ -296,10 +297,11 @@ def trow(parent, cols_vals, col_weights, colors=None, bolds=None,
     rf  = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0, height=row_h)
     rf.pack(fill="x")
     rf.pack_propagate(False)
+    uid = abs(hash(tuple(col_weights)))
     for j, (v, wt, c, b) in enumerate(zip(cols_vals, col_weights, clr, bld)):
         lbl(rf, str(v), size=11, weight="bold" if b else "normal", color=c).grid(
             row=0, column=j, padx=padx, pady=pady, sticky="w")
-        rf.grid_columnconfigure(j, weight=wt)
+        rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}_{j}")
     return rf
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -439,20 +441,7 @@ class CanteenApp(ctk.CTk):
 
         sep(sb).pack(fill="x", padx=16, pady=(0,6))
 
-        # ── Quick Import button (upper sidebar) ─────────────────────────────
-        imp_f = ctk.CTkFrame(sb, fg_color="#162818", corner_radius=10)
-        imp_f.pack(padx=12, fill="x", pady=(0,8))
-        lbl(imp_f, "📥  Quick Import", size=10, weight="bold",
-            color=GOLD_LT).pack(padx=12, pady=(8,2), anchor="w")
-        lbl(imp_f, "CSV • Inventory • Menu", size=9,
-            color="#5A7A5A").pack(padx=12, pady=(0,4), anchor="w")
-        ctk.CTkButton(imp_f, text="Import Data →", height=30, corner_radius=8,
-                      fg_color=SAFFRON, hover_color=ORANGE,
-                      text_color=ARMY_BG, font=ctk.CTkFont(size=10, weight="bold"),
-                      command=lambda: self._go("import")
-                      ).pack(padx=10, pady=(0,10), fill="x")
 
-        sep(sb).pack(fill="x", padx=16, pady=(0,6))
         lbl(sb, "  NAVIGATION", size=9, weight="bold", color="#4A6A4A").pack(anchor="w", padx=16, pady=(2,4))
 
         r = self._role
@@ -469,7 +458,6 @@ class CanteenApp(ctk.CTk):
             nav += [
                 ("🧾  Master Data",   "master"),
                 ("👥  Users",         "users"),
-                ("📥  Import Data",   "import"),
                 ("💾  Backup & Restore", "backup"),
             ]
 
@@ -540,6 +528,7 @@ class CanteenApp(ctk.CTk):
             "master":      self._pg_master,
             "users":       self._pg_users,
             "import":      self._pg_import,
+            "import_datewise": self._pg_import_datewise,
             "backup":      self._pg_backup,
         }.get(page, self._pg_dashboard)()
 
@@ -2725,7 +2714,36 @@ class CanteenApp(ctk.CTk):
 
         # Period toggles
         pbar = ctk.CTkFrame(hf, fg_color="transparent"); pbar.pack(side="right", padx=PAD)
-        for code, lbl_t in [("today","Today"),("7d","7 Days"),("30d","Month"),("90d","Quarter")]:
+        
+        # Custom Range entry
+        spec_f = ctk.CTkFrame(pbar, fg_color="transparent")
+        spec_f.pack(side="left", padx=(0, 15))
+        
+        start_entry = ctk.CTkEntry(spec_f, placeholder_text="Start: YYYY-MM-DD", width=115, height=30)
+        start_entry.pack(side="left", padx=2)
+        lbl(spec_f, "to", size=11, color=MID).pack(side="left", padx=2)
+        end_entry = ctk.CTkEntry(spec_f, placeholder_text="End: YYYY-MM-DD", width=115, height=30)
+        end_entry.pack(side="left", padx=2)
+        
+        if getattr(self, "_report_start_date", None):
+            start_entry.insert(0, self._report_start_date)
+        if getattr(self, "_report_end_date", None):
+            end_entry.insert(0, self._report_end_date)
+            
+        def _set_custom():
+            s = start_entry.get().strip()
+            e = end_entry.get().strip()
+            # If user only fills start, make end same as start for a single day report
+            if s and not e: e = s
+            if s and e:
+                self._report_start_date = s
+                self._report_end_date = e
+                self._report_period = "custom"
+                self._go("report")
+        ctk.CTkButton(spec_f, text="View", width=50, height=30, fg_color=GREEN, hover_color=DGREEN,
+                      command=_set_custom).pack(side="left", padx=(4,2))
+
+        for code, lbl_t in [("today","Today"),("7d","7 Days"),("30d","Month"),("custom","Custom Range")]:
             ctk.CTkButton(pbar, text=lbl_t, width=80, height=30, corner_radius=8,
                           font=ctk.CTkFont(size=11, weight="bold"),
                           fg_color=SAFFRON if self._report_period==code else STRIPE,
@@ -2740,6 +2758,9 @@ class CanteenApp(ctk.CTk):
             start = (datetime.now()-timedelta(days=6)).strftime("%Y-%m-%d"); end = today
         elif self._report_period == "30d":
             start = (datetime.now()-timedelta(days=29)).strftime("%Y-%m-%d"); end = today
+        elif self._report_period == "custom":
+            start = getattr(self, "_report_start_date", today)
+            end = getattr(self, "_report_end_date", today)
         else:
             start = (datetime.now()-timedelta(days=89)).strftime("%Y-%m-%d"); end = today
 
@@ -2750,7 +2771,16 @@ class CanteenApp(ctk.CTk):
                                   (start,end)).fetchall()
             w_row  = conn.execute("SELECT COALESCE(SUM(cost_lost),0) AS t FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchone()
-            inv    = conn.execute("SELECT * FROM inventory ORDER BY cat,item").fetchall()
+            inv_query = """
+                SELECT 
+                    i.item, i.cat, i.unit, i.min_lvl,
+                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date < ?) AS opening,
+                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date >= ? AND date <= ? AND transaction_type = 'Received') AS received,
+                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date <= ?) AS stock
+                FROM inventory i
+                ORDER BY i.cat, i.item
+            """
+            inv = conn.execute(inv_query, (start, start, end, end)).fetchall()
 
         rev   = sum(r["sp"]*r["sold"] for r in s_rows)
         meals = sum(r["sold"] for r in s_rows)
@@ -2890,7 +2920,16 @@ class CanteenApp(ctk.CTk):
                                   (start,end)).fetchall()
             w_rows = conn.execute("SELECT * FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchall()
-            inv    = conn.execute("SELECT * FROM inventory ORDER BY cat,item").fetchall()
+            inv_query = """
+                SELECT 
+                    i.item, i.cat, i.unit, i.min_lvl,
+                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date < ?) AS opening,
+                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date >= ? AND date <= ? AND transaction_type = 'Received') AS received,
+                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date <= ?) AS stock
+                FROM inventory i
+                ORDER BY i.cat, i.item
+            """
+            inv = conn.execute(inv_query, (start, start, end, end)).fetchall()
 
         rev    = sum(r["sp"]*r["sold"] for r in s_rows)
         meals  = sum(r["sold"] for r in s_rows)
@@ -4630,7 +4669,7 @@ class CanteenApp(ctk.CTk):
             hdr_f.pack(fill="x"); hdr_f.pack_propagate(False)
             for col in cols:
                 lbl(hdr_f, col.replace("_"," ").title(), size=9,
-                    weight="bold", color=GOLD_LT).pack(side="left", padx=8)
+                    weight="bold", color=GOLD_LT).pack(side="left", expand=True, fill="x", padx=8)
 
             for ix, row in enumerate(rows[:20]):
                 rf = ctk.CTkFrame(prev_box, fg_color=WHITE if ix%2==0 else STRIPE,
@@ -4639,7 +4678,7 @@ class CanteenApp(ctk.CTk):
                 for col in cols:
                     val = row.get(col, row.get(col.replace("_"," "), "—"))
                     lbl(rf, str(val)[:20], size=9, color=DARK).pack(
-                        side="left", padx=8)
+                        side="left", expand=True, fill="x", padx=8)
 
             if len(rows) > 20:
                 lbl(prev_box, f"  … and {len(rows)-20} more rows",
@@ -4693,6 +4732,158 @@ class CanteenApp(ctk.CTk):
 
         btn(pf, "📂  Choose File & Import", choose_and_import,
             fg=GREEN, hv=DGREEN, h=46).pack(fill="x")
+
+    def _pg_import_datewise(self):
+        import csv, io
+        self._hdr("📅  Import Datewise Statement",
+                  "Import a full daily statement (Inventory + Sales) from a CSV file")
+
+        wrap = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=PAD, pady=(14, PAD))
+
+        ic = card(wrap); ic.pack(fill="x", pady=(0, 14))
+        band(ic, "📋  How to Import Datewise")
+        body_i = ctk.CTkFrame(ic, fg_color="transparent")
+        body_i.pack(fill="x", padx=18, pady=14)
+        
+        # Date selector for the import
+        date_f = ctk.CTkFrame(body_i, fg_color="transparent")
+        date_f.pack(fill="x", pady=(0, 10))
+        lbl(date_f, "Select Date for Import (YYYY-MM-DD):", size=11, color=DARK, weight="bold").pack(side="left", padx=(0, 10))
+        date_entry = ctk.CTkEntry(date_f, placeholder_text="YYYY-MM-DD", width=120)
+        date_entry.pack(side="left")
+        date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+
+        steps = [
+            "1️⃣  Enter the specific date above for this import.",
+            "2️⃣  Click 'Download Template' to get the unified CSV structure.",
+            "3️⃣  Fill the CSV with both Inventory rows and Sale rows.",
+            "4️⃣  Click 'Choose File & Import'. This will automatically:",
+            "      - Clear existing data for that specific date to prevent duplicates.",
+            "      - Update Inventory stocks, log Received & Issue transactions.",
+            "      - Log Sales, update COGS, and record Daily Expenditures.",
+        ]
+        for s in steps:
+            lbl(body_i, s, size=11, color=DARK).pack(anchor="w", pady=2)
+
+        # Template Download
+        def dl_template():
+            out_path = os.path.join(os.path.expanduser("~"), "Documents", "Datewise_Import_Template.csv")
+            try:
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                with open(out_path, "w", newline="", encoding="utf-8") as f:
+                    w = csv.writer(f)
+                    w.writerow(["Type", "Item Name", "Category", "Unit", "Opening", "Received", "Issue", "Closing", "Rate", "Prepared", "Sold", "Expenditure"])
+                    w.writerow(["Inventory", "POTATO", "Fresh", "Kgs", "95.4", "0", "45.0", "50.4", "12.0", "", "", ""])
+                    w.writerow(["Sale", "LUNCH", "", "", "", "", "", "", "70.0", "521", "520", "25521.0"])
+                self._popup("✅ Template Saved", f"Saved to:\n{out_path}")
+            except Exception as e:
+                self._popup("❌ Error", f"Could not save template:\n{e}")
+
+        # Processing Logic
+        def do_import():
+            d = date_entry.get().strip()
+            if not d:
+                self._popup("⚠️ Missing Date", "Please enter a valid date (YYYY-MM-DD).")
+                return
+            
+            fpath = filedialog.askopenfilename(title="Select Datewise CSV",
+                                               filetypes=[("CSV Files", "*.csv")])
+            if not fpath: return
+
+            try:
+                with open(fpath, "r", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+                    rows = list(reader)
+            except Exception as e:
+                self._popup("❌ File Error", f"Could not read CSV:\n{e}")
+                return
+
+            with get_db() as conn:
+                try:
+                    # Idempotent cleanup for this date
+                    conn.execute("DELETE FROM sales WHERE date = ?", (d,))
+                    conn.execute("DELETE FROM batch_prep WHERE date = ?", (d,))
+                    conn.execute("DELETE FROM goods_received WHERE date = ?", (d,))
+                    conn.execute("DELETE FROM expenditure WHERE date = ?", (d,))
+                    conn.execute("DELETE FROM stock_ledger WHERE date = ?", (d,))
+
+                    for r in rows:
+                        rtype = r.get("Type", "").strip().lower()
+                        item_name = r.get("Item Name", "").strip()
+                        if not item_name or not rtype: continue
+
+                        if rtype == "inventory":
+                            cat = r.get("Category", "Dry")
+                            unit = r.get("Unit", "Kgs")
+                            try:
+                                bbf = float(r.get("Opening", 0) or 0)
+                                rec = float(r.get("Received", 0) or 0)
+                                iss = float(r.get("Issue", 0) or 0)
+                                bcf = float(r.get("Closing", 0) or 0)
+                                rate = float(r.get("Rate", 0) or 0)
+                            except: continue
+
+                            # Update or Insert Inventory
+                            cur = conn.execute("SELECT id, received FROM inventory WHERE item = ? COLLATE NOCASE", (item_name,))
+                            row = cur.fetchone()
+                            if row:
+                                inv_id = row[0]
+                                new_rec = (row[1] or 0.0) + rec
+                                conn.execute("UPDATE inventory SET stock=?, cp=?, received=?, updated=? WHERE id=?",
+                                             (bcf, rate, new_rec, d, inv_id))
+                            else:
+                                cur = conn.execute("INSERT INTO inventory (item, cat, unit, stock, min_lvl, opening, received, cp, updated) VALUES (?,?,?,?,0.0,?,?,?,?)",
+                                                   (item_name, cat, unit, bcf, bbf, rec, rate, d))
+                                inv_id = cur.lastrowid
+                                conn.execute("INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) VALUES (?,?,'Opening',?,'Opening balance BBF')",
+                                             (d, inv_id, bbf))
+
+                            if rec > 0:
+                                conn.execute("INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) VALUES (?,?,'Received',?,'Stock Received')",
+                                             (d, inv_id, rec))
+                                conn.execute("INSERT INTO goods_received (date, inv_id, qty, total_cost) VALUES (?,?,?,?)",
+                                             (d, inv_id, rec, rec * rate))
+                            if iss > 0:
+                                conn.execute("INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) VALUES (?,?,'Batch_Prep',?,'Material used for production')",
+                                             (d, inv_id, -iss))
+
+                        elif rtype == "sale":
+                            try:
+                                sp = float(r.get("Rate", 0) or 0)
+                                prep = int(float(r.get("Prepared", 0) or 0))
+                                sold = int(float(r.get("Sold", 0) or 0))
+                                exp = float(r.get("Expenditure", 0) or 0)
+                            except: continue
+
+                            cur = conn.execute("SELECT id FROM menu WHERE name = ? COLLATE NOCASE", (item_name,))
+                            m_row = cur.fetchone()
+                            cpu = (exp / prep) if prep > 0 else 0
+                            if m_row:
+                                menu_id = m_row[0]
+                                conn.execute("UPDATE menu SET cogs = ? WHERE id = ?", (cpu, menu_id))
+                            else:
+                                cur = conn.execute("INSERT INTO menu (name, sp, active, cogs) VALUES (?,?,1,?)",
+                                                   (item_name, sp, cpu))
+                                menu_id = cur.lastrowid
+                            
+                            wastage = prep - sold
+                            conn.execute("INSERT INTO sales (date, menu_id, meal, sp, sold, wastage, cogs, payment) VALUES (?,?,?,?,?,?,?,'Cash')",
+                                         (d, menu_id, item_name, sp, sold, wastage, exp))
+                            conn.execute("INSERT INTO batch_prep (date, menu_id, qty_prepared) VALUES (?,?,?)",
+                                         (d, menu_id, prep))
+                            conn.execute("INSERT INTO expenditure (date, amount, category, notes) VALUES (?,?,'Raw Materials',?)",
+                                         (d, exp, f"Auto-expenditure for {item_name} batch"))
+                except Exception as e:
+                    self._popup("❌ Import Failed", f"Database error during import:\n{e}")
+                    return
+
+            self._toast(f"✅ Datewise Import for {d} completed successfully!")
+            self._go("dashboard")
+
+        cf = card(wrap); cf.pack(fill="x", pady=10)
+        btn(cf, "📥  Download Template", dl_template, fg=STRIPE, text_color=DARK, hv=BORDER, h=46).pack(fill="x", pady=(0, 10))
+        btn(cf, "📂  Choose CSV File & Import", do_import, fg=GREEN, hv=DGREEN, h=46).pack(fill="x")
 
     # ==============================================================================
     # BACKUP & RESTORE
