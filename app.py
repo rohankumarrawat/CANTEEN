@@ -458,6 +458,7 @@ class CanteenApp(ctk.CTk):
             nav += [
                 ("🧾  Master Data",   "master"),
                 ("👥  Users",         "users"),
+                ("✏️  Edit Records",   "edit_datewise"),
                 ("💾  Backup & Restore", "backup"),
             ]
 
@@ -518,18 +519,19 @@ class CanteenApp(ctk.CTk):
         if hasattr(self, "_inv_data_cache"):
             del self._inv_data_cache
         {
-            "dashboard":   self._pg_dashboard,
-            "sales":       self._pg_sales,
-            "batch":       self._pg_batch,
-            "inventory":   self._pg_inventory,
-            "expenditure": self._pg_expenditure,
-            "waste":       self._pg_waste,
-            "report":      self._pg_report,
-            "master":      self._pg_master,
-            "users":       self._pg_users,
-            "import":      self._pg_import,
-            "import_datewise": self._pg_import_datewise,
-            "backup":      self._pg_backup,
+            "dashboard":      self._pg_dashboard,
+            "sales":          self._pg_sales,
+            "batch":          self._pg_batch,
+            "inventory":      self._pg_inventory,
+            "expenditure":    self._pg_expenditure,
+            "waste":          self._pg_waste,
+            "report":         self._pg_report,
+            "master":         self._pg_master,
+            "users":          self._pg_users,
+            "import":         self._pg_import,
+            "import_datewise":self._pg_import_datewise,
+            "edit_datewise":  self._pg_edit_datewise,
+            "backup":         self._pg_backup,
         }.get(page, self._pg_dashboard)()
 
     def _hdr(self, title, sub=""):
@@ -593,16 +595,17 @@ class CanteenApp(ctk.CTk):
         """Destroy and rebuild the current page so totals update live."""
         for w in self._area.winfo_children(): w.destroy()
         {
-            "dashboard":   self._pg_dashboard,
-            "sales":       self._pg_sales,
-            "batch":       self._pg_batch,
-            "inventory":   self._pg_inventory,
-            "expenditure": self._pg_expenditure,
-            "waste":       self._pg_waste,
-            "report":      self._pg_report,
-            "master":      self._pg_master,
-            "users":       self._pg_users,
-            "backup":      self._pg_backup,
+            "dashboard":     self._pg_dashboard,
+            "sales":         self._pg_sales,
+            "batch":         self._pg_batch,
+            "inventory":     self._pg_inventory,
+            "expenditure":   self._pg_expenditure,
+            "waste":         self._pg_waste,
+            "report":        self._pg_report,
+            "master":        self._pg_master,
+            "users":         self._pg_users,
+            "edit_datewise": self._pg_edit_datewise,
+            "backup":        self._pg_backup,
         }.get(page, self._pg_dashboard)()
 
     # ── In-app modal overlay ────────────────────────────────────────────
@@ -4548,6 +4551,708 @@ class CanteenApp(ctk.CTk):
     # ==============================================================================
     # IMPORT DATA — CSV import for Inventory & Menu
     # ==============================================================================
+    # ==============================================================================
+    # EDIT IMPORTED / PASTED DATA
+    # ==============================================================================
+    def _pg_edit_datewise(self):
+        """Page to view and edit any imported (datewise) records by date."""
+        self._hdr("✏️  Edit Imported Records",
+                  "Select a date to view and edit Sales, Inventory & Expenditure records")
+
+        # remember which date the user last selected so page refresh keeps it
+        if not hasattr(self, "_edit_date"):
+            self._edit_date = datetime.now().strftime("%Y-%m-%d")
+
+        wrap = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=PAD, pady=(10, PAD))
+
+        # ── Date selector bar ─────────────────────────────────────────────────
+        dc = card(wrap); dc.pack(fill="x", pady=(0, 14))
+        df = ctk.CTkFrame(dc, fg_color="transparent")
+        df.pack(fill="x", padx=18, pady=14)
+        lbl(df, "📅  Select Date:", size=12, weight="bold", color=ARMY_BG).pack(side="left", padx=(0,10))
+        date_var = ctk.StringVar(value=self._edit_date)
+        date_e = ctk.CTkEntry(df, textvariable=date_var, placeholder_text="YYYY-MM-DD",
+                               width=140, height=36, corner_radius=8)
+        date_e.pack(side="left")
+
+        def _load_date():
+            d = date_var.get().strip()
+            if not d:
+                return
+            self._edit_date = d
+            _render_all(d)
+
+        btn(df, "🔍  Load Records", _load_date, fg=ARMY_BG, hv=ARMY_HVR, h=36, w=140).pack(side="left", padx=10)
+
+        # ── Content area (rebuilt on each Load) ───────────────────────────────
+        content_host = ctk.CTkFrame(wrap, fg_color="transparent")
+        content_host.pack(fill="both", expand=True)
+
+        # ─────────────────────────────────────────────────────────────────────
+        def _render_all(d):
+            for w in content_host.winfo_children():
+                w.destroy()
+            _render_sales(d)
+            _render_inventory(d)
+            _render_expenditure(d)
+
+        # ── HELPER: coloured action icon button ───────────────────────────────
+        def _icon_btn(parent, text, cmd, fg, hv):
+            return ctk.CTkButton(parent, text=text, width=30, height=28,
+                                 corner_radius=6, fg_color=fg, hover_color=hv,
+                                 font=ctk.CTkFont(size=13), command=cmd)
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 1 — SALES
+        # ══════════════════════════════════════════════════════════════════════
+        def _render_sales(d):
+            sc = card(content_host); sc.pack(fill="x", pady=(0, 14))
+            hb = band(sc, "💰  Sales Records")
+            btn(hb, "＋  Add Sale", lambda: _modal_add_sale(d, lambda: _render_all(d)),
+                fg=GREEN, hv=DGREEN, h=28, w=110).pack(side="right", padx=10)
+
+            with get_db() as conn:
+                rows = conn.execute(
+                    "SELECT s.id, s.meal, s.sp, s.sold, s.wastage, s.cogs, s.payment "
+                    "FROM sales s WHERE s.date=? ORDER BY s.id", (d,)).fetchall()
+
+            if not rows:
+                lbl(sc, "  No sales records for this date.", size=11, color=MID).pack(pady=12, anchor="w", padx=18)
+                return
+
+            # Header
+            hf = ctk.CTkFrame(sc, fg_color=STRIPE, corner_radius=0, height=30)
+            hf.pack(fill="x"); hf.pack_propagate(False)
+            for txt, w in [("Meal",260),("Rate ₹",70),("Prepared",80),("Sold",60),
+                           ("Wastage",70),("Expenditure ₹",110),("Payment",70),("Actions",0)]:
+                lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
+                if w > 0:
+                    ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-80)).pack(side="left")
+
+            for ix, r in enumerate(rows):
+                bg2 = WHITE if ix % 2 == 0 else STRIPE
+                rf = ctk.CTkFrame(sc, fg_color=bg2, corner_radius=0, height=44)
+                rf.pack(fill="x"); rf.pack_propagate(False)
+
+                # wastage from batch_prep
+                with get_db() as conn:
+                    bp = conn.execute(
+                        "SELECT qty_prepared FROM batch_prep WHERE date=? AND menu_id=("
+                        "SELECT id FROM menu WHERE name=? COLLATE NOCASE LIMIT 1)",
+                        (d, r["meal"])).fetchone()
+                prep_qty = bp["qty_prepared"] if bp else (r["sold"] + r["wastage"])
+
+                for val, w2 in [(r["meal"],260),(f"₹{r['sp']:.0f}",70),
+                                (str(prep_qty),80),(str(r["sold"]),60),
+                                (str(r["wastage"]),70),(f"₹{r['cogs']:,.0f}",110),
+                                (r["payment"],70)]:
+                    cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2)
+                    cf.pack(side="left", fill="y"); cf.pack_propagate(False)
+                    lbl(cf, val, size=10, color=DARK).pack(anchor="w", padx=10, pady=4)
+
+                af = ctk.CTkFrame(rf, fg_color="transparent")
+                af.pack(side="right", padx=8, fill="y")
+
+                _icon_btn(af, "🗑",
+                          lambda rid=r["id"], nm=r["meal"]: _delete_sale(d, rid, nm, lambda: _render_all(d)),
+                          "#FEE2E2", "#FECACA").pack(side="right", padx=(4,0))
+                _icon_btn(af, "✏️",
+                          lambda rid=r["id"], nm=r["meal"], sp=r["sp"], sold=r["sold"],
+                                 wast=r["wastage"], cogs=r["cogs"], pmt=r["payment"], prep=prep_qty:
+                              _modal_edit_sale(d, rid, nm, sp, prep, sold, wast, cogs, pmt, lambda: _render_all(d)),
+                          BG_BLU, T_BLU).pack(side="right", padx=(4,0))
+
+        # ──── Sales modal helpers ──────────────────────────────────────────────
+        def _modal_edit_sale(d, sale_id, meal, sp, prep, sold, wastage, cogs, payment, refresh_cb):
+            overlay = tk.Frame(self._area, bg="#1E293B")
+            overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
+                              border_width=2, border_color=ARMY_BG, width=540, height=500)
+            mc.place(relx=0.5, rely=0.5, anchor="center")
+            mc.pack_propagate(False)
+
+            hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
+            hbar.pack(fill="x"); hbar.pack_propagate(False)
+            ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+            lbl(hbar, f"  ✏️  Edit Sale — {meal}", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
+            ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
+                          fg_color="transparent", hover_color=ARMY_HVR,
+                          text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
+                          command=overlay.destroy).pack(side="right", padx=8)
+
+            body = ctk.CTkFrame(mc, fg_color="transparent")
+            body.pack(fill="both", expand=True, padx=24, pady=18)
+
+            fields = [
+                ("Meal Name",       meal,           "meal_e"),
+                ("Rate (₹)",        str(int(sp)),   "sp_e"),
+                ("Qty Prepared",    str(prep),      "prep_e"),
+                ("Qty Sold",        str(sold),      "sold_e"),
+                ("Wastage",         str(wastage),   "waste_e"),
+                ("Expenditure (₹)", str(int(cogs)), "cogs_e"),
+            ]
+            widgets = {}
+            for label_txt, default, key in fields:
+                row_f = ctk.CTkFrame(body, fg_color="transparent")
+                row_f.pack(fill="x", pady=5)
+                lbl(row_f, label_txt, size=11, weight="bold", color=DARK, width=140).pack(side="left")
+                e = ctk.CTkEntry(row_f, height=36, corner_radius=8)
+                e.insert(0, default)
+                e.pack(side="left", fill="x", expand=True, padx=(8, 0))
+                widgets[key] = e
+
+            pm_var = ctk.StringVar(value=payment)
+            pm_f = ctk.CTkFrame(body, fg_color="transparent")
+            pm_f.pack(fill="x", pady=5)
+            lbl(pm_f, "Payment Mode", size=11, weight="bold", color=DARK, width=140).pack(side="left")
+            ctk.CTkOptionMenu(pm_f, values=["Cash", "UPI", "Card"], variable=pm_var,
+                              height=36, corner_radius=8).pack(side="left", padx=(8,0))
+
+            def _save():
+                try:
+                    new_meal = widgets["meal_e"].get().strip()
+                    new_sp   = float(widgets["sp_e"].get())
+                    new_prep = int(float(widgets["prep_e"].get()))
+                    new_sold = int(float(widgets["sold_e"].get()))
+                    new_wast = int(float(widgets["waste_e"].get()))
+                    new_cogs = float(widgets["cogs_e"].get())
+                    new_pmt  = pm_var.get()
+                except ValueError:
+                    self._popup("⚠️ Invalid Input", "Please enter valid numbers.")
+                    return
+
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE sales SET meal=?, sp=?, sold=?, wastage=?, cogs=?, payment=? WHERE id=?",
+                        (new_meal, new_sp, new_sold, new_wast, new_cogs, new_pmt, sale_id))
+                    # Update menu selling price if it changed
+                    conn.execute(
+                        "UPDATE menu SET sp=?, cogs=? WHERE name=? COLLATE NOCASE",
+                        (new_sp, (new_cogs / new_prep) if new_prep > 0 else 0, new_meal))
+                    # Sync batch_prep qty
+                    conn.execute(
+                        "UPDATE batch_prep SET qty_prepared=? WHERE date=? AND menu_id=("
+                        "SELECT id FROM menu WHERE name=? COLLATE NOCASE LIMIT 1)",
+                        (new_prep, d, new_meal))
+                    # Sync expenditure for this sale on this date (Raw Materials)
+                    conn.execute(
+                        "UPDATE expenditure SET amount=? WHERE date=? AND notes LIKE ?",
+                        (new_cogs, d, f"%{new_meal}%"))
+
+                overlay.destroy()
+                self._toast(f"✅ Sale '{new_meal}' updated")
+                refresh_cb()
+
+            btn(body, "💾  Save Changes", _save, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(16, 0))
+
+        def _modal_add_sale(d, refresh_cb):
+            overlay = tk.Frame(self._area, bg="#1E293B")
+            overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
+                              border_width=2, border_color=ARMY_BG, width=540, height=480)
+            mc.place(relx=0.5, rely=0.5, anchor="center")
+            mc.pack_propagate(False)
+
+            hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
+            hbar.pack(fill="x"); hbar.pack_propagate(False)
+            ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+            lbl(hbar, f"  ＋  Add Sale — {d}", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
+            ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
+                          fg_color="transparent", hover_color=ARMY_HVR,
+                          text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
+                          command=overlay.destroy).pack(side="right", padx=8)
+
+            body = ctk.CTkFrame(mc, fg_color="transparent")
+            body.pack(fill="both", expand=True, padx=24, pady=18)
+
+            fields = [
+                ("Meal Name",        "",    "meal_e"),
+                ("Rate (₹)",         "70",  "sp_e"),
+                ("Qty Prepared",     "0",   "prep_e"),
+                ("Qty Sold",         "0",   "sold_e"),
+                ("Expenditure (₹)",  "0",   "cogs_e"),
+            ]
+            widgets = {}
+            for label_txt, default, key in fields:
+                row_f = ctk.CTkFrame(body, fg_color="transparent")
+                row_f.pack(fill="x", pady=5)
+                lbl(row_f, label_txt, size=11, weight="bold", color=DARK, width=140).pack(side="left")
+                e = ctk.CTkEntry(row_f, height=36, corner_radius=8)
+                if default:
+                    e.insert(0, default)
+                e.pack(side="left", fill="x", expand=True, padx=(8, 0))
+                widgets[key] = e
+
+            pm_var = ctk.StringVar(value="Cash")
+            pm_f = ctk.CTkFrame(body, fg_color="transparent")
+            pm_f.pack(fill="x", pady=5)
+            lbl(pm_f, "Payment Mode", size=11, weight="bold", color=DARK, width=140).pack(side="left")
+            ctk.CTkOptionMenu(pm_f, values=["Cash", "UPI", "Card"], variable=pm_var,
+                              height=36, corner_radius=8).pack(side="left", padx=(8,0))
+
+            def _save_new():
+                try:
+                    new_meal = widgets["meal_e"].get().strip()
+                    if not new_meal:
+                        self._popup("⚠️ Missing", "Meal name is required."); return
+                    new_sp   = float(widgets["sp_e"].get())
+                    new_prep = int(float(widgets["prep_e"].get()))
+                    new_sold = int(float(widgets["sold_e"].get()))
+                    new_cogs = float(widgets["cogs_e"].get())
+                    new_pmt  = pm_var.get()
+                    new_wast = max(0, new_prep - new_sold)
+                except ValueError:
+                    self._popup("⚠️ Invalid Input", "Please enter valid numbers.")
+                    return
+
+                cpu = (new_cogs / new_prep) if new_prep > 0 else 0
+                with get_db() as conn:
+                    m = conn.execute("SELECT id FROM menu WHERE name=? COLLATE NOCASE", (new_meal,)).fetchone()
+                    if m:
+                        menu_id = m[0]
+                        conn.execute("UPDATE menu SET sp=?, cogs=? WHERE id=?", (new_sp, cpu, menu_id))
+                    else:
+                        cur = conn.execute("INSERT INTO menu (name, sp, active, cogs) VALUES (?,?,1,?)",
+                                           (new_meal, new_sp, cpu))
+                        menu_id = cur.lastrowid
+                    conn.execute(
+                        "INSERT INTO sales (date, menu_id, meal, sp, sold, wastage, cogs, payment) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
+                        (d, menu_id, new_meal, new_sp, new_sold, new_wast, new_cogs, new_pmt))
+                    conn.execute("INSERT INTO batch_prep (date, menu_id, qty_prepared) VALUES (?,?,?)",
+                                 (d, menu_id, new_prep))
+                    conn.execute("INSERT INTO expenditure (date, amount, category, notes) VALUES (?,?,?,?)",
+                                 (d, new_cogs, "Raw Materials", f"Auto-expenditure for {new_meal} batch"))
+
+                overlay.destroy()
+                self._toast(f"✅ Sale '{new_meal}' added")
+                refresh_cb()
+
+            btn(body, "💾  Add Sale", _save_new, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(16, 0))
+
+        def _delete_sale(d, sale_id, meal, refresh_cb):
+            if self._confirm("Delete Sale", f"Delete sale record for '{meal}' on {d}?\nThis cannot be undone."):
+                with get_db() as conn:
+                    conn.execute("DELETE FROM sales WHERE id=?", (sale_id,))
+                self._toast(f"🗑  Deleted sale '{meal}'")
+                refresh_cb()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 2 — INVENTORY
+        # ══════════════════════════════════════════════════════════════════════
+        def _render_inventory(d):
+            ic = card(content_host); ic.pack(fill="x", pady=(0, 14))
+            hb = band(ic, "📦  Inventory Records")
+            btn(hb, "＋  Add Item", lambda: _modal_add_inv(d, lambda: _render_all(d)),
+                fg=GREEN, hv=DGREEN, h=28, w=110).pack(side="right", padx=10)
+
+            with get_db() as conn:
+                rows = conn.execute(
+                    "SELECT DISTINCT i.id, i.item, i.cat, i.unit, i.cp, i.stock,"
+                    " COALESCE((SELECT qty_change FROM stock_ledger WHERE inv_id=i.id AND date=? AND transaction_type='Opening' LIMIT 1), 0) AS opening,"
+                    " COALESCE((SELECT qty_change FROM stock_ledger WHERE inv_id=i.id AND date=? AND transaction_type='Received' LIMIT 1), 0) AS received,"
+                    " COALESCE(ABS((SELECT qty_change FROM stock_ledger WHERE inv_id=i.id AND date=? AND transaction_type='Batch_Prep' LIMIT 1)), 0) AS issued"
+                    " FROM inventory i"
+                    " WHERE EXISTS (SELECT 1 FROM stock_ledger sl WHERE sl.inv_id=i.id AND sl.date=?)"
+                    " ORDER BY i.cat, i.item",
+                    (d, d, d, d)).fetchall()
+
+            if not rows:
+                lbl(ic, "  No inventory records linked to this date.", size=11, color=MID).pack(pady=12, anchor="w", padx=18)
+                return
+
+            # Header
+            hf = ctk.CTkFrame(ic, fg_color=STRIPE, corner_radius=0, height=30)
+            hf.pack(fill="x"); hf.pack_propagate(False)
+            for txt, w in [("Item",200),("Cat",70),("Unit",50),("Rate ₹",70),
+                           ("Opening",70),("Received",80),("Issued",70),("Closing",70),("Actions",0)]:
+                lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
+                if w > 0:
+                    ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-70)).pack(side="left")
+
+            for ix, r in enumerate(rows):
+                bg2 = WHITE if ix % 2 == 0 else STRIPE
+                closing = r["opening"] + r["received"] - r["issued"]
+                rf = ctk.CTkFrame(ic, fg_color=bg2, corner_radius=0, height=44)
+                rf.pack(fill="x"); rf.pack_propagate(False)
+
+                for val, w2 in [(r["item"],200),(r["cat"],70),(r["unit"],50),(f"₹{r['cp']:.2f}",70),
+                                (f"{r['opening']:.2f}",70),(f"{r['received']:.2f}",80),
+                                (f"{r['issued']:.2f}",70),(f"{closing:.2f}",70)]:
+                    cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2)
+                    cf.pack(side="left", fill="y"); cf.pack_propagate(False)
+                    lbl(cf, val, size=10, color=DARK).pack(anchor="w", padx=10, pady=4)
+
+                af = ctk.CTkFrame(rf, fg_color="transparent")
+                af.pack(side="right", padx=8, fill="y")
+                _icon_btn(af, "🗑",
+                          lambda iid=r["id"], nm=r["item"]: _delete_inv(d, iid, nm, lambda: _render_all(d)),
+                          "#FEE2E2", "#FECACA").pack(side="right", padx=(4,0))
+                _icon_btn(af, "✏️",
+                          lambda iid=r["id"], nm=r["item"], cat=r["cat"], unit=r["unit"],
+                                 cp=r["cp"], op=r["opening"], rec=r["received"], iss=r["issued"]:
+                              _modal_edit_inv(d, iid, nm, cat, unit, cp, op, rec, iss, lambda: _render_all(d)),
+                          BG_BLU, T_BLU).pack(side="right", padx=(4,0))
+
+        # ──── Inventory modal helpers ──────────────────────────────────────────
+        def _modal_edit_inv(d, inv_id, item, cat, unit, cp, opening, received, issued, refresh_cb):
+            overlay = tk.Frame(self._area, bg="#1E293B")
+            overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
+                              border_width=2, border_color=ARMY_BG, width=560, height=530)
+            mc.place(relx=0.5, rely=0.5, anchor="center")
+            mc.pack_propagate(False)
+
+            hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
+            hbar.pack(fill="x"); hbar.pack_propagate(False)
+            ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+            lbl(hbar, f"  ✏️  Edit Inventory — {item}", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
+            ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
+                          fg_color="transparent", hover_color=ARMY_HVR,
+                          text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
+                          command=overlay.destroy).pack(side="right", padx=8)
+
+            body = ctk.CTkFrame(mc, fg_color="transparent")
+            body.pack(fill="both", expand=True, padx=24, pady=18)
+
+            fields = [
+                ("Item Name",   item,          "name_e"),
+                ("Category",    cat,           "cat_e"),
+                ("Unit",        unit,          "unit_e"),
+                ("Rate (₹)",    f"{cp:.2f}",   "cp_e"),
+                ("Opening",     f"{opening:.3f}", "op_e"),
+                ("Received",    f"{received:.3f}","rec_e"),
+                ("Issued",      f"{issued:.3f}", "iss_e"),
+            ]
+            widgets = {}
+            for label_txt, default, key in fields:
+                row_f = ctk.CTkFrame(body, fg_color="transparent")
+                row_f.pack(fill="x", pady=4)
+                lbl(row_f, label_txt, size=11, weight="bold", color=DARK, width=100).pack(side="left")
+                e = ctk.CTkEntry(row_f, height=36, corner_radius=8)
+                e.insert(0, default)
+                e.pack(side="left", fill="x", expand=True, padx=(8, 0))
+                widgets[key] = e
+
+            closing_lbl = lbl(body, f"Closing = {opening + received - issued:.3f}",
+                              size=11, weight="bold", color=BLUE)
+            closing_lbl.pack(anchor="w", pady=(4, 0))
+
+            def _on_change(*_):
+                try:
+                    op  = float(widgets["op_e"].get())
+                    rec = float(widgets["rec_e"].get())
+                    iss = float(widgets["iss_e"].get())
+                    closing_lbl.configure(text=f"Closing = {op + rec - iss:.3f}")
+                except Exception:
+                    pass
+
+            for key in ("op_e", "rec_e", "iss_e"):
+                widgets[key].bind("<KeyRelease>", _on_change)
+
+            def _save():
+                try:
+                    new_name = widgets["name_e"].get().strip()
+                    new_cat  = widgets["cat_e"].get().strip()
+                    new_unit = widgets["unit_e"].get().strip()
+                    new_cp   = float(widgets["cp_e"].get())
+                    new_op   = float(widgets["op_e"].get())
+                    new_rec  = float(widgets["rec_e"].get())
+                    new_iss  = float(widgets["iss_e"].get())
+                    new_bcf  = new_op + new_rec - new_iss
+                except ValueError:
+                    self._popup("⚠️ Invalid Input", "Please enter valid numbers.")
+                    return
+
+                with get_db() as conn:
+                    # Update inventory master (closing stock = new_bcf)
+                    conn.execute(
+                        "UPDATE inventory SET item=?, cat=?, unit=?, cp=?, stock=? WHERE id=?",
+                        (new_name, new_cat, new_unit, new_cp, new_bcf, inv_id))
+
+                    # Re-sync stock_ledger for this date
+                    conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
+                    if new_op != 0:
+                        conn.execute(
+                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Opening',?,'Opening balance BBF')", (d, inv_id, new_op))
+                    if new_rec > 0:
+                        conn.execute(
+                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Received',?,'Stock Received')", (d, inv_id, new_rec))
+                    if new_iss > 0:
+                        conn.execute(
+                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Batch_Prep',?,'Material used for production')", (d, inv_id, -new_iss))
+
+                overlay.destroy()
+                self._toast(f"✅ Inventory '{new_name}' updated")
+                refresh_cb()
+
+            btn(body, "💾  Save Changes", _save, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(12, 0))
+
+        def _modal_add_inv(d, refresh_cb):
+            overlay = tk.Frame(self._area, bg="#1E293B")
+            overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
+                              border_width=2, border_color=ARMY_BG, width=560, height=510)
+            mc.place(relx=0.5, rely=0.5, anchor="center")
+            mc.pack_propagate(False)
+
+            hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
+            hbar.pack(fill="x"); hbar.pack_propagate(False)
+            ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+            lbl(hbar, f"  ＋  Add Inventory — {d}", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
+            ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
+                          fg_color="transparent", hover_color=ARMY_HVR,
+                          text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
+                          command=overlay.destroy).pack(side="right", padx=8)
+
+            body = ctk.CTkFrame(mc, fg_color="transparent")
+            body.pack(fill="both", expand=True, padx=24, pady=18)
+
+            fields = [
+                ("Item Name",  "",    "name_e"),
+                ("Category",   "Dry", "cat_e"),
+                ("Unit",       "Kgs", "unit_e"),
+                ("Rate (₹)",   "0",   "cp_e"),
+                ("Opening",    "0",   "op_e"),
+                ("Received",   "0",   "rec_e"),
+                ("Issued",     "0",   "iss_e"),
+            ]
+            widgets = {}
+            for label_txt, default, key in fields:
+                row_f = ctk.CTkFrame(body, fg_color="transparent")
+                row_f.pack(fill="x", pady=4)
+                lbl(row_f, label_txt, size=11, weight="bold", color=DARK, width=100).pack(side="left")
+                e = ctk.CTkEntry(row_f, height=36, corner_radius=8)
+                if default:
+                    e.insert(0, default)
+                e.pack(side="left", fill="x", expand=True, padx=(8, 0))
+                widgets[key] = e
+
+            def _save_new():
+                try:
+                    new_name = widgets["name_e"].get().strip()
+                    if not new_name:
+                        self._popup("⚠️ Missing", "Item name is required."); return
+                    new_cat  = widgets["cat_e"].get().strip() or "Dry"
+                    new_unit = widgets["unit_e"].get().strip() or "Kgs"
+                    new_cp   = float(widgets["cp_e"].get())
+                    new_op   = float(widgets["op_e"].get())
+                    new_rec  = float(widgets["rec_e"].get())
+                    new_iss  = float(widgets["iss_e"].get())
+                    new_bcf  = new_op + new_rec - new_iss
+                except ValueError:
+                    self._popup("⚠️ Invalid Input", "Please enter valid numbers.")
+                    return
+
+                with get_db() as conn:
+                    existing = conn.execute("SELECT id FROM inventory WHERE item=? COLLATE NOCASE", (new_name,)).fetchone()
+                    if existing:
+                        inv_id = existing[0]
+                        conn.execute("UPDATE inventory SET cat=?, unit=?, cp=?, stock=? WHERE id=?",
+                                     (new_cat, new_unit, new_cp, new_bcf, inv_id))
+                    else:
+                        cur = conn.execute(
+                            "INSERT INTO inventory (item, cat, unit, stock, min_lvl, opening, received, cp, updated) "
+                            "VALUES (?,?,?,?,0.0,?,?,?,?)",
+                            (new_name, new_cat, new_unit, new_bcf, new_op, new_rec, new_cp, d))
+                        inv_id = cur.lastrowid
+
+                    conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
+                    if new_op != 0:
+                        conn.execute(
+                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Opening',?,'Opening balance BBF')", (d, inv_id, new_op))
+                    if new_rec > 0:
+                        conn.execute(
+                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Received',?,'Stock Received')", (d, inv_id, new_rec))
+                    if new_iss > 0:
+                        conn.execute(
+                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Batch_Prep',?,'Material used for production')", (d, inv_id, -new_iss))
+
+                overlay.destroy()
+                self._toast(f"✅ Inventory '{new_name}' added")
+                refresh_cb()
+
+            btn(body, "💾  Add Item", _save_new, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(12, 0))
+
+        def _delete_inv(d, inv_id, item, refresh_cb):
+            if self._confirm("Delete Inventory Record",
+                             f"Remove all stock_ledger entries for '{item}' on {d}?\n"
+                             f"(The inventory item itself is NOT deleted.)"):
+                with get_db() as conn:
+                    conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
+                self._toast(f"🗑  Removed ledger entries for '{item}' on {d}")
+                refresh_cb()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 3 — EXPENDITURE
+        # ══════════════════════════════════════════════════════════════════════
+        def _render_expenditure(d):
+            ec = card(content_host); ec.pack(fill="x", pady=(0, 14))
+            hb = band(ec, "💸  Expenditure Records")
+            btn(hb, "＋  Add Entry", lambda: _modal_add_exp(d, lambda: _render_all(d)),
+                fg=GREEN, hv=DGREEN, h=28, w=110).pack(side="right", padx=10)
+
+            with get_db() as conn:
+                rows = conn.execute(
+                    "SELECT id, amount, category, notes FROM expenditure WHERE date=? ORDER BY id",
+                    (d,)).fetchall()
+
+            if not rows:
+                lbl(ec, "  No expenditure records for this date.", size=11, color=MID).pack(pady=12, anchor="w", padx=18)
+                return
+
+            hf = ctk.CTkFrame(ec, fg_color=STRIPE, corner_radius=0, height=30)
+            hf.pack(fill="x"); hf.pack_propagate(False)
+            for txt, w in [("Category",150),("Amount ₹",100),("Notes",0),("Actions",0)]:
+                lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
+                if w > 0:
+                    ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-60)).pack(side="left")
+
+            for ix, r in enumerate(rows):
+                bg2 = WHITE if ix % 2 == 0 else STRIPE
+                rf = ctk.CTkFrame(ec, fg_color=bg2, corner_radius=0, height=44)
+                rf.pack(fill="x"); rf.pack_propagate(False)
+
+                for val, w2 in [(r["category"],150),(f"₹{r['amount']:,.0f}",100),(str(r["notes"] or ""),0)]:
+                    cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2 if w2 else 300)
+                    cf.pack(side="left", fill="y"); cf.pack_propagate(False)
+                    lbl(cf, val, size=10, color=DARK).pack(anchor="w", padx=10, pady=4)
+
+                af = ctk.CTkFrame(rf, fg_color="transparent")
+                af.pack(side="right", padx=8, fill="y")
+                _icon_btn(af, "🗑",
+                          lambda eid=r["id"]: _delete_exp(eid, lambda: _render_all(d)),
+                          "#FEE2E2", "#FECACA").pack(side="right", padx=(4,0))
+                _icon_btn(af, "✏️",
+                          lambda eid=r["id"], amt=r["amount"], cat=r["category"], notes=r["notes"]:
+                              _modal_edit_exp(d, eid, amt, cat, notes, lambda: _render_all(d)),
+                          BG_BLU, T_BLU).pack(side="right", padx=(4,0))
+
+        def _modal_edit_exp(d, exp_id, amount, category, notes, refresh_cb):
+            overlay = tk.Frame(self._area, bg="#1E293B")
+            overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
+                              border_width=2, border_color=ARMY_BG, width=520, height=380)
+            mc.place(relx=0.5, rely=0.5, anchor="center")
+            mc.pack_propagate(False)
+
+            hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
+            hbar.pack(fill="x"); hbar.pack_propagate(False)
+            ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+            lbl(hbar, "  ✏️  Edit Expenditure", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
+            ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
+                          fg_color="transparent", hover_color=ARMY_HVR,
+                          text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
+                          command=overlay.destroy).pack(side="right", padx=8)
+
+            body = ctk.CTkFrame(mc, fg_color="transparent")
+            body.pack(fill="both", expand=True, padx=24, pady=18)
+
+            row1 = ctk.CTkFrame(body, fg_color="transparent"); row1.pack(fill="x", pady=5)
+            lbl(row1, "Category", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            cat_e = ctk.CTkEntry(row1, height=36, corner_radius=8)
+            cat_e.insert(0, category or "")
+            cat_e.pack(side="left", fill="x", expand=True, padx=(8,0))
+
+            row2 = ctk.CTkFrame(body, fg_color="transparent"); row2.pack(fill="x", pady=5)
+            lbl(row2, "Amount (₹)", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            amt_e = ctk.CTkEntry(row2, height=36, corner_radius=8)
+            amt_e.insert(0, str(amount))
+            amt_e.pack(side="left", fill="x", expand=True, padx=(8,0))
+
+            row3 = ctk.CTkFrame(body, fg_color="transparent"); row3.pack(fill="x", pady=5)
+            lbl(row3, "Notes", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            notes_e = ctk.CTkEntry(row3, height=36, corner_radius=8)
+            notes_e.insert(0, notes or "")
+            notes_e.pack(side="left", fill="x", expand=True, padx=(8,0))
+
+            def _save():
+                try:
+                    new_cat   = cat_e.get().strip() or "General"
+                    new_amt   = float(amt_e.get())
+                    new_notes = notes_e.get().strip()
+                except ValueError:
+                    self._popup("⚠️ Invalid Input", "Amount must be a number."); return
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE expenditure SET category=?, amount=?, notes=? WHERE id=?",
+                        (new_cat, new_amt, new_notes, exp_id))
+                overlay.destroy()
+                self._toast("✅ Expenditure updated")
+                refresh_cb()
+
+            btn(body, "💾  Save Changes", _save, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(16,0))
+
+        def _modal_add_exp(d, refresh_cb):
+            overlay = tk.Frame(self._area, bg="#1E293B")
+            overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
+                              border_width=2, border_color=ARMY_BG, width=520, height=360)
+            mc.place(relx=0.5, rely=0.5, anchor="center")
+            mc.pack_propagate(False)
+
+            hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
+            hbar.pack(fill="x"); hbar.pack_propagate(False)
+            ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+            lbl(hbar, f"  ＋  Add Expenditure — {d}", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
+            ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
+                          fg_color="transparent", hover_color=ARMY_HVR,
+                          text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
+                          command=overlay.destroy).pack(side="right", padx=8)
+
+            body = ctk.CTkFrame(mc, fg_color="transparent")
+            body.pack(fill="both", expand=True, padx=24, pady=18)
+
+            row1 = ctk.CTkFrame(body, fg_color="transparent"); row1.pack(fill="x", pady=5)
+            lbl(row1, "Category", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            cat_e = ctk.CTkEntry(row1, height=36, corner_radius=8)
+            cat_e.insert(0, "Raw Materials")
+            cat_e.pack(side="left", fill="x", expand=True, padx=(8,0))
+
+            row2 = ctk.CTkFrame(body, fg_color="transparent"); row2.pack(fill="x", pady=5)
+            lbl(row2, "Amount (₹)", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            amt_e = ctk.CTkEntry(row2, height=36, corner_radius=8)
+            amt_e.pack(side="left", fill="x", expand=True, padx=(8,0))
+
+            row3 = ctk.CTkFrame(body, fg_color="transparent"); row3.pack(fill="x", pady=5)
+            lbl(row3, "Notes", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            notes_e = ctk.CTkEntry(row3, height=36, corner_radius=8)
+            notes_e.pack(side="left", fill="x", expand=True, padx=(8,0))
+
+            def _save_new():
+                try:
+                    new_cat   = cat_e.get().strip() or "General"
+                    new_amt   = float(amt_e.get())
+                    new_notes = notes_e.get().strip()
+                except ValueError:
+                    self._popup("⚠️ Invalid Input", "Amount must be a number."); return
+                with get_db() as conn:
+                    conn.execute(
+                        "INSERT INTO expenditure (date, amount, category, notes) VALUES (?,?,?,?)",
+                        (d, new_amt, new_cat, new_notes))
+                overlay.destroy()
+                self._toast("✅ Expenditure added")
+                refresh_cb()
+
+            btn(body, "💾  Add Entry", _save_new, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(16,0))
+
+        def _delete_exp(exp_id, refresh_cb):
+            if self._confirm("Delete Expenditure", "Delete this expenditure entry?\nThis cannot be undone."):
+                with get_db() as conn:
+                    conn.execute("DELETE FROM expenditure WHERE id=?", (exp_id,))
+                self._toast("🗑  Expenditure deleted")
+                refresh_cb()
+
+        # ── Initial render ────────────────────────────────────────────────────
+        _render_all(self._edit_date)
+
     def _pg_import(self):
         import csv, io
         self._hdr("📥  Import Data",
@@ -4832,6 +5537,11 @@ class CanteenApp(ctk.CTk):
                                 new_rec = (row[1] or 0.0) + rec
                                 conn.execute("UPDATE inventory SET stock=?, cp=?, received=?, updated=? WHERE id=?",
                                              (bcf, rate, new_rec, d, inv_id))
+                                # For existing items, always log Opening balance to stock_ledger
+                                # so the daily report can compute correct closing stock for this date.
+                                if bbf != 0:
+                                    conn.execute("INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) VALUES (?,?,'Opening',?,'Opening balance BBF')",
+                                                 (d, inv_id, bbf))
                             else:
                                 cur = conn.execute("INSERT INTO inventory (item, cat, unit, stock, min_lvl, opening, received, cp, updated) VALUES (?,?,?,?,0.0,?,?,?,?)",
                                                    (item_name, cat, unit, bcf, bbf, rec, rate, d))
