@@ -311,19 +311,23 @@ def band(parent, text, bg=ARMY_BG, tc=GOLD_LT, h=44, side_btn=None):
         side_btn(hdr)
     return hdr
 
-def thead(parent, col_defs, bg=ARMY_BG, tc=GOLD_LT, h=36, padx=14):
+def thead(parent, col_defs, bg=ARMY_BG, tc=GOLD_LT, h=36, padx=8):
     hdr = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0, height=h)
     hdr.pack(fill="x")
     hdr.pack_propagate(False)
     uid = abs(hash(tuple(wt for _, wt in col_defs)))
     for j, (name, wt) in enumerate(col_defs):
-        lbl(hdr, name, size=10, weight="bold", color=tc).grid(
-            row=0, column=j, padx=padx, pady=0, sticky="w")
-        hdr.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}_{j}")
+        cell = ctk.CTkFrame(hdr, fg_color="transparent", corner_radius=0)
+        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
+        lbl(cell, name, size=10, weight="bold", color=tc).pack(
+            anchor="w", padx=padx, pady=0)
+        cell.grid_columnconfigure(0, weight=1)
+        hdr.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}")
+    hdr.grid_rowconfigure(0, weight=1)
     return hdr
 
 def trow(parent, cols_vals, col_weights, colors=None, bolds=None,
-         bg=WHITE, row_h=38, pady=8, padx=14):
+         bg=WHITE, row_h=38, pady=0, padx=8):
     n   = len(cols_vals)
     clr = colors or [DARK] * n
     bld = bolds  or [False] * n
@@ -332,9 +336,15 @@ def trow(parent, cols_vals, col_weights, colors=None, bolds=None,
     rf.pack_propagate(False)
     uid = abs(hash(tuple(col_weights)))
     for j, (v, wt, c, b) in enumerate(zip(cols_vals, col_weights, clr, bld)):
-        lbl(rf, str(v), size=11, weight="bold" if b else "normal", color=c).grid(
-            row=0, column=j, padx=padx, pady=pady, sticky="w")
-        rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}_{j}")
+        cell = ctk.CTkFrame(rf, fg_color="transparent", corner_radius=0)
+        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
+        # Clip long text with ellipsis to prevent overflow
+        text = str(v)
+        lbl(cell, text, size=11, weight="bold" if b else "normal", color=c).pack(
+            anchor="w", padx=padx, pady=9)
+        cell.grid_columnconfigure(0, weight=1)
+        rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}")
+    rf.grid_rowconfigure(0, weight=1)
     return rf
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2908,13 +2918,13 @@ class CanteenApp(ctk.CTk):
 
         # Meal Sales Table — show specific meal name (e.g. KADHI CHAWAL) from daily_menu
         self._rept_section(rc, "Meal Sales Summary",
-            [("Date",2),("Meal",4),("Sold",1),("Wastage",1),("COGS",2),("Revenue",2),("Payment",1)],
+            [("Date",3),("Meal",5),("Sold",1),("Wastage",2),("COGS",2),("Revenue",2),("Payment",2)],
             [[r["date"],
               _resolve_meal_name(r["date"], r["meal"]),
               str(r["sold"]),str(r["wastage"]),
               f"₹{r['cogs']:,.0f}",f"₹{r['sp']*r['sold']:,.0f}",r["payment"]]
              for r in s_rows],
-            [2,4,1,1,2,2,1])
+            [3,5,1,2,2,2,2])
 
         # Payment breakdown
         pmf = ctk.CTkFrame(rc, fg_color="transparent"); pmf.pack(fill="x", padx=PAD, pady=(20,0))
@@ -2941,22 +2951,22 @@ class CanteenApp(ctk.CTk):
 
         # Samples section
         if samp_rows:
-            self._rept_section(rc, "🎁  Samples / Complimentary Items",
-                [("Date",2),("Item",4),("Qty",1),("Rate ₹",1),("Cost ₹",2),("Given To",2)],
+            self._rept_section(rc, "🎁  Sample Complimentary",
+                [("Date",3),("Item",4),("Qty",1),("Rate ₹",2),("Cost ₹",2),("Given To",3)],
                 [[s["date"],s["meal"],str(s["qty"]),
                   f"₹{s['sp']:.0f}",f"₹{s['cost']:,.0f}",s["given_to"] or "General"]
                  for s in samp_rows],
-                [2,4,1,1,2,2])
+                [3,4,1,2,2,3])
         else:
-            band(rc, "🎁  Samples / Complimentary Items — None for this period", bg=STRIPE, tc=MID, h=36)
+            band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
 
         # Inventory closing stock
         self._rept_section(rc,"Inventory Closing Stock",
-            [("Item",4),("Category",2),("Unit",1),("Opening",1),("Received",1),("Stock",1),("Status",1)],
+            [("Item",4),("Category",2),("Unit",2),("Opening",2),("Received",2),("Stock",2),("Status",2)],
             [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
               f"{i['stock']:.1f}","⚠ LOW" if i["stock"]<i["min_lvl"] else "✓ OK"]
              for i in inv],
-            [4,2,1,1,1,1,1])
+            [4,2,2,2,2,2,2])
 
         # Signature block
         sf = ctk.CTkFrame(rc, fg_color="transparent"); sf.pack(fill="x", padx=PAD, pady=(20,16))
@@ -5411,7 +5421,7 @@ class CanteenApp(ctk.CTk):
         # ══════════════════════════════════════════════════════════════════════
         def _render_samples(d):
             sc = card(content_host); sc.pack(fill="x", pady=(0, 14))
-            hb = band(sc, "🎁  Samples / Complimentary Items", bg=ARMY_BG, tc=GOLD_LT)
+            hb = band(sc, "🎁  Sample Complimentary", bg=ARMY_BG, tc=GOLD_LT)
             btn(hb, "＋  Add Sample", lambda: _modal_add_sample(d, lambda: _render_all(d)),
                 fg=TEAL, hv="#0F766E", h=28, w=120).pack(side="right", padx=10)
 
