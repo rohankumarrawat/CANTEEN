@@ -2871,6 +2871,8 @@ class CanteenApp(ctk.CTk):
             # Summary for KPI total
             e_sum_rows = conn.execute("SELECT category,SUM(amount) AS t FROM expenditure WHERE date>=? AND date<=? GROUP BY category",
                                   (start,end)).fetchall()
+            e_rows = conn.execute("SELECT * FROM expenditure WHERE date>=? AND date<=? ORDER BY date DESC, id DESC",
+                                  (start,end)).fetchall()
             w_row  = conn.execute("SELECT COALESCE(SUM(cost_lost),0) AS t FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchone()
             # Build lookup: (day_name, meal_type) → specific menu name
@@ -3004,15 +3006,29 @@ class CanteenApp(ctk.CTk):
                     sales_by_date[d] = []
                 sales_by_date[d].append(r)
 
-            band(rc, "Meal Sales Summary", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            # Group expenditures by date
+            exp_by_date = _col.OrderedDict()
+            for r in e_rows:
+                d = r["date"]
+                if d not in exp_by_date:
+                    exp_by_date[d] = []
+                exp_by_date[d].append(r)
 
-            if not s_rows:
-                band(rc, "No sales recorded for this period", bg=STRIPE, tc=MID, h=36)
+            # Combine and sort all unique dates descending
+            all_dates = sorted(list(set(sales_by_date.keys()) | set(exp_by_date.keys())), reverse=True)
+
+            band(rc, "Operations Summary by Date (Meal Sales & Expenditures)", bg=ARMY_BG, tc=GOLD_LT, h=40)
+
+            if not all_dates:
+                band(rc, "No records found for this period", bg=STRIPE, tc=MID, h=36)
             else:
-                for date_str, day_rows in sales_by_date.items():
-                    # Calculate day totals
+                for date_str in all_dates:
+                    day_rows = sales_by_date.get(date_str, [])
+                    day_exps = exp_by_date.get(date_str, [])
+
                     day_sold = sum(r["sold"] for r in day_rows)
                     day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
+                    day_exp = sum(e["amount"] for e in day_exps)
 
                     try:
                         d_obj = _dt.date.fromisoformat(date_str)
@@ -3026,20 +3042,42 @@ class CanteenApp(ctk.CTk):
                     dh.pack_propagate(False)
                     ctk.CTkFrame(dh, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
                     lbl(dh, f"  📅  {date_display}", size=11, weight="bold", color=GOLD_LT).pack(side="left", padx=8)
-                    lbl(dh, f"Sold: {day_sold}  |  ₹{day_rev:,.0f}", size=10, color=SAFFRON).pack(side="right", padx=14)
 
-                    # Columns layout: Meal Item (8), Sold (1), Wastage (2), COGS (2), Revenue (2), Payment (2)
-                    thead(rc, [("Meal Item", 8), ("Sold", 1), ("Wastage", 2), ("COGS", 2), ("Revenue", 2), ("Payment", 2)], bg=STRIPE, tc=MID)
+                    # Prepare summary text for the header
+                    info_parts = []
+                    if day_rows:
+                        info_parts.append(f"Sold: {day_sold} (₹{day_rev:,.0f})")
+                    if day_exps:
+                        info_parts.append(f"Exp: ₹{day_exp:,.0f}")
+                    lbl(dh, "  |  ".join(info_parts), size=10, color=SAFFRON).pack(side="right", padx=14)
 
-                    for ix, r in enumerate(day_rows):
-                        trow(rc, [
-                            _resolve_meal_name(r["date"], r["meal"]),
-                            str(r["sold"]),
-                            str(r["wastage"]),
-                            f"₹{r['cogs']:,.0f}",
-                            f"₹{r['sp']*r['sold']:,.0f}",
-                            r["payment"]
-                        ], [8,1,2,2,2,2], bg=WHITE if ix % 2 == 0 else STRIPE)
+                    # 1. Render Meal Sales Table
+                    if day_rows:
+                        thead(rc, [("Meal Item", 8), ("Sold", 1), ("Wastage", 2), ("COGS", 2), ("Revenue", 2), ("Payment", 2)], bg=STRIPE, tc=MID)
+                        for ix, r in enumerate(day_rows):
+                            trow(rc, [
+                                _resolve_meal_name(r["date"], r["meal"]),
+                                str(r["sold"]),
+                                str(r["wastage"]),
+                                f"₹{r['cogs']:,.0f}",
+                                f"₹{r['sp']*r['sold']:,.0f}",
+                                r["payment"]
+                            ], [8,1,2,2,2,2], bg=WHITE if ix % 2 == 0 else STRIPE)
+
+                    # 2. Render Expenditure Table
+                    if day_exps:
+                        lbl(rc, "   💸  Expenditures:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                        thead(rc, [("Duration", 3), ("Stock Item", 4), ("Amount", 2), ("Remarks", 4)], bg=STRIPE, tc=MID)
+                        for ix, e in enumerate(day_exps):
+                            trow(rc, [
+                                e["category"],
+                                e["notes"] or "—",
+                                f"₹{e['amount']:,.0f}",
+                                e["notes"] or "—"
+                            ], [3,4,2,4], bg=WHITE if ix % 2 == 0 else STRIPE)
+
+                    # Small spacer between days
+                    ctk.CTkFrame(rc, fg_color="transparent", height=10).pack(fill="x")
 
         # Payment breakdown
         pmf = ctk.CTkFrame(rc, fg_color="transparent"); pmf.pack(fill="x", padx=PAD, pady=(20,0))
@@ -3319,40 +3357,79 @@ class CanteenApp(ctk.CTk):
                         sales_by_date[d] = []
                     sales_by_date[d].append(r)
 
+                # Group expenditures by date
+                exp_by_date = _col.OrderedDict()
+                for r in e_rows:
+                    d = r["date"]
+                    if d not in exp_by_date:
+                        exp_by_date[d] = []
+                    exp_by_date[d].append(r)
+
+                # Combine and sort all unique dates descending
+                all_dates = sorted(list(set(sales_by_date.keys()) | set(exp_by_date.keys())), reverse=True)
+
                 DATE_SUBHDR = S("DS", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
-                for date_str, day_rows in sales_by_date.items():
+                for date_str in all_dates:
+                    day_rows = sales_by_date.get(date_str, [])
+                    day_exps = exp_by_date.get(date_str, [])
+
+                    day_sold = sum(r["sold"] for r in day_rows)
+                    day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
+                    day_exp = sum(e["amount"] for e in day_exps)
+
                     try:
                         d_obj = _dt.date.fromisoformat(date_str)
                         date_display = d_obj.strftime("%A, %d %b %Y")
                     except Exception:
                         date_display = date_str
 
-                    day_sold = sum(r["sold"] for r in day_rows)
-                    day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
+                    # Header text
+                    info_text = []
+                    if day_rows:
+                        info_text.append(f"Sold: {day_sold} (Rs.{day_rev:,.0f})")
+                    if day_exps:
+                        info_text.append(f"Exp: Rs.{day_exp:,.0f}")
 
-                    story.append(Paragraph(f"📅 {date_display}  (Sold: {day_sold} | Revenue: Rs.{day_rev:,.0f})", DATE_SUBHDR))
+                    story.append(Paragraph(f"📅 {date_display}  ({ ' | '.join(info_text) })", DATE_SUBHDR))
                     story.append(Spacer(1, 0.1*cm))
-                    story.append(pdf_table(
-                        ["Meal Item", "Sold", "Wastage", "Rate", "Revenue", "Payment"],
-                        [[_resolve_meal_name(r["date"], r["meal"]), str(r["sold"]), str(r["wastage"]),
-                          f"Rs.{r['sp']:.0f}", f"Rs.{r['sp']*r['sold']:,.0f}", r["payment"]]
-                         for r in day_rows],
-                        [7*cm, 1.5*cm, 2*cm, 1.5*cm, 2.5*cm, 2*cm]))
-                    story.append(Spacer(1, 0.3*cm))
+
+                    # 1. Meal Sales Table
+                    if day_rows:
+                        story.append(pdf_table(
+                            ["Meal Item", "Sold", "Wastage", "Rate", "Revenue", "Payment"],
+                            [[_resolve_meal_name(r["date"], r["meal"]), str(r["sold"]), str(r["wastage"]),
+                              f"Rs.{r['sp']:.0f}", f"Rs.{r['sp']*r['sold']:,.0f}", r["payment"]]
+                             for r in day_rows],
+                            [7*cm, 1.5*cm, 2*cm, 1.5*cm, 2.5*cm, 2*cm]))
+                        story.append(Spacer(1, 0.15*cm))
+
+                    # 2. Expenditure Table
+                    if day_exps:
+                        story.append(Paragraph("Expenditures:", S("ES_SUB", fontName="Helvetica-Bold", fontSize=8, textColor=OliveGreen)))
+                        story.append(Spacer(1, 0.05*cm))
+                        story.append(pdf_table(
+                            ["Duration", "Stock Item", "Amount", "Remarks"],
+                            [[e["category"], e["notes"] or "—", f"Rs.{e['amount']:,.0f}", e["notes"] or "—"]
+                             for e in day_exps],
+                            [3*cm, 5*cm, 2.5*cm, 6*cm]))
+                        story.append(Spacer(1, 0.2*cm))
+
+                    story.append(Spacer(1, 0.25*cm))
         else:
             story.append(Paragraph("No sales recorded for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
 
-        # Expenditure
-        story.append(Paragraph("Expenditure", SEC)); story.append(Spacer(1, 0.15*cm))
-        if e_rows:
-            story.append(pdf_table(
-                ["Date","Category","Amount","Notes"],
-                [[r["date"],r["category"],f"Rs.{r['amount']:,.0f}",r["notes"] or "—"] for r in e_rows],
-                [2*cm, 5*cm, 2.5*cm, 7*cm]))
-        else:
-            story.append(Paragraph("No expenditure recorded.", BODY))
-        story.append(Spacer(1, 0.5*cm))
+        # Expenditure - show global list only for single day report (since range groups them under date)
+        if start == end:
+            story.append(Paragraph("Expenditure", SEC)); story.append(Spacer(1, 0.15*cm))
+            if e_rows:
+                story.append(pdf_table(
+                    ["Date","Category","Amount","Notes"],
+                    [[r["date"],r["category"],f"Rs.{r['amount']:,.0f}",r["notes"] or "—"] for r in e_rows],
+                    [2*cm, 5*cm, 2.5*cm, 7*cm]))
+            else:
+                story.append(Paragraph("No expenditure recorded.", BODY))
+            story.append(Spacer(1, 0.5*cm))
 
         # Inventory
         story.append(Paragraph("Inventory Closing Stock", SEC)); story.append(Spacer(1, 0.15*cm))
