@@ -2952,11 +2952,11 @@ class CanteenApp(ctk.CTk):
         # Samples section
         if samp_rows:
             self._rept_section(rc, "🎁  Sample Complimentary",
-                [("Date",3),("Item",4),("Qty",1),("Rate ₹",2),("Cost ₹",2),("Given To",3)],
-                [[s["date"],s["meal"],str(s["qty"]),
+                [("Date",3),("Item",5),("Qty",1),("Rate ₹",2),("Cost ₹",2),("Given To",3)],
+                [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
                   f"₹{s['sp']:.0f}",f"₹{s['cost']:,.0f}",s["given_to"] or "General"]
                  for s in samp_rows],
-                [3,4,1,2,2,3])
+                [3,5,1,2,2,3])
         else:
             band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
 
