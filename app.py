@@ -2921,6 +2921,17 @@ class CanteenApp(ctk.CTk):
                 HAVING item_cost > 0
                 ORDER BY i.cat, item_cost DESC
             """, (start, end)).fetchall()
+            gr_rows = conn.execute("""
+                SELECT i.cat, i.item, i.unit, 
+                       SUM(gr.qty) AS qty_received,
+                       SUM(gr.total_cost) AS total_cost
+                FROM goods_received gr
+                JOIN inventory i ON i.id = gr.inv_id
+                WHERE gr.date >= ? AND gr.date <= ?
+                GROUP BY i.id, i.cat, i.item, i.unit
+                HAVING total_cost > 0
+                ORDER BY i.cat, total_cost DESC
+            """, (start, end)).fetchall()
 
 
         rev   = sum(r["sp"]*r["sold"] for r in s_rows)
@@ -2947,6 +2958,19 @@ class CanteenApp(ctk.CTk):
                 "qty":  row["qty_used"],
                 "cp":   row["cp"],
                 "cost": row["item_cost"],
+            })
+
+        gr_by_cat = _col.OrderedDict()
+        for row in gr_rows:
+            cat = row["cat"]
+            if cat not in gr_by_cat:
+                gr_by_cat[cat] = []
+            gr_by_cat[cat].append({
+                "item": row["item"],
+                "unit": row["unit"],
+                "qty":  row["qty_received"],
+                "cost": row["total_cost"],
+                "rate": row["total_cost"] / row["qty_received"] if row["qty_received"] > 0 else 0
             })
 
         scroll = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
@@ -3152,7 +3176,62 @@ class CanteenApp(ctk.CTk):
             gt_f.pack_propagate(False)
             lbl(gt_f, "  💸  Grand Total — All Ingredients", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
             lbl(gt_f, f"₹{ing_grand_total:,.0f}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
-        elif e_sum_rows:
+        # Inventory Purchases Breakdown
+        if gr_by_cat:
+            band(rc, "📦  Inventory Purchases Breakdown — Goods Received", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            gr_grand_total = sum(i["cost"] for items in gr_by_cat.values() for i in items)
+            for cat, items in gr_by_cat.items():
+                cat_total = sum(i["cost"] for i in items)
+                accent, hdr_bg = CAT_CLR.get(cat, (SAFFRON, "#253D27"))
+                # Category sub-header
+                ch = ctk.CTkFrame(rc, fg_color=hdr_bg, corner_radius=0, height=34)
+                ch.pack(fill="x")
+                ch.pack_propagate(False)
+                ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
+                lbl(ch, f"  📂  {cat} Purchases", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
+                lbl(ch, f"₹{cat_total:,.0f}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
+                # Column header
+                thead(rc, [("Item Name", 5), ("Unit", 2), ("Qty Received", 2), ("Rate/Unit", 2), ("Total Cost", 2)],
+                      bg=STRIPE, tc=MID)
+                # Rows
+                for ix, item in enumerate(items):
+                    clrs = [DARK, MID, DARK, MID, GREEN]
+                    trow(rc,
+                         [item["item"],
+                          item["unit"],
+                          f"{item['qty']:.2f}",
+                          f"₹{item['rate']:.2f}",
+                          f"₹{item['cost']:,.0f}"],
+                         [5, 2, 2, 2, 2],
+                         colors=clrs,
+                         bg=WHITE if ix % 2 == 0 else STRIPE)
+                # Category subtotal bar
+                sub_rf = ctk.CTkFrame(rc, fg_color="#E8F5E9", corner_radius=0, height=34)
+                sub_rf.pack(fill="x")
+                sub_rf.pack_propagate(False)
+                uid_sub = abs(hash(cat + "gr_sub"))
+                for j, (txt, wt, bold) in enumerate([
+                    (f"{cat} Purchases Subtotal", 5, True),
+                    (f"{len(items)} items", 2, False),
+                    ("", 2, False),
+                    ("", 2, False),
+                    (f"₹{cat_total:,.0f}", 2, True)
+                ]):
+                    cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
+                    cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
+                    lbl(cell, txt, size=11, weight="bold" if bold else "normal",
+                        color=ARMY_BG if bold else MID).pack(anchor="w", padx=8, pady=8)
+                    cell.grid_columnconfigure(0, weight=1)
+                    sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
+                sub_rf.grid_rowconfigure(0, weight=1)
+            # Grand total footer
+            gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=44)
+            gt_f.pack(fill="x")
+            gt_f.pack_propagate(False)
+            lbl(gt_f, "  📦  Grand Total — All Purchases", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
+            lbl(gt_f, f"₹{gr_grand_total:,.0f}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+
+        if e_sum_rows:
             self._rept_section(rc, "Expenditure Summary",
                 [("Category", 4), ("Amount", 2)],
                 [[r["category"], f"₹{r['t']:,.0f}"] for r in e_sum_rows],
@@ -3243,6 +3322,17 @@ class CanteenApp(ctk.CTk):
             sched_name_map = {}
             for row in conn.execute("SELECT dm.day, dm.meal_type, m.name FROM daily_menu dm JOIN menu m ON m.id=dm.menu_id"):
                 sched_name_map[(row["day"], row["meal_type"])] = row["name"]
+            gr_rows = conn.execute("""
+                SELECT i.cat, i.item, i.unit, 
+                       SUM(gr.qty) AS qty_received,
+                       SUM(gr.total_cost) AS total_cost
+                FROM goods_received gr
+                JOIN inventory i ON i.id = gr.inv_id
+                WHERE gr.date >= ? AND gr.date <= ?
+                GROUP BY i.id, i.cat, i.item, i.unit
+                HAVING total_cost > 0
+                ORDER BY i.cat, total_cost DESC
+            """, (start, end)).fetchall()
 
         MEAL_TYPE_MAP = {"LUNCH": "Lunch", "MINI": "Mini Meal", "PARATHA": "Paratha"}
         def _resolve_meal_name(date_str, meal_str):
@@ -3430,6 +3520,39 @@ class CanteenApp(ctk.CTk):
             else:
                 story.append(Paragraph("No expenditure recorded.", BODY))
             story.append(Spacer(1, 0.5*cm))
+
+        # Build gr_by_cat for PDF
+        import collections as _col
+        gr_by_cat = _col.OrderedDict()
+        for row in gr_rows:
+            cat = row["cat"]
+            if cat not in gr_by_cat:
+                gr_by_cat[cat] = []
+            gr_by_cat[cat].append({
+                "item": row["item"],
+                "unit": row["unit"],
+                "qty":  row["qty_received"],
+                "cost": row["total_cost"],
+                "rate": row["total_cost"] / row["qty_received"] if row["qty_received"] > 0 else 0
+            })
+
+        # Inventory Purchases Breakdown in PDF
+        story.append(Paragraph("Inventory Purchases Breakdown", SEC)); story.append(Spacer(1, 0.15*cm))
+        if gr_rows:
+            GR_SUBHDR = S("GRS", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
+            for cat, items in gr_by_cat.items():
+                cat_total = sum(i["cost"] for i in items)
+                story.append(Paragraph(f"📂 {cat} Purchases (Subtotal: Rs.{cat_total:,.0f})", GR_SUBHDR))
+                story.append(Spacer(1, 0.08*cm))
+                story.append(pdf_table(
+                    ["Item Name", "Unit", "Qty Received", "Rate/Unit", "Total Cost"],
+                    [[item["item"], item["unit"], f"{item['qty']:.1f}", f"Rs.{item['rate']:.2f}", f"Rs.{item['cost']:,.0f}"]
+                     for item in items],
+                    [6.5*cm, 1.5*cm, 2.5*cm, 3*cm, 3*cm]))
+                story.append(Spacer(1, 0.25*cm))
+        else:
+            story.append(Paragraph("No inventory purchases recorded for this period.", BODY))
+        story.append(Spacer(1, 0.5*cm))
 
         # Inventory
         story.append(Paragraph("Inventory Closing Stock", SEC)); story.append(Spacer(1, 0.15*cm))
