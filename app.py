@@ -2811,6 +2811,12 @@ class CanteenApp(ctk.CTk):
                           hover_color=ARMY_HVR,
                           command=lambda p=code: self._set_rperiod(p)).pack(side="left",padx=2)
 
+        # Reload button
+        ctk.CTkButton(pbar, text="🔄", width=36, height=30, corner_radius=8,
+                      font=ctk.CTkFont(size=14),
+                      fg_color=STRIPE, hover_color=ARMY_HVR, text_color=DARK,
+                      command=lambda: self._go("report")).pack(side="left", padx=(6, 0))
+
         # Compute date range
         if self._report_period == "today":
             start = end = today
@@ -2829,8 +2835,13 @@ class CanteenApp(ctk.CTk):
         with get_db() as conn:
             s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC",
                                   (start,end)).fetchall()
-            e_rows = conn.execute("SELECT category,SUM(amount) AS t FROM expenditure WHERE date>=? AND date<=? GROUP BY category",
+            # Summary for KPI total
+            e_sum_rows = conn.execute("SELECT category,SUM(amount) AS t FROM expenditure WHERE date>=? AND date<=? GROUP BY category",
                                   (start,end)).fetchall()
+            # Detailed rows for in-depth breakdown (include notes for item name)
+            e_detail_rows = conn.execute(
+                "SELECT date, category, amount, notes FROM expenditure WHERE date>=? AND date<=? ORDER BY category, date, id",
+                (start, end)).fetchall()
             w_row  = conn.execute("SELECT COALESCE(SUM(cost_lost),0) AS t FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchone()
             # Build lookup: (day_name, meal_type) → specific menu name
@@ -2871,7 +2882,7 @@ class CanteenApp(ctk.CTk):
         rev   = sum(r["sp"]*r["sold"] for r in s_rows)
         meals = sum(r["sold"] for r in s_rows)
         waste = int(w_row["t"] or 0)
-        exp   = sum(r["t"] or 0 for r in e_rows)
+        exp   = sum(r["t"] or 0 for r in e_sum_rows)
         samp_qty  = sum(s["qty"] for s in samp_rows)
         samp_cost = sum(s["cost"] or 0 for s in samp_rows)
         # Net Profit = Revenue - Expenditure - WasteCost
@@ -2879,6 +2890,25 @@ class CanteenApp(ctk.CTk):
         cash_a = sum(r["sp"]*r["sold"] for r in s_rows if r["payment"]=="Cash")
         upi_a  = sum(r["sp"]*r["sold"] for r in s_rows if r["payment"]=="UPI")
         card_a = sum(r["sp"]*r["sold"] for r in s_rows if r["payment"]=="Card")
+
+        # Group expenditure detail rows by category
+        import collections as _col
+        exp_by_cat = _col.OrderedDict()
+        for row in e_detail_rows:
+            cat = row["category"]
+            if cat not in exp_by_cat:
+                exp_by_cat[cat] = []
+            if row["amount"] and row["amount"] > 0:  # skip zero-amount lines
+                # extract item name from notes ("Auto-expenditure for LUNCH batch" → "LUNCH")
+                note = row["notes"] or ""
+                item_name = note
+                if "Auto-expenditure for" in note and "batch" in note:
+                    item_name = note.replace("Auto-expenditure for", "").replace("batch", "").strip()
+                exp_by_cat[cat].append({
+                    "date": row["date"],
+                    "item": item_name,
+                    "amount": row["amount"]
+                })
 
         scroll = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=PAD, pady=(12,PAD))
@@ -2942,12 +2972,50 @@ class CanteenApp(ctk.CTk):
             pct = f"{amt/rev*100:.0f}%" if rev else "0%"
             lbl(pc,pct,size=10,color=MID).pack(padx=16,pady=(0,14),anchor="w")
 
-        # Expenditure breakdown
-        if e_rows:
-            self._rept_section(rc,"Expenditure Summary",
-                [("Category",4),("Amount",2)],
-                [[r["category"],f"₹{r['t']:,.0f}"] for r in e_rows],
-                [4,2])
+        # Expenditure — in-depth category-wise breakdown
+        if e_detail_rows:
+            # Section header
+            band(rc, "📊  Expenditure Breakdown (Category-wise)", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            # For each category, show header + item rows + subtotal
+            for cat, items in exp_by_cat.items():
+                cat_total = sum(i["amount"] for i in items)
+                # Category sub-header
+                ch = ctk.CTkFrame(rc, fg_color="#253D27", corner_radius=0, height=32)
+                ch.pack(fill="x")
+                ch.pack_propagate(False)
+                ctk.CTkFrame(ch, fg_color=TEAL, width=4, corner_radius=0).pack(side="left", fill="y")
+                lbl(ch, f"  📂  {cat}", size=11, weight="bold", color=GOLD_LT).pack(side="left", padx=6)
+                lbl(ch, f"Total: ₹{cat_total:,.0f}", size=11, weight="bold", color=SAFFRON).pack(side="right", padx=14)
+                # Column header for this category
+                thead(rc, [("Date", 3), ("Item / Description", 6), ("Amount", 3)], bg=STRIPE, tc=MID)
+                # Item rows
+                for ix, item in enumerate(items):
+                    trow(rc, [item["date"], item["item"], f"₹{item['amount']:,.0f}"],
+                         [3, 6, 3], bg=WHITE if ix % 2 == 0 else STRIPE)
+                # Subtotal row
+                sub_rf = ctk.CTkFrame(rc, fg_color="#F0FDF4", corner_radius=0, height=36)
+                sub_rf.pack(fill="x")
+                sub_rf.pack_propagate(False)
+                uid_sub = abs(hash(cat))
+                for j, (txt, wt) in enumerate([("Subtotal", 3), (f"({len(items)} items)", 6), (f"₹{cat_total:,.0f}", 3)]):
+                    cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
+                    cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
+                    lbl(cell, txt, size=11, weight="bold", color=ARMY_BG).pack(anchor="w", padx=8, pady=9)
+                    cell.grid_columnconfigure(0, weight=1)
+                    sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
+                sub_rf.grid_rowconfigure(0, weight=1)
+            # Grand total
+            gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=42)
+            gt_f.pack(fill="x")
+            gt_f.pack_propagate(False)
+            lbl(gt_f, "  💸  Grand Total Expenditure", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=12)
+            lbl(gt_f, f"₹{exp:,.0f}", size=14, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+        elif e_sum_rows:
+            # Fallback: summary only
+            self._rept_section(rc, "Expenditure Summary",
+                [("Category", 4), ("Amount", 2)],
+                [[r["category"], f"₹{r['t']:,.0f}"] for r in e_sum_rows],
+                [4, 2])
 
         # Samples section
         if samp_rows:
