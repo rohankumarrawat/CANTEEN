@@ -2984,14 +2984,62 @@ class CanteenApp(ctk.CTk):
             lbl(kc,v,size=17,weight="bold",color=tc).pack(anchor="w",padx=16,pady=(2,12))
 
         # Meal Sales Table — show specific meal name (e.g. KADHI CHAWAL) from daily_menu
-        self._rept_section(rc, "Meal Sales Summary",
-            [("Date",3),("Meal",5),("Sold",1),("Wastage",2),("COGS",2),("Revenue",2),("Payment",2)],
-            [[r["date"],
-              _resolve_meal_name(r["date"], r["meal"]),
-              str(r["sold"]),str(r["wastage"]),
-              f"₹{r['cogs']:,.0f}",f"₹{r['sp']*r['sold']:,.0f}",r["payment"]]
-             for r in s_rows],
-            [3,5,1,2,2,2,2])
+        if start == end:
+            self._rept_section(rc, "Meal Sales Summary",
+                [("Date",3),("Meal",5),("Sold",1),("Wastage",2),("COGS",2),("Revenue",2),("Payment",2)],
+                [[r["date"],
+                  _resolve_meal_name(r["date"], r["meal"]),
+                  str(r["sold"]),str(r["wastage"]),
+                  f"₹{r['cogs']:,.0f}",f"₹{r['sp']*r['sold']:,.0f}",r["payment"]]
+                 for r in s_rows],
+                [3,5,1,2,2,2,2])
+        else:
+            # Group sales by date
+            import collections as _col
+            import datetime as _dt
+            sales_by_date = _col.OrderedDict()
+            for r in s_rows:
+                d = r["date"]
+                if d not in sales_by_date:
+                    sales_by_date[d] = []
+                sales_by_date[d].append(r)
+
+            band(rc, "Meal Sales Summary", bg=ARMY_BG, tc=GOLD_LT, h=40)
+
+            if not s_rows:
+                band(rc, "No sales recorded for this period", bg=STRIPE, tc=MID, h=36)
+            else:
+                for date_str, day_rows in sales_by_date.items():
+                    # Calculate day totals
+                    day_sold = sum(r["sold"] for r in day_rows)
+                    day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
+
+                    try:
+                        d_obj = _dt.date.fromisoformat(date_str)
+                        date_display = d_obj.strftime("%A, %d %b %Y")
+                    except Exception:
+                        date_display = date_str
+
+                    # Date header sub-band (with day totals on the right)
+                    dh = ctk.CTkFrame(rc, fg_color="#253D27", corner_radius=0, height=32)
+                    dh.pack(fill="x")
+                    dh.pack_propagate(False)
+                    ctk.CTkFrame(dh, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+                    lbl(dh, f"  📅  {date_display}", size=11, weight="bold", color=GOLD_LT).pack(side="left", padx=8)
+                    lbl(dh, f"Sold: {day_sold}  |  ₹{day_rev:,.0f}", size=10, color=SAFFRON).pack(side="right", padx=14)
+
+                    # Columns layout: Meal Item (8), Sold (1), Wastage (2), COGS (2), Revenue (2), Payment (2)
+                    thead(rc, [("Meal Item", 8), ("Sold", 1), ("Wastage", 2), ("COGS", 2), ("Revenue", 2), ("Payment", 2)], bg=STRIPE, tc=MID)
+
+                    for ix, r in enumerate(day_rows):
+                        trow(rc, [
+                            _resolve_meal_name(r["date"], r["meal"]),
+                            str(r["sold"]),
+                            str(r["wastage"]),
+                            f"₹{r['cogs']:,.0f}",
+                            f"₹{r['sp']*r['sold']:,.0f}",
+                            r["payment"]
+                        ], [8,1,2,2,2,2], bg=WHITE if ix % 2 == 0 else STRIPE)
 
         # Payment breakdown
         pmf = ctk.CTkFrame(rc, fg_color="transparent"); pmf.pack(fill="x", padx=PAD, pady=(20,0))
@@ -3253,12 +3301,44 @@ class CanteenApp(ctk.CTk):
         story.append(Paragraph("Meal Sales Summary", SEC))
         story.append(Spacer(1, 0.15*cm))
         if s_rows:
-            story.append(pdf_table(
-                ["Date","Meal Item","Sold","Wastage","Rate","Revenue","Payment"],
-                [[r["date"],_resolve_meal_name(r["date"], r["meal"]),str(r["sold"]),str(r["wastage"]),
-                  f"Rs.{r['sp']:.0f}",f"Rs.{r['sp']*r['sold']:,.0f}",r["payment"]]
-                 for r in s_rows],
-                [2*cm, 5*cm, 1.5*cm, 2*cm, 1.5*cm, 2.5*cm, 2*cm]))
+            if start == end:
+                story.append(pdf_table(
+                    ["Date","Meal Item","Sold","Wastage","Rate","Revenue","Payment"],
+                    [[r["date"],_resolve_meal_name(r["date"], r["meal"]),str(r["sold"]),str(r["wastage"]),
+                      f"Rs.{r['sp']:.0f}",f"Rs.{r['sp']*r['sold']:,.0f}",r["payment"]]
+                     for r in s_rows],
+                    [2*cm, 5*cm, 1.5*cm, 2*cm, 1.5*cm, 2.5*cm, 2*cm]))
+            else:
+                # Group sales by date
+                import collections as _col
+                import datetime as _dt
+                sales_by_date = _col.OrderedDict()
+                for r in s_rows:
+                    d = r["date"]
+                    if d not in sales_by_date:
+                        sales_by_date[d] = []
+                    sales_by_date[d].append(r)
+
+                DATE_SUBHDR = S("DS", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
+                for date_str, day_rows in sales_by_date.items():
+                    try:
+                        d_obj = _dt.date.fromisoformat(date_str)
+                        date_display = d_obj.strftime("%A, %d %b %Y")
+                    except Exception:
+                        date_display = date_str
+
+                    day_sold = sum(r["sold"] for r in day_rows)
+                    day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
+
+                    story.append(Paragraph(f"📅 {date_display}  (Sold: {day_sold} | Revenue: Rs.{day_rev:,.0f})", DATE_SUBHDR))
+                    story.append(Spacer(1, 0.1*cm))
+                    story.append(pdf_table(
+                        ["Meal Item", "Sold", "Wastage", "Rate", "Revenue", "Payment"],
+                        [[_resolve_meal_name(r["date"], r["meal"]), str(r["sold"]), str(r["wastage"]),
+                          f"Rs.{r['sp']:.0f}", f"Rs.{r['sp']*r['sold']:,.0f}", r["payment"]]
+                         for r in day_rows],
+                        [7*cm, 1.5*cm, 2*cm, 1.5*cm, 2.5*cm, 2*cm]))
+                    story.append(Spacer(1, 0.3*cm))
         else:
             story.append(Paragraph("No sales recorded for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
