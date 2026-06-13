@@ -158,7 +158,8 @@ def seed_db():
         cursor.execute("DELETE FROM inventory")
         cursor.execute("DELETE FROM menu")
         cursor.execute("DELETE FROM recipes")
-        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('batch_prep','expenditure','goods_received','sales','stock_ledger','daily_menu','waste_tracker','inventory','menu','recipes')")
+        cursor.execute("DELETE FROM samples")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('batch_prep','expenditure','goods_received','sales','stock_ledger','daily_menu','waste_tracker','inventory','menu','recipes','samples')")
 
         print("Ingesting Dry items...")
         for item, unit, bbf, received, issue, rate, amt, bcf, bcf_amt in dry_items:
@@ -258,16 +259,38 @@ def seed_db():
                 ''', (DATE, inv_id, -issue))
 
         print("Ingesting sales & menu data...")
+        # Flat list: (meal_name, qty, notes, given_to)
+        # CHACH has 2 rows: 1 General sample + 5 Ladies
+        samples_list = [
+            ("LUNCH",    1, "01 X LUNCH SAMPLE",      "General"),
+            ("PARATHA",  1, "01 X PARATHA SAMPLE",    "General"),
+            ("MINI",     1, "01 X MINI LUNCH SAMPLE", "General"),
+            ("DAHI",     1, "01 X DAHI SAMPLE",       "General"),
+            ("CHACH",    1, "01 X CHACH SAMPLE",      "General"),
+            ("CHACH",    5, "05 X CHACH FOR LADIES",  "Ladies"),
+        ]
+
         for meal, sp, prepared, sold, rate, income, expdr, profit in sales_summary:
-            cpu = expdr / prepared
+            cpu = expdr / prepared if prepared > 0 else 0.0
             cursor.execute('''
                 INSERT INTO menu (name, sp, active, cogs)
                 VALUES (?, ?, 1, ?)
             ''', (meal, sp, cpu))
             menu_id = cursor.lastrowid
 
-            # Calculate wastage
-            wastage = prepared - sold
+            # Insert all sample rows for this meal
+            total_sample_qty = 0
+            for sml_meal, qty, notes, given_to in samples_list:
+                if sml_meal == meal:
+                    total_sample_qty += qty
+                    cost = qty * cpu
+                    cursor.execute('''
+                        INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (DATE, menu_id, meal, sp, qty, cost, given_to, notes))
+
+            # Calculate wastage excluding samples (cap at 0)
+            wastage = max(0, prepared - sold - total_sample_qty)
 
             # Insert into sales log
             cursor.execute('''
@@ -286,6 +309,43 @@ def seed_db():
                 INSERT INTO expenditure (date, amount, category, notes)
                 VALUES (?, ?, 'Raw Materials', ?)
             ''', (DATE, expdr, f"Auto-expenditure for {meal} batch"))
+
+        # ── Day-specific menu items & Weekly Schedule ──────────────────────────
+        # Revised Menu: Monday–Saturday with specific Lunch, Paratha, Mini Meal
+        day_menu_plan = [
+            # (day, meal_type, menu_name, sp)
+            ("Monday",    "Lunch",     "PANCHRATNA THALI",   70.0),
+            ("Monday",    "Paratha",   "MIXED VEG PARANTHA", 40.0),
+            ("Monday",    "Mini Meal", "TAMARIND RICE",      50.0),
+            ("Tuesday",   "Lunch",     "ALOO SHIMLA THALI",  70.0),
+            ("Tuesday",   "Paratha",   "FRIED ALOO PARANTHA",40.0),
+            ("Tuesday",   "Mini Meal", "KADHI CHAWAL",       50.0),
+            ("Wednesday", "Lunch",     "KADHAI PANEER THALI",70.0),
+            ("Wednesday", "Paratha",   "MIX VEG PARANTHA",   40.0),
+            ("Wednesday", "Mini Meal", "RAJMAH RICE",        50.0),
+            ("Thursday",  "Lunch",     "ALOO SOYABEAN THALI",70.0),
+            ("Thursday",  "Paratha",   "FRIED ALOO PARANTHA",40.0),
+            ("Thursday",  "Mini Meal", "VEG BIRYANI",        50.0),
+            ("Friday",    "Lunch",     "SHAHI PANEER THALI", 70.0),
+            ("Friday",    "Paratha",   "DAL CHANA PARANTHA", 40.0),
+            ("Friday",    "Mini Meal", "MATAR KULCHA",       50.0),
+            ("Saturday",  "Lunch",     "TORI KADOO THALI",   70.0),
+            ("Saturday",  "Mini Meal", "PAV BHAJJI",         50.0),
+        ]
+
+        for day, meal_type, menu_name, sp in day_menu_plan:
+            cursor.execute("SELECT id FROM menu WHERE name = ? COLLATE NOCASE", (menu_name,))
+            row = cursor.fetchone()
+            if row:
+                dm_menu_id = row[0]
+                cursor.execute("UPDATE menu SET sp=?, active=1 WHERE id=?", (sp, dm_menu_id))
+            else:
+                cursor.execute("INSERT INTO menu (name, sp, active, cogs) VALUES (?, ?, 1, 0)", (menu_name, sp))
+                dm_menu_id = cursor.lastrowid
+            cursor.execute(
+                "INSERT OR REPLACE INTO daily_menu (day, meal_type, menu_id) VALUES (?, ?, ?)",
+                (day, meal_type, dm_menu_id)
+            )
 
         conn.commit()
         print("🎉 Database successfully seeded for 30 Apr 2026!")

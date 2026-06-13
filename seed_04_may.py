@@ -156,6 +156,7 @@ def seed_db():
         cursor.execute("DELETE FROM goods_received WHERE date = ?", (DATE,))
         cursor.execute("DELETE FROM expenditure WHERE date = ?", (DATE,))
         cursor.execute("DELETE FROM stock_ledger WHERE date = ?", (DATE,))
+        cursor.execute("DELETE FROM samples WHERE date = ?", (DATE,))
 
         def process_item_list(items, category):
             for item, unit, bbf, received, issue, rate, amt, bcf, bcf_amt in items:
@@ -209,6 +210,17 @@ def seed_db():
         process_item_list(fresh_items, 'Fresh')
 
         print("Processing Sales logs & Menu updates...")
+        # Flat list: (meal_name, qty, notes, given_to)
+        # CHACH has 2 rows: 1 General sample + 5 Ladies
+        samples_list = [
+            ("LUNCH",    1, "01 X LUNCH SAMPLE",      "General"),
+            ("PARATHA",  1, "01 X PARATHA SAMPLE",    "General"),
+            ("MINI",     1, "01 X MINI LUNCH SAMPLE", "General"),
+            ("DAHI",     1, "01 X DAHI SAMPLE",       "General"),
+            ("CHACH",    1, "01 X CHACH SAMPLE",      "General"),
+            ("CHACH",    5, "05 X CHACH FOR LADIES",  "Ladies"),
+        ]
+
         for meal, prepared, sold, rate, income, expdr in sales_summary:
             cursor.execute("SELECT id FROM menu WHERE name = ? COLLATE NOCASE", (meal,))
             menu_row = cursor.fetchone()
@@ -223,7 +235,18 @@ def seed_db():
                 ''', (meal, rate, cpu))
                 menu_id = cursor.lastrowid
 
-            wastage = prepared - sold
+            # Insert all sample rows for this meal
+            total_sample_qty = 0
+            for sml_meal, qty, notes, given_to in samples_list:
+                if sml_meal == meal:
+                    total_sample_qty += qty
+                    cost = qty * cpu
+                    cursor.execute('''
+                        INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (DATE, menu_id, meal, rate, qty, cost, given_to, notes))
+
+            wastage = max(0, prepared - sold - total_sample_qty)
             cursor.execute('''
                 INSERT INTO sales (date, menu_id, meal, sp, sold, wastage, cogs, payment)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'Cash')
