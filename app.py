@@ -2525,9 +2525,9 @@ class CanteenApp(ctk.CTk):
 
         with get_db() as conn:
             if self._exp_filter == "All":
-                rows = conn.execute("SELECT * FROM expenditure ORDER BY date DESC,id DESC").fetchall()
+                rows = conn.execute("SELECT * FROM expenditure ORDER BY date DESC, amount DESC, id DESC").fetchall()
             else:
-                rows = conn.execute("SELECT * FROM expenditure WHERE category=? ORDER BY date DESC",
+                rows = conn.execute("SELECT * FROM expenditure WHERE category=? ORDER BY date DESC, amount DESC, id DESC",
                                     (self._exp_filter,)).fetchall()
 
         total = sum(r["amount"] for r in rows)
@@ -2871,7 +2871,7 @@ class CanteenApp(ctk.CTk):
             # Summary for KPI total
             e_sum_rows = conn.execute("SELECT category,SUM(amount) AS t FROM expenditure WHERE date>=? AND date<=? GROUP BY category",
                                   (start,end)).fetchall()
-            e_rows = conn.execute("SELECT * FROM expenditure WHERE date>=? AND date<=? ORDER BY date DESC, id DESC",
+            e_rows = conn.execute("SELECT * FROM expenditure WHERE date>=? AND date<=? ORDER BY date DESC, amount DESC, id DESC",
                                   (start,end)).fetchall()
             w_row  = conn.execute("SELECT COALESCE(SUM(cost_lost),0) AS t FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchone()
@@ -2921,6 +2921,18 @@ class CanteenApp(ctk.CTk):
                 HAVING item_cost > 0
                 ORDER BY i.cat, item_cost DESC
             """, (start, end)).fetchall()
+            # Per-date ingredient usage (for the date-grouped range view)
+            ing_by_date_rows = conn.execute("""
+                SELECT sl.date, i.cat, i.item, i.unit, i.cp,
+                       ABS(SUM(sl.qty_change)) AS qty_used,
+                       ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
+                FROM stock_ledger sl
+                JOIN inventory i ON i.id = sl.inv_id
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0
+                GROUP BY sl.date, i.id, i.cat, i.item, i.unit, i.cp
+                HAVING item_cost > 0
+                ORDER BY sl.date DESC, i.cat, item_cost DESC
+            """, (start, end)).fetchall()
             gr_rows = conn.execute("""
                 SELECT i.cat, i.item, i.unit, 
                        SUM(gr.qty) AS qty_received,
@@ -2953,6 +2965,23 @@ class CanteenApp(ctk.CTk):
             if cat not in ing_by_cat:
                 ing_by_cat[cat] = []
             ing_by_cat[cat].append({
+                "item": row["item"],
+                "unit": row["unit"],
+                "qty":  row["qty_used"],
+                "cp":   row["cp"],
+                "cost": row["item_cost"],
+            })
+
+        # Per-date ingredient usage grouped as {date: {cat: [{item, unit, qty, cost}]}}
+        ing_by_date = _col.OrderedDict()
+        for row in ing_by_date_rows:
+            d   = row["date"]
+            cat = row["cat"]
+            if d not in ing_by_date:
+                ing_by_date[d] = _col.OrderedDict()
+            if cat not in ing_by_date[d]:
+                ing_by_date[d][cat] = []
+            ing_by_date[d][cat].append({
                 "item": row["item"],
                 "unit": row["unit"],
                 "qty":  row["qty_used"],
@@ -3091,14 +3120,50 @@ class CanteenApp(ctk.CTk):
                     # 2. Render Expenditure Table
                     if day_exps:
                         lbl(rc, "   💸  Expenditures:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
-                        thead(rc, [("Duration", 3), ("Stock Item", 4), ("Amount", 2), ("Remarks", 4)], bg=STRIPE, tc=MID)
+                        thead(rc, [("Category", 3), ("Meal / Batch", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
+                        import re as _re
                         for ix, e in enumerate(day_exps):
+                            # Parse meal type out of auto-generated notes e.g. "Auto-expenditure for LUNCH batch"
+                            raw_note = e["notes"] or ""
+                            m = _re.search(r"Auto-expenditure for (\w+) batch", raw_note, _re.IGNORECASE)
+                            if m:
+                                meal_token = m.group(1).upper()
+                                resolved   = _resolve_meal_name(date_str, meal_token)
+                                batch_lbl  = resolved
+                                note_txt   = "Auto batch"
+                            else:
+                                batch_lbl = raw_note or "—"
+                                note_txt  = ""
                             trow(rc, [
                                 e["category"],
-                                e["notes"] or "—",
+                                batch_lbl,
                                 f"₹{e['amount']:,.0f}",
-                                e["notes"] or "—"
-                            ], [3,4,2,4], bg=WHITE if ix % 2 == 0 else STRIPE)
+                                note_txt or "—"
+                            ], [3,5,2,3], bg=WHITE if ix % 2 == 0 else STRIPE)
+
+                    # 3. Ingredients used this day (grouped by category)
+                    day_ings = ing_by_date.get(date_str, {})
+                    if day_ings:
+                        lbl(rc, "   🧂  Ingredients Used:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                        for cat_name, items in day_ings.items():
+                            # Category sub-header
+                            cat_hdr = ctk.CTkFrame(rc, fg_color="#E8F0E8", corner_radius=0, height=22)
+                            cat_hdr.pack(fill="x")
+                            cat_hdr.pack_propagate(False)
+                            ctk.CTkFrame(cat_hdr, fg_color=SAFFRON, width=3, corner_radius=0).pack(side="left", fill="y")
+                            cat_total = sum(it["cost"] for it in items)
+                            lbl(cat_hdr, f"  {cat_name}", size=9, weight="bold", color=ARMY_BG).pack(side="left", padx=6)
+                            lbl(cat_hdr, f"₹{cat_total:,.0f}", size=9, weight="bold", color=ARMY_BG).pack(side="right", padx=10)
+                            # Items under this category
+                            thead(rc, [("Item", 6), ("Qty Used", 2), ("Unit", 2), ("Rate/Unit", 2), ("Cost", 2)], bg=STRIPE, tc=MID)
+                            for jx, it in enumerate(items):
+                                trow(rc, [
+                                    it["item"],
+                                    f"{it['qty']:.2f}",
+                                    it["unit"],
+                                    f"₹{it['cp']:,.2f}",
+                                    f"₹{it['cost']:,.2f}"
+                                ], [6,2,2,2,2], bg=WHITE if jx % 2 == 0 else STRIPE)
 
                     # Small spacer between days
                     ctk.CTkFrame(rc, fg_color="transparent", height=10).pack(fill="x")
@@ -3305,7 +3370,7 @@ class CanteenApp(ctk.CTk):
         with get_db() as conn:
             s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC",
                                   (start,end)).fetchall()
-            e_rows = conn.execute("SELECT * FROM expenditure WHERE date>=? AND date<=? ORDER BY date DESC",
+            e_rows = conn.execute("SELECT * FROM expenditure WHERE date>=? AND date<=? ORDER BY date DESC, amount DESC, id DESC",
                                   (start,end)).fetchall()
             w_rows = conn.execute("SELECT * FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchall()
@@ -3332,6 +3397,18 @@ class CanteenApp(ctk.CTk):
                 GROUP BY i.id, i.cat, i.item, i.unit
                 HAVING total_cost > 0
                 ORDER BY i.cat, total_cost DESC
+            """, (start, end)).fetchall()
+            # Per-date ingredient usage for range-view PDF
+            ing_by_date_rows = conn.execute("""
+                SELECT sl.date, i.cat, i.item, i.unit, i.cp,
+                       ABS(SUM(sl.qty_change)) AS qty_used,
+                       ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
+                FROM stock_ledger sl
+                JOIN inventory i ON i.id = sl.inv_id
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0
+                GROUP BY sl.date, i.id, i.cat, i.item, i.unit, i.cp
+                HAVING item_cost > 0
+                ORDER BY sl.date DESC, i.cat, item_cost DESC
             """, (start, end)).fetchall()
 
         MEAL_TYPE_MAP = {"LUNCH": "Lunch", "MINI": "Mini Meal", "PARATHA": "Paratha"}
@@ -3497,12 +3574,45 @@ class CanteenApp(ctk.CTk):
                     if day_exps:
                         story.append(Paragraph("Expenditures:", S("ES_SUB", fontName="Helvetica-Bold", fontSize=8, textColor=OliveGreen)))
                         story.append(Spacer(1, 0.05*cm))
+                        import re as _re
+                        exp_data = []
+                        for e in day_exps:
+                            raw_note = e["notes"] or ""
+                            m2 = _re.search(r"Auto-expenditure for (\w+) batch", raw_note, _re.IGNORECASE)
+                            if m2:
+                                meal_token = m2.group(1).upper()
+                                batch_lbl  = _resolve_meal_name(date_str, meal_token)
+                                note_txt   = "Auto batch"
+                            else:
+                                batch_lbl = raw_note or "—"
+                                note_txt  = raw_note or "—"
+                            exp_data.append([e["category"], batch_lbl, f"Rs.{e['amount']:,.0f}", note_txt])
                         story.append(pdf_table(
-                            ["Duration", "Stock Item", "Amount", "Remarks"],
-                            [[e["category"], e["notes"] or "—", f"Rs.{e['amount']:,.0f}", e["notes"] or "—"]
-                             for e in day_exps],
-                            [3*cm, 5*cm, 2.5*cm, 6*cm]))
-                        story.append(Spacer(1, 0.2*cm))
+                            ["Category", "Meal / Batch", "Amount", "Notes"],
+                            exp_data,
+                            [3*cm, 6*cm, 2.5*cm, 5*cm]))
+                        story.append(Spacer(1, 0.15*cm))
+
+                    # 3. Ingredients used this day (per-date, by category)
+                    day_ings = ing_by_date.get(date_str, {})
+                    if day_ings:
+                        ING_SUB = S("ING_SUB", fontName="Helvetica-Bold", fontSize=8, textColor=OliveGreen)
+                        story.append(Paragraph("Ingredients Used:", ING_SUB))
+                        story.append(Spacer(1, 0.05*cm))
+                        for cat_name, items in day_ings.items():
+                            cat_total = sum(it["cost"] for it in items)
+                            story.append(Paragraph(
+                                f"  {cat_name}  (Rs.{cat_total:,.0f})",
+                                S("IC", fontName="Helvetica-Bold", fontSize=7.5, textColor=OliveGreen)
+                            ))
+                            story.append(Spacer(1, 0.03*cm))
+                            story.append(pdf_table(
+                                ["Item", "Qty Used", "Unit", "Rate/Unit", "Cost"],
+                                [[it["item"], f"{it['qty']:.2f}", it["unit"],
+                                  f"Rs.{it['cp']:,.2f}", f"Rs.{it['cost']:,.2f}"]
+                                 for it in items],
+                                [6*cm, 2*cm, 2*cm, 2.5*cm, 2.5*cm]))
+                            story.append(Spacer(1, 0.1*cm))
 
                     story.append(Spacer(1, 0.25*cm))
         else:
@@ -3534,6 +3644,23 @@ class CanteenApp(ctk.CTk):
                 "qty":  row["qty_received"],
                 "cost": row["total_cost"],
                 "rate": row["total_cost"] / row["qty_received"] if row["qty_received"] > 0 else 0
+            })
+
+        # Build ing_by_date for PDF
+        ing_by_date = _col.OrderedDict()
+        for row in ing_by_date_rows:
+            d   = row["date"]
+            cat = row["cat"]
+            if d not in ing_by_date:
+                ing_by_date[d] = _col.OrderedDict()
+            if cat not in ing_by_date[d]:
+                ing_by_date[d][cat] = []
+            ing_by_date[d][cat].append({
+                "item": row["item"],
+                "unit": row["unit"],
+                "qty":  row["qty_used"],
+                "cp":   row["cp"],
+                "cost": row["item_cost"],
             })
 
         # Inventory Purchases Breakdown in PDF
