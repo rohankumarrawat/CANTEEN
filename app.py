@@ -387,42 +387,54 @@ def sep(parent, color=ARMY_SEP, h=1, **kw):
     return ctk.CTkFrame(parent, fg_color=color, height=h, corner_radius=0, **kw)
 
 def tricolor(parent, h=5):
-    bar = ctk.CTkFrame(parent, fg_color="transparent", height=h, corner_radius=0)
+    try:
+        bg = parent.cget("bg")
+    except Exception:
+        try:
+            bg = parent.cget("fg_color")
+        except Exception:
+            bg = "#253D27"
+    if not bg or bg == "transparent":
+        bg = "#253D27"
+    bar = tk.Frame(parent, bg=bg, height=h)
     bar.pack(fill="x")
     
-    ctk.CTkFrame(bar, fg_color=SAFFRON, corner_radius=0).place(relx=0.0, rely=0, relwidth=0.3334, relheight=1)
-    ctk.CTkFrame(bar, fg_color=WHITE, corner_radius=0).place(relx=0.3333, rely=0, relwidth=0.3334, relheight=1)
-    ctk.CTkFrame(bar, fg_color=IND_GREEN, corner_radius=0).place(relx=0.6666, rely=0, relwidth=0.3334, relheight=1)
+    tk.Frame(bar, bg=SAFFRON).place(relx=0.0, rely=0, relwidth=0.3334, relheight=1)
+    tk.Frame(bar, bg=WHITE).place(relx=0.3333, rely=0, relwidth=0.3334, relheight=1)
+    tk.Frame(bar, bg=IND_GREEN).place(relx=0.6666, rely=0, relwidth=0.3334, relheight=1)
 
 def band(parent, text, bg=ARMY_BG, tc=GOLD_LT, h=44, side_btn=None):
-    hdr = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0, height=h)
+    hdr = tk.Frame(parent, bg=bg, height=h)
     hdr.pack(fill="x")
     hdr.pack_propagate(False)
-    ctk.CTkFrame(hdr, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
-    lbl(hdr, f"  {text}", size=12, weight="bold", color=tc).pack(side="left", padx=8)
+    
+    # Saffron stripe to match visual style
+    tk.Frame(hdr, bg=SAFFRON, width=4).pack(side="left", fill="y")
+    lbl_w = tk.Label(hdr, text=f"  {text}", bg=bg, fg=tc,
+                     font=("Helvetica", 12, "bold"),
+                     anchor="w")
+    lbl_w.pack(side="left", padx=8, pady=10)
     if side_btn:
-        side_btn(hdr)
+        side_btn.master = hdr
+        side_btn.pack(side="right", padx=14, pady=8)
     return hdr
 
 def thead(parent, col_defs, bg=ARMY_BG, tc=GOLD_LT, h=36, padx=8):
-    hdr = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0, height=h)
+    hdr = tk.Frame(parent, bg=bg, height=h)
     hdr.pack(fill="x")
     hdr.pack_propagate(False)
     uid = abs(hash(tuple(wt for _, wt in col_defs)))
     total_wt = sum(wt for _, wt in col_defs) if col_defs else 1
     for j, (name, wt) in enumerate(col_defs):
-        cell = ctk.CTkFrame(hdr, fg_color="transparent", corner_radius=0)
-        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
-        
-        # Clip long header text with ellipsis to prevent overflow
         header_text = str(name)
         limit = max(10, int(130 * wt / total_wt))
         if len(header_text) > limit:
             header_text = header_text[:limit-1] + "…"
             
-        lbl(cell, header_text, size=10, weight="bold", color=tc).pack(
-            anchor="w", padx=padx, pady=0)
-        cell.grid_columnconfigure(0, weight=1)
+        lbl_w = tk.Label(hdr, text=header_text, bg=bg, fg=tc,
+                         font=("Helvetica", 10, "bold"),
+                         anchor="w")
+        lbl_w.grid(row=0, column=j, padx=padx, pady=0, sticky="ew")
         hdr.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}")
     hdr.grid_rowconfigure(0, weight=1)
     return hdr
@@ -3064,14 +3076,15 @@ class CanteenApp(ctk.CTk):
             thead(lc, COLS, bg=STRIPE, tc=MID)
             for ix, w in enumerate(wr):
                 bg2 = WHITE if ix%2==0 else STRIPE
-                rf = ctk.CTkFrame(lc, fg_color=bg2, corner_radius=0, height=38)
+                rf = tk.Frame(lc, bg=bg2, height=38)
                 rf.pack(fill="x"); rf.pack_propagate(False)
                 for j,(v,wt) in enumerate(zip(
                         [w["item"],f"{w['qty_wasted']:.1f}",w["reason"],
                          f"Rs. {w['cost_lost']:.0f}",w["recorded_by"] or "\u2014"],
                         [3,1,2,1,2])):
-                    lbl(rf,v,size=11,color=DARK if j==0 else MID,
-                        weight="bold" if j==0 else "normal").grid(row=0,column=j,padx=14,sticky="w")
+                    tk.Label(rf, text=v, bg=bg2, fg=DARK if j==0 else MID,
+                             font=("Helvetica", 11, "bold" if j==0 else "normal"),
+                             anchor="w").grid(row=0,column=j,padx=14,sticky="w")
                     rf.grid_columnconfigure(j,weight=wt)
                 del_btn = ctk.CTkButton(rf, text="\U0001f5d1", width=28, height=26,
                                         fg_color=STRIPE, hover_color=T_RED,
@@ -3080,10 +3093,10 @@ class CanteenApp(ctk.CTk):
                                         command=lambda wid=w["id"]: self._del_waste(wid))
                 del_btn.grid(row=0,column=5,padx=8,sticky="e")
                 rf.grid_columnconfigure(5,weight=1)
-            tot = ctk.CTkFrame(lc, fg_color=BG_RED, height=34, corner_radius=0)
+            tot = tk.Frame(lc, bg=BG_RED, height=34)
             tot.pack(fill="x"); tot.pack_propagate(False)
-            lbl(tot, f"  TOTAL WASTE: Rs. {f_in(total_wc)}", size=11,
-                weight="bold", color=RED).pack(side="left", padx=10)
+            tk.Label(tot, text=f"  TOTAL WASTE: Rs. {f_in(total_wc)}", bg=BG_RED,
+                     fg=RED, font=("Helvetica", 11, "bold"), anchor="w").pack(side="left", padx=10)
 
         # ── All Waste History ────────────────────────────────────────────────
         with get_db() as conn:
@@ -3096,24 +3109,36 @@ class CanteenApp(ctk.CTk):
             thead(hc, HCOLS, bg=STRIPE, tc=MID)
             hsf = ctk.CTkScrollableFrame(hc, fg_color="transparent", height=200)
             hsf.pack(fill="both", expand=True)
-            for ix, w in enumerate(all_wr):
-                bg2 = WHITE if ix%2==0 else STRIPE
-                rf = ctk.CTkFrame(hsf, fg_color=bg2, corner_radius=0, height=38)
-                rf.pack(fill="x"); rf.pack_propagate(False)
-                for j,(v,wt) in enumerate(zip(
-                        [w["date"],w["item"],f"{w['qty_wasted']:.1f}",w["reason"],
-                         f"Rs. {w['cost_lost']:.0f}"],
-                        [2,3,1,2,1])):
-                    lbl(rf,v,size=11,color=DARK if j<=1 else MID,
-                        weight="bold" if j<=1 else "normal").grid(row=0,column=j,padx=14,sticky="w")
-                    rf.grid_columnconfigure(j,weight=wt)
-                del_btn = ctk.CTkButton(rf, text="\U0001f5d1", width=28, height=26,
-                                        fg_color=STRIPE, hover_color=T_RED,
-                                        text_color=RED, corner_radius=6,
-                                        font=ctk.CTkFont(size=11),
-                                        command=lambda wid=w["id"]: self._del_waste(wid))
-                del_btn.grid(row=0,column=5,padx=8,sticky="e")
-                rf.grid_columnconfigure(5,weight=1)
+
+            def render_waste_history_chunk(start_idx):
+                if not hsf.winfo_exists():
+                    return
+                end_idx = min(start_idx + 30, len(all_wr))
+                for ix in range(start_idx, end_idx):
+                    w = all_wr[ix]
+                    bg2 = WHITE if ix%2==0 else STRIPE
+                    rf = tk.Frame(hsf, bg=bg2, height=38)
+                    rf.pack(fill="x"); rf.pack_propagate(False)
+                    for j,(v,wt) in enumerate(zip(
+                            [w["date"],w["item"],f"{w['qty_wasted']:.1f}",w["reason"],
+                             f"Rs. {w['cost_lost']:.0f}"],
+                            [2,3,1,2,1])):
+                        tk.Label(rf, text=v, bg=bg2, fg=DARK if j<=1 else MID,
+                                 font=("Helvetica", 11, "bold" if j<=1 else "normal"),
+                                 anchor="w").grid(row=0,column=j,padx=14,sticky="w")
+                        rf.grid_columnconfigure(j,weight=wt)
+                    del_btn = ctk.CTkButton(rf, text="\U0001f5d1", width=28, height=26,
+                                            fg_color=STRIPE, hover_color=T_RED,
+                                            text_color=RED, corner_radius=6,
+                                            font=ctk.CTkFont(size=11),
+                                            command=lambda wid=w["id"]: self._del_waste(wid))
+                    del_btn.grid(row=0,column=5,padx=8,sticky="e")
+                    rf.grid_columnconfigure(5,weight=1)
+                
+                if end_idx < len(all_wr):
+                    self.after(10, lambda: render_waste_history_chunk(end_idx))
+
+            render_waste_history_chunk(0)
 
     def _save_waste(self):
         try:
@@ -3246,6 +3271,17 @@ class CanteenApp(ctk.CTk):
         self._render_report_inner(start, end)
 
     def _render_report_inner(self, start, end):
+        def _get_bg(parent, default=WHITE):
+            for attr in ("fg_color", "bg"):
+                if hasattr(parent, "cget"):
+                    try:
+                        val = parent.cget(attr)
+                        if val and val != "transparent":
+                            return val
+                    except Exception:
+                        pass
+            return default
+
         MEAL_TYPE_MAP = {
             "LUNCH": "Lunch",
             "MINI": "Mini Meal",
@@ -3447,16 +3483,16 @@ class CanteenApp(ctk.CTk):
 
         # Report letterhead
         rc = card(scroll, border_width=2); rc.pack(fill="x", pady=(0,14))
-        lh = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=90)
+        lh = tk.Frame(rc, bg=ARMY_BG, height=90)
         lh.pack(fill="x"); lh.pack_propagate(False)
         tricolor(lh, 4)
-        li = ctk.CTkFrame(lh, fg_color="transparent"); li.pack(fill="both", expand=True, padx=PAD, pady=6)
-        lbl(li,"AWWA LUNCH PROJECT — INDIAN ARMY",size=11,weight="bold",color=GOLD_LT).pack(anchor="w")
-        lbl(li,"DAILY OPERATIONS REPORT",size=18,weight="bold",color=WHITE).pack(anchor="w",pady=(2,0))
-        lbl(li,f"Period: {start} to {end}",size=10,color=GOLD).pack(anchor="w")
+        li = tk.Frame(lh, bg=ARMY_BG); li.pack(fill="both", expand=True, padx=PAD, pady=6)
+        tk.Label(li, text="AWWA LUNCH PROJECT — INDIAN ARMY", bg=ARMY_BG, fg=GOLD_LT, font=("Helvetica", 11, "bold"), anchor="w").pack(anchor="w")
+        tk.Label(li, text="DAILY OPERATIONS REPORT", bg=ARMY_BG, fg=WHITE, font=("Helvetica", 18, "bold"), anchor="w").pack(anchor="w", pady=(2,0))
+        tk.Label(li, text=f"Period: {start} to {end}", bg=ARMY_BG, fg=GOLD, font=("Helvetica", 10), anchor="w").pack(anchor="w")
 
         # KPI cards
-        kf = ctk.CTkFrame(rc, fg_color="transparent"); kf.pack(fill="x", padx=PAD, pady=(20,0))
+        kf = tk.Frame(rc, bg=_get_bg(rc)); kf.pack(fill="x", padx=PAD, pady=(20,0))
         kf.grid_rowconfigure(0, weight=1)
         for i,(icon,t,v,tc,bg_c,br) in enumerate([
             ("💰","Revenue",f"Rs. {f_in(rev)}",GREEN,BG_GRN,T_GRN),
@@ -3467,12 +3503,12 @@ class CanteenApp(ctk.CTk):
             ("💸","Expenditure",f"Rs. {f_in(exp)}",PURPLE,BG_PUR,T_PUR),
             ("📈","Net Profit",f"Rs. {f_in(net)}",net>=0 and BLUE or RED,BG_BLU,T_BLU),
         ]):
-            kc = card(kf, fg_color=bg_c, border_color=br)
+            kc = tk.Frame(kf, bg=bg_c, highlightbackground=br, highlightthickness=1)
             kc.grid(row=0,column=i,padx=(0 if i==0 else 10),sticky="nsew")
             kf.grid_columnconfigure(i, weight=1)
-            lbl(kc,icon,size=22).pack(anchor="w",padx=16,pady=(12,2))
-            lbl(kc,t,size=10,color=MID).pack(anchor="w",padx=16)
-            lbl(kc,v,size=17,weight="bold",color=tc).pack(anchor="w",padx=16,pady=(2,12))
+            tk.Label(kc, text=icon, bg=bg_c, font=("Helvetica", 22)).pack(anchor="w",padx=16,pady=(12,2))
+            tk.Label(kc, text=t, bg=bg_c, fg=MID, font=("Helvetica", 10), anchor="w").pack(anchor="w", padx=16)
+            tk.Label(kc, text=v, bg=bg_c, fg=tc, font=("Helvetica", 17, "bold"), anchor="w").pack(anchor="w", padx=16, pady=(2,12))
 
         # Meal Sales Table — show specific meal name (e.g. KADHI CHAWAL) from daily_menu
         if start == end:
@@ -3488,20 +3524,21 @@ class CanteenApp(ctk.CTk):
                 [3,5,1,2,2,2,4,2,2])
         def render_trailing_parts():
             # Payment breakdown
-            pmf = ctk.CTkFrame(rc, fg_color="transparent"); pmf.pack(fill="x", padx=PAD, pady=(20,0))
+            pmf = tk.Frame(rc, bg=_get_bg(rc))
+            pmf.pack(fill="x", padx=PAD, pady=(20,0))
             pmf.grid_rowconfigure(0,weight=1)
             for i,(mode,amt,clr,bg_c,br) in enumerate([
                 ("💵 Cash",cash_a,GREEN,BG_GRN,T_GRN),
                 ("📱 UPI",upi_a,PURPLE,BG_PUR,T_PUR),
                 ("💳 Card",card_a,BLUE,BG_BLU,T_BLU),
             ]):
-                pc = card(pmf,fg_color=bg_c,border_color=br)
+                pc = tk.Frame(pmf, bg=bg_c, highlightbackground=br, highlightthickness=1)
                 pc.grid(row=0,column=i,padx=(0 if i==0 else 10),sticky="nsew")
                 pmf.grid_columnconfigure(i,weight=1)
-                lbl(pc,mode,size=13,weight="bold",color=clr).pack(padx=16,pady=(14,4),anchor="w")
-                lbl(pc,f"Rs. {f_in(amt)}",size=20,weight="bold",color=clr).pack(padx=16,pady=(0,2),anchor="w")
+                tk.Label(pc, text=mode, bg=bg_c, fg=clr, font=("Helvetica", 13, "bold"), anchor="w").pack(padx=16,pady=(14,4),anchor="w")
+                tk.Label(pc, text=f"Rs. {f_in(amt)}", bg=bg_c, fg=clr, font=("Helvetica", 20, "bold"), anchor="w").pack(padx=16,pady=(0,2),anchor="w")
                 pct = f"{amt/rev*100:.0f}%" if rev else "0%"
-                lbl(pc,pct,size=10,color=MID).pack(padx=16,pady=(0,14),anchor="w")
+                tk.Label(pc, text=pct, bg=bg_c, fg=MID, font=("Helvetica", 10), anchor="w").pack(padx=16,pady=(0,14),anchor="w")
 
             # Expenditure — Dry / Fresh / Misc ingredient-level breakdown
             CAT_CLR = {"Dry": ("#FF9933", "#253D27"), "Fresh": (TEAL, "#0E2C2B"),
@@ -3512,12 +3549,12 @@ class CanteenApp(ctk.CTk):
                 for cat, items in ing_by_cat.items():
                     cat_total = sum(i["cost"] for i in items)
                     accent, hdr_bg = CAT_CLR.get(cat, (SAFFRON, "#253D27"))
-                    ch = ctk.CTkFrame(rc, fg_color=hdr_bg, corner_radius=0, height=34)
+                    ch = tk.Frame(rc, bg=hdr_bg, height=34)
                     ch.pack(fill="x")
                     ch.pack_propagate(False)
-                    ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
-                    lbl(ch, f"  📂  {cat}", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
-                    lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
+                    tk.Frame(ch, bg=accent, width=5).pack(side="left", fill="y")
+                    tk.Label(ch, text=f"  📂  {cat}", bg=hdr_bg, fg="#FFFFFF", font=("Helvetica", 12, "bold"), anchor="w").pack(side="left", padx=8)
+                    tk.Label(ch, text=f"Rs. {f_in(cat_total)}", bg=hdr_bg, fg=accent, font=("Helvetica", 12, "bold"), anchor="e").pack(side="right", padx=14)
                     thead(rc, [("Ingredient", 5), ("Unit", 2), ("Qty Used", 2), ("Rate/Unit", 2), ("Cost", 2)],
                           bg=STRIPE, tc=MID)
                     for ix, item in enumerate(items):
@@ -3532,7 +3569,7 @@ class CanteenApp(ctk.CTk):
                              colors=clrs,
                              bg=WHITE if ix % 2 == 0 else STRIPE)
                     # Category subtotal bar
-                    sub_rf = ctk.CTkFrame(rc, fg_color="#E8F5E9", corner_radius=0, height=34)
+                    sub_rf = tk.Frame(rc, bg="#E8F5E9", height=34)
                     sub_rf.pack(fill="x")
                     sub_rf.pack_propagate(False)
                     uid_sub = abs(hash(cat + "sub"))
@@ -3543,19 +3580,18 @@ class CanteenApp(ctk.CTk):
                         ("", 2, False),
                         (f"Rs. {f_in(cat_total)}", 2, True)
                     ]):
-                        cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
-                        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
-                        lbl(cell, txt, size=11, weight="bold" if bold else "normal",
-                            color=ARMY_BG if bold else MID).pack(anchor="w", padx=8, pady=8)
-                        cell.grid_columnconfigure(0, weight=1)
+                        lbl_w = tk.Label(sub_rf, text=txt, bg="#E8F5E9", fg=ARMY_BG if bold else MID,
+                                         font=("Helvetica", 11, "bold" if bold else "normal"),
+                                         anchor="w")
+                        lbl_w.grid(row=0, column=j, padx=8, pady=0, sticky="ew")
                         sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
                     sub_rf.grid_rowconfigure(0, weight=1)
                 # Grand total footer
-                gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=44)
+                gt_f = tk.Frame(rc, bg=ARMY_BG, height=44)
                 gt_f.pack(fill="x")
                 gt_f.pack_propagate(False)
-                lbl(gt_f, "  💸  Grand Total — All Ingredients", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
-                lbl(gt_f, f"Rs. {f_in(ing_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+                tk.Label(gt_f, text="  💸  Grand Total — All Ingredients", bg=ARMY_BG, fg=GOLD_LT, font=("Helvetica", 12, "bold"), anchor="w").pack(side="left", padx=14)
+                tk.Label(gt_f, text=f"Rs. {f_in(ing_grand_total)}", bg=ARMY_BG, fg=SAFFRON, font=("Helvetica", 15, "bold"), anchor="e").pack(side="right", padx=16)
 
             # Inventory Purchases Breakdown
             if gr_by_cat:
@@ -3564,12 +3600,12 @@ class CanteenApp(ctk.CTk):
                 for cat, items in gr_by_cat.items():
                     cat_total = sum(i["cost"] for i in items)
                     accent, hdr_bg = CAT_CLR.get(cat, (SAFFRON, "#253D27"))
-                    ch = ctk.CTkFrame(rc, fg_color=hdr_bg, corner_radius=0, height=34)
+                    ch = tk.Frame(rc, bg=hdr_bg, height=34)
                     ch.pack(fill="x")
                     ch.pack_propagate(False)
-                    ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
-                    lbl(ch, f"  📂  {cat} Purchases", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
-                    lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
+                    tk.Frame(ch, bg=accent, width=5).pack(side="left", fill="y")
+                    tk.Label(ch, text=f"  📂  {cat} Purchases", bg=hdr_bg, fg="#FFFFFF", font=("Helvetica", 12, "bold"), anchor="w").pack(side="left", padx=8)
+                    tk.Label(ch, text=f"Rs. {f_in(cat_total)}", bg=hdr_bg, fg=accent, font=("Helvetica", 12, "bold"), anchor="e").pack(side="right", padx=14)
                     thead(rc, [("Item Name", 5), ("Unit", 2), ("Qty Received", 2), ("Rate/Unit", 2), ("Total Cost", 2)],
                           bg=STRIPE, tc=MID)
                     for ix, item in enumerate(items):
@@ -3584,7 +3620,7 @@ class CanteenApp(ctk.CTk):
                              colors=clrs,
                              bg=WHITE if ix % 2 == 0 else STRIPE)
                     # Category subtotal bar
-                    sub_rf = ctk.CTkFrame(rc, fg_color="#E8F5E9", corner_radius=0, height=34)
+                    sub_rf = tk.Frame(rc, bg="#E8F5E9", height=34)
                     sub_rf.pack(fill="x")
                     sub_rf.pack_propagate(False)
                     uid_sub = abs(hash(cat + "gr_sub"))
@@ -3595,19 +3631,19 @@ class CanteenApp(ctk.CTk):
                         ("", 2, False),
                         (f"Rs. {f_in(cat_total)}", 2, True)
                     ]):
-                        cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
-                        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
-                        lbl(cell, txt, size=11, weight="bold" if bold else "normal",
-                            color=ARMY_BG if bold else MID).pack(anchor="w", padx=8, pady=8)
-                        cell.grid_columnconfigure(0, weight=1)
+                        lbl_w = tk.Label(sub_rf, text=txt, bg="#E8F5E9", fg=ARMY_BG if bold else MID,
+                                         font=("Helvetica", 11, "bold" if bold else "normal"),
+                                         anchor="w")
+                        lbl_w.grid(row=0, column=j, padx=8, pady=0, sticky="ew")
+                        sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
                         sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
                     sub_rf.grid_rowconfigure(0, weight=1)
                 # Grand total footer
-                gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=44)
+                gt_f = tk.Frame(rc, bg=ARMY_BG, height=44)
                 gt_f.pack(fill="x")
                 gt_f.pack_propagate(False)
-                lbl(gt_f, "  📦  Grand Total — All Purchases", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
-                lbl(gt_f, f"Rs. {f_in(gr_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+                tk.Label(gt_f, text="  📦  Grand Total — All Purchases", bg=ARMY_BG, fg=GOLD_LT, font=("Helvetica", 12, "bold"), anchor="w").pack(side="left", padx=14)
+                tk.Label(gt_f, text=f"Rs. {f_in(gr_grand_total)}", bg=ARMY_BG, fg=SAFFRON, font=("Helvetica", 15, "bold"), anchor="e").pack(side="right", padx=16)
 
             if e_rows:
                 def _format_exp_note(r):
@@ -3646,9 +3682,10 @@ class CanteenApp(ctk.CTk):
                     except Exception:
                         date_display = date_str
                     
-                    sub_dh = ctk.CTkFrame(rc, fg_color="#F0F4F0", corner_radius=0, height=24)
+                    sub_dh = tk.Frame(rc, bg="#F0F4F0", height=24)
                     sub_dh.pack(fill="x")
-                    lbl(sub_dh, f"  📅  {date_display}", size=10, weight="bold", color=ARMY_BG).pack(side="left")
+                    sub_dh.pack_propagate(False)
+                    tk.Label(sub_dh, text=f"  📅  {date_display}", bg="#F0F4F0", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(side="left")
                     
                     thead(rc, [("Item", 6), ("Qty", 1), ("Rate Rs. ", 2), ("Cost Rs. ", 2), ("Given To", 3)], bg=STRIPE, tc=MID)
                     for ix, s in enumerate(items):
@@ -3681,9 +3718,10 @@ class CanteenApp(ctk.CTk):
                     except Exception:
                         date_display = date_str
                     
-                    sub_dh = ctk.CTkFrame(rc, fg_color="#F0F4F0", corner_radius=0, height=24)
+                    sub_dh = tk.Frame(rc, bg="#F0F4F0", height=24)
                     sub_dh.pack(fill="x")
-                    lbl(sub_dh, f"  📅  {date_display}", size=10, weight="bold", color=ARMY_BG).pack(side="left")
+                    sub_dh.pack_propagate(False)
+                    tk.Label(sub_dh, text=f"  📅  {date_display}", bg="#F0F4F0", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(side="left")
                     
                     thead(rc, [("Item", 6), ("Qty", 1), ("Rate Rs. ", 2), ("Cost Rs. ", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
                     for ix, s in enumerate(items):
@@ -3706,26 +3744,30 @@ class CanteenApp(ctk.CTk):
                 [4,2,2,2,2,2,2])
 
             # Signature block
-            sf = ctk.CTkFrame(rc, fg_color="transparent"); sf.pack(fill="x", padx=PAD, pady=(20,16))
+            sf = tk.Frame(rc, bg=_get_bg(rc))
+            sf.pack(fill="x", padx=PAD, pady=(20,16))
             sf.grid_rowconfigure(0,weight=1)
             for i,(role,name) in enumerate([
                 ("NCO I/C", "Canteen NCO In-Charge"),
                 ("JCO I/C", "Junior Commissioned Officer"),
                 ("OIC", "Officer In-Charge (Captain)"),
             ]):
-                sc = card(sf); sc.grid(row=0,column=i,padx=(0 if i==0 else 14),sticky="nsew")
+                sc = tk.Frame(sf, bg=WHITE, highlightbackground=BORDER, highlightthickness=1)
+                sc.grid(row=0,column=i,padx=(0 if i==0 else 14),sticky="nsew")
                 sf.grid_columnconfigure(i,weight=1)
-                lbl(sc,role,size=10,color=MID,weight="bold").pack(padx=14,pady=(12,2),anchor="w")
-                lbl(sc,name,size=11,color=DARK).pack(padx=14,anchor="w")
-                lbl(sc,"Signature: ________________________",size=10,color=MID).pack(padx=14,pady=(8,4),anchor="w")
-                lbl(sc,f"Date: {end}",size=10,color=MID).pack(padx=14,pady=(0,12),anchor="w")
+                tk.Label(sc, text=role, bg=WHITE, fg=MID, font=("Helvetica", 10, "bold"), anchor="w").pack(padx=14,pady=(12,2),anchor="w")
+                tk.Label(sc, text=name, bg=WHITE, fg=DARK, font=("Helvetica", 11), anchor="w").pack(padx=14,anchor="w")
+                tk.Label(sc, text="Signature: ________________________", bg=WHITE, fg=MID, font=("Helvetica", 10), anchor="w").pack(padx=14,pady=(8,4),anchor="w")
+                tk.Label(sc, text=f"Date: {end}", bg=WHITE, fg=MID, font=("Helvetica", 10), anchor="w").pack(padx=14,pady=(0,12),anchor="w")
 
-            ft = ctk.CTkFrame(rc, fg_color="transparent", height=6); ft.pack(fill="x"); ft.pack_propagate(False)
+            ft = tk.Frame(rc, bg=_get_bg(rc), height=6)
+            ft.pack(fill="x")
+            ft.pack_propagate(False)
             for c in (SAFFRON, WHITE, IND_GREEN):
-                ctk.CTkFrame(ft, fg_color=c).pack(side="left", fill="both", expand=True)
-            lbl(rc,"जय हिन्द  •  RESTRICTED — For Official Use Only  •  " +
-                datetime.now().strftime("Generated: %d %b %Y %I:%M %p"),
-                size=9, color=MID).pack(pady=(8,14))
+                tk.Frame(ft, bg=c).pack(side="left", fill="both", expand=True)
+            tk.Label(rc, text="जय हिन्द  •  RESTRICTED — For Official Use Only  •  " +
+                     datetime.now().strftime("Generated: %d %b %Y %I:%M %p"),
+                     bg=WHITE, fg=MID, font=("Helvetica", 9)).pack(pady=(8,14))
 
         if start == end:
             render_trailing_parts()
@@ -3777,11 +3819,11 @@ class CanteenApp(ctk.CTk):
                             date_display = date_str
 
                         # Date header sub-band (with day totals on the right)
-                        dh = ctk.CTkFrame(rc, fg_color="#253D27", corner_radius=0, height=32)
+                        dh = tk.Frame(rc, bg="#253D27", height=32)
                         dh.pack(fill="x")
                         dh.pack_propagate(False)
-                        ctk.CTkFrame(dh, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
-                        lbl(dh, f"  📅  {date_display}", size=11, weight="bold", color=GOLD_LT).pack(side="left", padx=8)
+                        tk.Frame(dh, bg=SAFFRON, width=4).pack(side="left", fill="y")
+                        tk.Label(dh, text=f"  📅  {date_display}", bg="#253D27", fg=GOLD_LT, font=("Helvetica", 11, "bold")).pack(side="left", padx=8)
 
                         # Prepare summary text for the header
                         info_parts = []
@@ -3789,7 +3831,7 @@ class CanteenApp(ctk.CTk):
                             info_parts.append(f"Sold: {day_sold} (Rs. {f_in(day_rev)})")
                         if day_exps:
                             info_parts.append(f"Exp: Rs. {f_in(day_exp)}")
-                        lbl(dh, "  |  ".join(info_parts), size=10, color=SAFFRON).pack(side="right", padx=14)
+                        tk.Label(dh, text="  |  ".join(info_parts), bg="#253D27", fg=SAFFRON, font=("Helvetica", 10)).pack(side="right", padx=14)
 
                         # 1. Render Meal Sales Table
                         if day_rows:
@@ -3810,7 +3852,7 @@ class CanteenApp(ctk.CTk):
                         if day_exps:
                             cats = sorted(list(set(e["category"] for e in day_exps)))
                             cats_str = ", ".join(cats)
-                            lbl(rc, f"   💸  Expenditures {cats_str}:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                            tk.Label(rc, text=f"   💸  Expenditures {cats_str}:", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w", pady=(6,2))
                             thead(rc, [("Category", 3), ("Meal / Item", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
                             import re as _re
                             for ix, e in enumerate(day_exps):
@@ -3835,16 +3877,16 @@ class CanteenApp(ctk.CTk):
                         # 3. Ingredients used this day (grouped by category)
                         day_ings = ing_by_date.get(date_str, {})
                         if day_ings:
-                            lbl(rc, "   🧂  Ingredients Used:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                            tk.Label(rc, text="   🧂  Ingredients Used:", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w", pady=(6,2))
                             for cat_name, items in day_ings.items():
                                 # Category sub-header
-                                cat_hdr = ctk.CTkFrame(rc, fg_color="#E8F0E8", corner_radius=0, height=22)
+                                cat_hdr = tk.Frame(rc, bg="#E8F0E8", height=22)
                                 cat_hdr.pack(fill="x")
                                 cat_hdr.pack_propagate(False)
-                                ctk.CTkFrame(cat_hdr, fg_color=SAFFRON, width=3, corner_radius=0).pack(side="left", fill="y")
+                                tk.Frame(cat_hdr, bg=SAFFRON, width=3).pack(side="left", fill="y")
                                 cat_total = sum(it["cost"] for it in items)
-                                lbl(cat_hdr, f"  {cat_name}", size=9, weight="bold", color=ARMY_BG).pack(side="left", padx=6)
-                                lbl(cat_hdr, f"Rs. {f_in(cat_total)}", size=9, weight="bold", color=ARMY_BG).pack(side="right", padx=10)
+                                tk.Label(cat_hdr, text=f"  {cat_name}", bg="#E8F0E8", fg=ARMY_BG, font=("Helvetica", 9, "bold")).pack(side="left", padx=6)
+                                tk.Label(cat_hdr, text=f"Rs. {f_in(cat_total)}", bg="#E8F0E8", fg=ARMY_BG, font=("Helvetica", 9, "bold")).pack(side="right", padx=10)
                                 # Items under this category
                                 thead(rc, [("Item", 6), ("Qty Used", 2), ("Unit", 2), ("Rate/Unit", 2), ("Cost", 2)], bg=STRIPE, tc=MID)
                                 for jx, it in enumerate(items):
@@ -3857,7 +3899,7 @@ class CanteenApp(ctk.CTk):
                                     ], [6,2,2,2,2], bg=WHITE if jx % 2 == 0 else STRIPE)
 
                         # Small spacer between days
-                        ctk.CTkFrame(rc, fg_color="transparent", height=10).pack(fill="x")
+                        tk.Frame(rc, bg=_get_bg(rc), height=10).pack(fill="x")
 
                     if end_idx < len(all_dates):
                         self.after(10, lambda: render_dates_chunk(end_idx))
