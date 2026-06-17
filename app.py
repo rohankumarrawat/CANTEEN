@@ -823,7 +823,7 @@ class CanteenApp(ctk.CTk):
             ("\U0001f35b", "Meals Served",    str(meals),          GREEN,   BG_GRN, T_GRN),
             ("\U0001f4c8", "Net Profit",      f"\u20b9{f_in(profit)}", BLUE,    BG_BLU, T_BLU),
             ("\U0001f4b8", "Expenditure",     f"\u20b9{f_in(exp)}",    PURPLE,  BG_PUR, T_PUR),
-            ("\u267b\ufe0f", "Waste Cost",    f"\u20b9{f_in(wcost)}",  ORANGE,  BG_SAF, T_SAF),
+            ("\u267b\ufe0f", "Wastage Cost",  f"\u20b9{f_in(wcost)}",  ORANGE,  BG_SAF, T_SAF),
             ("\U0001f381", f"Samples ({sqty})", f"\u20b9{f_in(scost)}", TEAL,  BG_TEA, T_TEA),
             ("👨‍🍳", f"Staff ({stf_qty})", f"₹{f_in(stf_cost)}", ARMY_BG, "#f1f5f9", ARMY_BG),
             ("\u26a0\ufe0f", "Low Stock",     str(len(low)),       RED,     BG_RED, T_RED),
@@ -3383,7 +3383,7 @@ class CanteenApp(ctk.CTk):
         for i,(icon,t,v,tc,bg_c,br) in enumerate([
             ("💰","Revenue",f"₹{f_in(rev)}",GREEN,BG_GRN,T_GRN),
             ("🍽","Meals",f_in(meals),SAFFRON,BG_SAF,T_SAF),
-            ("♻️","Waste Cost",f"₹{f_in(waste)}",ORANGE,BG_SAF,T_SAF),
+            ("♻️","Wastage Cost",f"₹{f_in(waste)}",ORANGE,BG_SAF,T_SAF),
             ("🎁",f"Samples ({f_in(samp_qty)})",f"₹{f_in(samp_cost)}",TEAL,BG_TEA,T_TEA),
             ("👨‍🍳",f"Staff ({f_in(stf_qty)})",f"₹{f_in(stf_cost)}",ARMY_BG,"#f1f5f9",ARMY_BG),
             ("💸","Expenditure",f"₹{f_in(exp)}",PURPLE,BG_PUR,T_PUR),
@@ -3921,7 +3921,7 @@ class CanteenApp(ctk.CTk):
         kpi_d1 = [
             [Paragraph("Total Revenue", TH), Paragraph(f"Rs. {f_in(rev)}", TD),
              Paragraph("Expenditure",   TH), Paragraph(f"Rs. {f_in(exp)}", TD),
-             Paragraph("Waste Cost",    TH), Paragraph(f"Rs. {f_in(waste)}", TD),
+             Paragraph("Wastage Cost", TH), Paragraph(f"Rs. {f_in(waste)}", TD),
              Paragraph("Net Profit",    TH), Paragraph(f"Rs. {f_in(net)}",  TD)],
         ]
         kpi_t1 = Table(kpi_d1, colWidths=[2*cm, 2.25*cm, 2*cm, 2.25*cm, 2*cm, 2.25*cm, 2*cm, 2.25*cm])
