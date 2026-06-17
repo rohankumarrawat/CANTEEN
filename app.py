@@ -5542,7 +5542,7 @@ class CanteenApp(ctk.CTk):
                         conn.execute(
                             "INSERT INTO expenditure (date, amount, category, notes) "
                             "VALUES (?,?,?,?)",
-                            (date_str, round(total_raw_cost, 2), "Raw Material",
+                            (date_str, round(total_raw_cost, 2), "Raw Materials",
                              f"Auto-expenditure for {sel} batch x{qty}"))
 
                     # 3. Samples table (given_to='General')
@@ -8099,7 +8099,7 @@ class CanteenApp(ctk.CTk):
                             )
                             
                         conn.execute(
-                            "DELETE FROM expenditure WHERE date = ? AND category = 'Raw Materials' AND notes LIKE ?",
+                            "DELETE FROM expenditure WHERE date = ? AND (category = 'Raw Materials' OR category = 'Raw Material') AND notes LIKE ?",
                             (d, f"%{meal}%")
                         )
                         
