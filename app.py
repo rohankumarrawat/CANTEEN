@@ -386,10 +386,18 @@ def thead(parent, col_defs, bg=ARMY_BG, tc=GOLD_LT, h=36, padx=8):
     hdr.pack(fill="x")
     hdr.pack_propagate(False)
     uid = abs(hash(tuple(wt for _, wt in col_defs)))
+    total_wt = sum(wt for _, wt in col_defs) if col_defs else 1
     for j, (name, wt) in enumerate(col_defs):
         cell = ctk.CTkFrame(hdr, fg_color="transparent", corner_radius=0)
         cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
-        lbl(cell, name, size=10, weight="bold", color=tc).pack(
+        
+        # Clip long header text with ellipsis to prevent overflow
+        header_text = str(name)
+        limit = max(10, int(130 * wt / total_wt))
+        if len(header_text) > limit:
+            header_text = header_text[:limit-1] + "…"
+            
+        lbl(cell, header_text, size=10, weight="bold", color=tc).pack(
             anchor="w", padx=padx, pady=0)
         cell.grid_columnconfigure(0, weight=1)
         hdr.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}")
@@ -405,11 +413,17 @@ def trow(parent, cols_vals, col_weights, colors=None, bolds=None,
     rf.pack(fill="x")
     rf.pack_propagate(False)
     uid = abs(hash(tuple(col_weights)))
+    total_wt = sum(col_weights) if col_weights else 1
     for j, (v, wt, c, b) in enumerate(zip(cols_vals, col_weights, clr, bld)):
         cell = ctk.CTkFrame(rf, fg_color="transparent", corner_radius=0)
         cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
+        
         # Clip long text with ellipsis to prevent overflow
         text = str(v)
+        limit = max(10, int(130 * wt / total_wt))
+        if len(text) > limit:
+            text = text[:limit-1] + "…"
+            
         lbl(cell, text, size=11, weight="bold" if b else "normal", color=c).pack(
             anchor="w", padx=padx, pady=9)
         cell.grid_columnconfigure(0, weight=1)
