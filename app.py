@@ -3658,11 +3658,11 @@ class CanteenApp(ctk.CTk):
             lbl(gt_f, "  📦  Grand Total — All Purchases", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
             lbl(gt_f, f"Rs. {f_in(gr_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
 
-        if e_sum_rows:
+        if e_rows:
             self._rept_section(rc, "Expenditure Summary",
-                [("Category", 4), ("Amount", 2)],
-                [[r["category"], f"Rs. {f_in(r['t'])}"] for r in e_sum_rows],
-                [4, 2])
+                [("Notes", 8), ("Amount", 2)],
+                [[r["notes"] or "—", f"Rs. {f_in(r['amount'])}"] for r in e_rows],
+                [8, 2])
 
         # Samples split into Complimentary and Staff
         samp_complimentary = [s for s in samp_rows if (s["given_to"] or "").strip().lower() != "staff"]
@@ -4142,9 +4142,9 @@ class CanteenApp(ctk.CTk):
             story.append(Paragraph("Expenditure Summary", SEC)); story.append(Spacer(1, 0.15*cm))
             if e_rows:
                 story.append(pdf_table(
-                    ["Category", "Notes", "Amount"],
-                    [[r["category"], r["notes"] or "—", f"Rs.{f_in(r['amount'])}"] for r in e_rows],
-                    [4.5*cm, 8*cm, 4*cm]))
+                    ["Notes", "Amount"],
+                    [[r["notes"] or "—", f"Rs.{f_in(r['amount'])}"] for r in e_rows],
+                    [12.5*cm, 4*cm]))
             else:
                 story.append(Paragraph("No expenditure recorded.", BODY))
             story.append(Spacer(1, 0.4*cm))
