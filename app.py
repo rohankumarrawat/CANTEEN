@@ -8139,24 +8139,18 @@ class CanteenApp(ctk.CTk):
             # Header
             hf = ctk.CTkFrame(ic, fg_color=STRIPE, corner_radius=0, height=30)
             hf.pack(fill="x"); hf.pack_propagate(False)
-            for txt, w in [("Item",180),("Cat",70),("Unit",50),("Rate ₹",70),
-                           ("Opening",70),("Received",80),("Qty Used",80),("Amount ₹",80),("Closing",70),("Actions",0)]:
+            for txt, w in [("Item",220),("Cat",80),("Unit",70),("Rate ₹",90),("Received",100),("Actions",0)]:
                 lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
                 if w > 0:
                     ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-70)).pack(side="left")
 
             for ix, r in enumerate(rows):
                 bg2 = WHITE if ix % 2 == 0 else STRIPE
-                closing = r["opening"] + r["received"] - r["issued"]
                 rf = ctk.CTkFrame(ic, fg_color=bg2, corner_radius=0, height=44)
                 rf.pack(fill="x"); rf.pack_propagate(False)
 
-                qty_used = r["issued"]
-                cost_amt = qty_used * r["cp"]
-
-                for val, w2 in [(r["item"],180),(r["cat"],70),(r["unit"],50),(f"₹{f_in(r['cp'], 2)}",70),
-                                (f"{r['opening']:.2f}",70),(f"{r['received']:.2f}",80),
-                                (f"{qty_used:.2f}",80),(f"₹{f_in(cost_amt, 2)}",80),(f"{closing:.2f}",70)]:
+                for val, w2 in [(r["item"],220),(r["cat"],80),(r["unit"],70),
+                                (f"₹{f_in(r['cp'], 2)}",90),(f"{r['received']:.2f}",100)]:
                     cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2)
                     cf.pack(side="left", fill="y"); cf.pack_propagate(False)
                     lbl(cf, val, size=10, color=DARK).pack(anchor="w", padx=10, pady=4)
