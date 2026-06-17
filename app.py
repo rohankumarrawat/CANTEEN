@@ -3628,24 +3628,74 @@ class CanteenApp(ctk.CTk):
             samp_staff         = [s for s in samp_rows if (s["given_to"] or "").strip().lower() == "staff"]
 
             # Complimentary Samples section
+            band(rc, "🎁  Sample Complimentary", bg=ARMY_BG, tc=GOLD_LT, h=40)
             if samp_complimentary:
-                self._rept_section(rc, "🎁  Sample Complimentary",
-                    [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Given To",3)],
-                    [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
-                      f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["given_to"] or "General"]
-                     for s in samp_complimentary],
-                    [3,5,1,2,2,3])
+                import collections as _col
+                import datetime as _dt
+                samp_by_date = _col.OrderedDict()
+                for s in samp_complimentary:
+                    d = s["date"]
+                    if d not in samp_by_date:
+                        samp_by_date[d] = []
+                    samp_by_date[d].append(s)
+                
+                for date_str, items in samp_by_date.items():
+                    try:
+                        d_obj = _dt.date.fromisoformat(date_str)
+                        date_display = d_obj.strftime("%A, %d %b %Y")
+                    except Exception:
+                        date_display = date_str
+                    
+                    sub_dh = ctk.CTkFrame(rc, fg_color="#F0F4F0", corner_radius=0, height=24)
+                    sub_dh.pack(fill="x")
+                    lbl(sub_dh, f"  📅  {date_display}", size=10, weight="bold", color=ARMY_BG).pack(side="left")
+                    
+                    thead(rc, [("Item", 6), ("Qty", 1), ("Rate Rs. ", 2), ("Cost Rs. ", 2), ("Given To", 3)], bg=STRIPE, tc=MID)
+                    for ix, s in enumerate(items):
+                        trow(rc, [
+                            _resolve_meal_name(s["date"], s["meal"]),
+                            str(s["qty"]),
+                            f"Rs. {f_in(s['sp'])}",
+                            f"Rs. {f_in(s['cost'])}",
+                            s["given_to"] or "General"
+                        ], [6, 1, 2, 2, 3], bg=WHITE if ix % 2 == 0 else STRIPE)
             else:
                 band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
 
             # Staff Update their details section
+            band(rc, "👨‍🍳  Staff Update their details", bg=ARMY_BG, tc=GOLD_LT, h=40)
             if samp_staff:
-                self._rept_section(rc, "👨‍🍳  Staff Update their details",
-                    [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Notes",3)],
-                    [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
-                      f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["notes"] or "—"]
-                     for s in samp_staff],
-                    [3,5,1,2,2,3])
+                import collections as _col
+                import datetime as _dt
+                staff_by_date = _col.OrderedDict()
+                for s in samp_staff:
+                    d = s["date"]
+                    if d not in staff_by_date:
+                        staff_by_date[d] = []
+                    staff_by_date[d].append(s)
+                
+                for date_str, items in staff_by_date.items():
+                    try:
+                        d_obj = _dt.date.fromisoformat(date_str)
+                        date_display = d_obj.strftime("%A, %d %b %Y")
+                    except Exception:
+                        date_display = date_str
+                    
+                    sub_dh = ctk.CTkFrame(rc, fg_color="#F0F4F0", corner_radius=0, height=24)
+                    sub_dh.pack(fill="x")
+                    lbl(sub_dh, f"  📅  {date_display}", size=10, weight="bold", color=ARMY_BG).pack(side="left")
+                    
+                    thead(rc, [("Item", 6), ("Qty", 1), ("Rate Rs. ", 2), ("Cost Rs. ", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
+                    for ix, s in enumerate(items):
+                        trow(rc, [
+                            _resolve_meal_name(s["date"], s["meal"]),
+                            str(s["qty"]),
+                            f"Rs. {f_in(s['sp'])}",
+                            f"Rs. {f_in(s['cost'])}",
+                            s["notes"] or "—"
+                        ], [6, 1, 2, 2, 3], bg=WHITE if ix % 2 == 0 else STRIPE)
+            else:
+                band(rc, "👨‍🍳  Staff Update their details — None for this period", bg=STRIPE, tc=MID, h=36)
 
             # Inventory closing stock
             self._rept_section(rc,"Inventory Closing Stock",
@@ -3761,7 +3811,7 @@ class CanteenApp(ctk.CTk):
                             cats = sorted(list(set(e["category"] for e in day_exps)))
                             cats_str = ", ".join(cats)
                             lbl(rc, f"   💸  Expenditures {cats_str}:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
-                            thead(rc, [("Category", 3), ("Meal / Batch", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
+                            thead(rc, [("Category", 3), ("Meal / Item", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
                             import re as _re
                             for ix, e in enumerate(day_exps):
                                 # Parse meal type out of auto-generated notes e.g. "Auto-expenditure for LUNCH batch"
@@ -4170,7 +4220,7 @@ class CanteenApp(ctk.CTk):
                       str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
                       f"Rs.{f_in(r['cogs'])}",f"Rs.{f_in(r['sp']*r['sold'])}",r["payment"]]
                      for r in s_rows],
-                    [2*cm, 3.5*cm, 1.2*cm, 1.3*cm, 1.3*cm, 1.3*cm, 2.7*cm, 1.9*cm, 1.8*cm]))
+                    [2.0*cm, 2.7*cm, 1.0*cm, 1.5*cm, 1.4*cm, 1.1*cm, 3.3*cm, 2.0*cm, 2.0*cm]))
             else:
                 # Group sales by date
                 import collections as _col
@@ -4227,7 +4277,7 @@ class CanteenApp(ctk.CTk):
                               str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
                               f"Rs.{f_in(r['cogs'])}", f"Rs.{f_in(r['sp']*r['sold'])}", r["payment"]]
                              for r in day_rows],
-                            [4.5*cm, 1.3*cm, 1.5*cm, 1.5*cm, 1.5*cm, 3*cm, 2*cm, 1.7*cm]))
+                            [4.2*cm, 1.0*cm, 1.6*cm, 1.4*cm, 1.1*cm, 3.7*cm, 2.0*cm, 2.0*cm]))
                         story.append(Spacer(1, 0.15*cm))
 
                     # 2. Expenditure Table
@@ -4248,9 +4298,9 @@ class CanteenApp(ctk.CTk):
                                 batch_lbl = raw_note or "—"
                             exp_data.append([batch_lbl, f"Rs.{f_in(e['amount'])}"])
                         story.append(pdf_table(
-                            ["Meal / Batch", "Amount"],
+                            ["Meal / Item", "Amount"],
                             exp_data,
-                            [11.5*cm, 5*cm]))
+                            [12.0*cm, 5.0*cm]))
                         story.append(Spacer(1, 0.15*cm))
 
                     # 3. Ingredients used this day (per-date, by category)
@@ -4271,7 +4321,7 @@ class CanteenApp(ctk.CTk):
                                 [[it["item"], f"{it['qty']:.2f}", it["unit"],
                                   f"Rs.{f_in(it['cp'], 2)}", f"Rs.{f_in(it['cost'], 2)}"]
                                  for it in items],
-                                [6*cm, 2*cm, 2*cm, 2.5*cm, 2.5*cm]))
+                                [7.0*cm, 2.0*cm, 2.0*cm, 3.0*cm, 3.0*cm]))
                             story.append(Spacer(1, 0.1*cm))
 
                     story.append(Spacer(1, 0.25*cm))
@@ -4294,7 +4344,7 @@ class CanteenApp(ctk.CTk):
                 story.append(pdf_table(
                     ["Notes", "Amount"],
                     [[_format_exp_note_pdf(r), f"Rs.{f_in(r['amount'])}"] for r in e_rows],
-                    [12.5*cm, 4*cm]))
+                    [12.0*cm, 5.0*cm]))
             else:
                 story.append(Paragraph("No expenditure recorded.", BODY))
             story.append(Spacer(1, 0.4*cm))
@@ -4315,7 +4365,7 @@ class CanteenApp(ctk.CTk):
                         [[it["item"], it["unit"], f"{it['qty']:.2f}",
                           f"Rs.{f_in(it['cp'], 2)}", f"Rs.{f_in(it['cost'])}"]
                          for it in items],
-                        [6.5*cm, 1.5*cm, 2.5*cm, 3*cm, 3*cm]))
+                        [7.0*cm, 1.5*cm, 2.5*cm, 3.0*cm, 3.0*cm]))
                     story.append(Spacer(1, 0.25*cm))
             story.append(Spacer(1, 0.25*cm))
 
@@ -4331,7 +4381,7 @@ class CanteenApp(ctk.CTk):
                     ["Item Name", "Unit", "Qty Received", "Rate/Unit", "Total Cost"],
                     [[item["item"], item["unit"], f"{item['qty']:.1f}", f"Rs.{f_in(item['rate'], 2)}", f"Rs.{f_in(item['cost'])}"]
                      for item in items],
-                    [6.5*cm, 1.5*cm, 2.5*cm, 3*cm, 3*cm]))
+                    [7.0*cm, 1.5*cm, 2.5*cm, 3.0*cm, 3.0*cm]))
                 story.append(Spacer(1, 0.25*cm))
         else:
             story.append(Paragraph("No inventory purchases recorded for this period.", BODY))
@@ -4344,12 +4394,30 @@ class CanteenApp(ctk.CTk):
         # 1. Sample Complimentary
         story.append(Paragraph("Sample Complimentary", SEC)); story.append(Spacer(1, 0.15*cm))
         if pdf_samp_complimentary:
-            story.append(pdf_table(
-                ["Date", "Item", "Qty", "Rate", "Cost", "Given To"],
-                [[s["date"], _resolve_meal_name(s["date"], s["meal"]), str(s["qty"]),
-                  f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["given_to"] or "General"]
-                 for s in pdf_samp_complimentary],
-                [2.5*cm, 5*cm, 1.5*cm, 2.5*cm, 2.5*cm, 3*cm]))
+            import collections as _col
+            import datetime as _dt
+            samp_by_date = _col.OrderedDict()
+            for s in pdf_samp_complimentary:
+                d = s["date"]
+                if d not in samp_by_date:
+                    samp_by_date[d] = []
+                samp_by_date[d].append(s)
+            
+            for date_str, items in samp_by_date.items():
+                try:
+                    d_obj = _dt.date.fromisoformat(date_str)
+                    date_display = d_obj.strftime("%A, %d %b %Y")
+                except Exception:
+                    date_display = date_str
+                
+                story.append(Paragraph(f"Date: {date_display}", S("PDF_SAMP_DATE", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)))
+                story.append(Spacer(1, 0.05*cm))
+                story.append(pdf_table(
+                    ["Item", "Qty", "Rate", "Cost", "Given To"],
+                    [[_resolve_meal_name(s["date"], s["meal"]), str(s["qty"]), f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["given_to"] or "General"]
+                     for s in items],
+                    [6.5*cm, 1.5*cm, 2.5*cm, 2.5*cm, 4.0*cm]))
+                story.append(Spacer(1, 0.2*cm))
         else:
             story.append(Paragraph("No complimentary samples recorded for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
@@ -4357,12 +4425,30 @@ class CanteenApp(ctk.CTk):
         # 2. Staff Update details
         story.append(Paragraph("Staff Update their details", SEC)); story.append(Spacer(1, 0.15*cm))
         if pdf_samp_staff:
-            story.append(pdf_table(
-                ["Date", "Item", "Qty", "Rate", "Cost", "Notes"],
-                [[s["date"], _resolve_meal_name(s["date"], s["meal"]), str(s["qty"]),
-                  f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["notes"] or "—"]
-                 for s in pdf_samp_staff],
-                [2.5*cm, 5*cm, 1.5*cm, 2.5*cm, 2.5*cm, 3*cm]))
+            import collections as _col
+            import datetime as _dt
+            staff_by_date = _col.OrderedDict()
+            for s in pdf_samp_staff:
+                d = s["date"]
+                if d not in staff_by_date:
+                    staff_by_date[d] = []
+                staff_by_date[d].append(s)
+            
+            for date_str, items in staff_by_date.items():
+                try:
+                    d_obj = _dt.date.fromisoformat(date_str)
+                    date_display = d_obj.strftime("%A, %d %b %Y")
+                except Exception:
+                    date_display = date_str
+                
+                story.append(Paragraph(f"Date: {date_display}", S("PDF_STF_DATE", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)))
+                story.append(Spacer(1, 0.05*cm))
+                story.append(pdf_table(
+                    ["Item", "Qty", "Rate", "Cost", "Notes"],
+                    [[_resolve_meal_name(s["date"], s["meal"]), str(s["qty"]), f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["notes"] or "—"]
+                     for s in items],
+                    [6.5*cm, 1.5*cm, 2.5*cm, 2.5*cm, 4.0*cm]))
+                story.append(Spacer(1, 0.2*cm))
         else:
             story.append(Paragraph("No staff consumption records for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
@@ -4374,7 +4460,7 @@ class CanteenApp(ctk.CTk):
             [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
               f"{i['closing']:.1f}","LOW" if i["closing"]<i["min_lvl"] else "OK"]
              for i in inv],
-            [4*cm, 2.5*cm, 1.5*cm, 2*cm, 2*cm, 2*cm, 2*cm]))
+            [4.5*cm, 2.5*cm, 1.5*cm, 2.0*cm, 2.0*cm, 2.5*cm, 2.0*cm]))
         story.append(Spacer(1, 0.5*cm))
 
         # Signature
