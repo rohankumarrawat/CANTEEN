@@ -3561,7 +3561,7 @@ class CanteenApp(ctk.CTk):
                 ch.pack(fill="x")
                 ch.pack_propagate(False)
                 ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
-                lbl(ch, f"  📂  {cat} Ration", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
+                lbl(ch, f"  📂  {cat}", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
                 lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
                 # Column header
                 thead(rc, [("Ingredient", 5), ("Unit", 2), ("Qty Used", 2), ("Rate/Unit", 2), ("Cost", 2)],
@@ -4156,7 +4156,7 @@ class CanteenApp(ctk.CTk):
                 for cat_name, items in ing_by_cat.items():
                     cat_total = sum(it["cost"] for it in items)
                     story.append(Paragraph(
-                        f"  📂  {cat_name} Ration (Subtotal: Rs.{f_in(cat_total)})",
+                        f"  📂  {cat_name} (Subtotal: Rs.{f_in(cat_total)})",
                         S("IC_PDF", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
                     ))
                     story.append(Spacer(1, 0.08*cm))
