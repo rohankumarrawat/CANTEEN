@@ -8092,10 +8092,14 @@ class CanteenApp(ctk.CTk):
                         for r in recipes:
                             restore_qty = r["qty_per_unit"] * qty_prepared
                             conn.execute("UPDATE inventory SET stock = stock + ? WHERE id = ?", (restore_qty, r["inv_id"]))
+                            # Remove original DAILY_MENU deduction + any prior Batch_Prep revert entries
+                            # for this ingredient on this date tied to this meal, so the item no longer
+                            # appears in the Edit Records inventory view after full deletion
                             conn.execute(
-                                "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
-                                "VALUES (?, ?, 'Batch_Prep', ?, ?)",
-                                (d, r["inv_id"], restore_qty, f"Daily menu delete: {meal} (Sale) x{qty_prepared} (reverted)")
+                                "DELETE FROM stock_ledger WHERE date=? AND inv_id=? "
+                                "AND transaction_type IN ('DAILY_MENU', 'Batch_Prep') "
+                                "AND notes LIKE ?",
+                                (d, r["inv_id"], f"%{meal}%")
                             )
                             
                         conn.execute(
