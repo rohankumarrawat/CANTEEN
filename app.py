@@ -4287,12 +4287,12 @@ class CanteenApp(ctk.CTk):
         # Column headers
         hdr = ctk.CTkFrame(mc, fg_color=STRIPE, corner_radius=0, height=32)
         hdr.pack(fill="x"); hdr.pack_propagate(False)
-        for col, w in [("Menu Item", 260), ("Type", 90), ("Day", 90), ("Price ₹", 70),
-                       ("Cost / Profit / Waste", 185), ("Staff", 60), ("Status", 70), ("Actions", 0)]:
+        for col, w in [("Menu Item", 220), ("Type", 80), ("Day", 70), ("Price ₹", 64),
+                       ("Cost / Profit / Waste", 180), ("Status", 64), ("Actions", 0)]:
             lbl(hdr, col, size=10, weight="bold", color=MID).pack(
-                side="left", padx=10, pady=6)
+                side="left", padx=8, pady=6)
             if w > 0:
-                ctk.CTkFrame(hdr, fg_color="transparent", width=max(0, w - 90)
+                ctk.CTkFrame(hdr, fg_color="transparent", width=max(0, w - 80)
                              ).pack(side="left")
 
         # Rows — query menu with per-item cogs, wastage from waste_tracker
@@ -4341,102 +4341,96 @@ class CanteenApp(ctk.CTk):
                 is_thali = any(x in name for x in ["THALI","BIRYANI","RICE","Thali","Biryani","Rice"])
                 icon = "🍱" if is_thali else "🍽"
 
-                rf = ctk.CTkFrame(mc, fg_color=bg2, corner_radius=0, height=52)
+                rf = ctk.CTkFrame(mc, fg_color=bg2, corner_radius=0, height=44)
                 rf._is_menu_row = True
                 rf.pack(fill="x"); rf.pack_propagate(False)
 
-                # Name
-                name_f = ctk.CTkFrame(rf, fg_color="transparent", width=260)
-                name_f.pack(side="left", fill="y", padx=(10,0))
+                # Name — truncated to prevent overflow
+                display_name = (name[:32] + "…") if len(name) > 32 else name
+                name_f = ctk.CTkFrame(rf, fg_color="transparent", width=220)
+                name_f.pack(side="left", fill="y", padx=(8,0))
                 name_f.pack_propagate(False)
-                lbl(name_f, f"{icon}  {name}", size=11, weight="bold",
+                lbl(name_f, f"{icon}  {display_name}", size=10, weight="bold",
                     color=DARK if m["active"] else MID).pack(side="left", anchor="w", pady=4)
 
-                # Type — from daily_menu; fallback to price heuristic
+                # Type
                 mtype = menu_type_map.get(name)
                 if not mtype:
                     if m["sp"] >= 70:   mtype = "Lunch"
                     elif m["sp"] >= 40: mtype = "Paratha"
                     else:               mtype = "Mini Meal"
                 type_color = {"Lunch": BLUE, "Paratha": ORANGE, "Mini Meal": TEAL}.get(mtype, MID)
-                cat_f = ctk.CTkFrame(rf, fg_color="transparent", width=90)
+                cat_f = ctk.CTkFrame(rf, fg_color="transparent", width=80)
                 cat_f.pack(side="left", fill="y"); cat_f.pack_propagate(False)
-                lbl(cat_f, mtype, size=10, weight="bold", color=type_color).pack(anchor="w", pady=4)
+                lbl(cat_f, mtype, size=9, weight="bold", color=type_color).pack(anchor="w", pady=4)
 
                 # Day
-                day_f = ctk.CTkFrame(rf, fg_color="transparent", width=90)
+                day_f = ctk.CTkFrame(rf, fg_color="transparent", width=70)
                 day_f.pack(side="left", fill="y"); day_f.pack_propagate(False)
                 days_str = ", ".join(d[:3] for d in menu_day_map.get(name, []))
                 lbl(day_f, days_str or "—", size=9, color=MID).pack(anchor="w", pady=4)
 
                 # Price
-                pr_f = ctk.CTkFrame(rf, fg_color="transparent", width=70)
+                pr_f = ctk.CTkFrame(rf, fg_color="transparent", width=64)
                 pr_f.pack(side="left", fill="y"); pr_f.pack_propagate(False)
-                lbl(pr_f, f"₹{m['sp']:.0f}", size=12, weight="bold",
+                lbl(pr_f, f"₹{m['sp']:.0f}", size=11, weight="bold",
                     color=GREEN if m["active"] else MID).pack(anchor="w", pady=4)
 
-                # Cost / Profit
+                # Cost / Profit — single compact line
                 cogs_val   = m["cogs"] if m["cogs"] else 0.0
                 profit_v   = m["sp"] - cogs_val
                 margin_pct = (profit_v / m["sp"] * 100) if m["sp"] > 0 else 0
                 wc_val     = waste_map.get(name, 0.0)
-                pf_f = ctk.CTkFrame(rf, fg_color="transparent", width=185)
+                pf_f = ctk.CTkFrame(rf, fg_color="transparent", width=180)
                 pf_f.pack(side="left", fill="y"); pf_f.pack_propagate(False)
                 if cogs_val > 0:
                     profit_color = GREEN if profit_v > 0 else RED
-                    lbl(pf_f, f"Cost ₹{cogs_val:.1f}  |  Profit ₹{profit_v:.1f} ({margin_pct:.0f}%)",
-                        size=9, weight="bold", color=profit_color).pack(anchor="w", pady=(2,0))
-                    lbl(pf_f, f"Waste ₹{wc_val:.1f}",
-                        size=9, color=ORANGE).pack(anchor="w", pady=(0,2))
+                    lbl(pf_f, f"Cost ₹{cogs_val:.1f} | Profit ₹{profit_v:.1f} ({margin_pct:.0f}%) | Waste ₹{wc_val:.1f}",
+                        size=8, weight="bold", color=profit_color).pack(anchor="w", pady=4)
                 else:
                     lbl(pf_f, "No cost data", size=9, color=MID).pack(anchor="w", pady=4)
 
-                # Staff
-                st_f = ctk.CTkFrame(rf, fg_color="transparent", width=60)
-                st_f.pack(side="left", fill="y"); st_f.pack_propagate(False)
-                lbl(st_f, str(m["default_staff"] or 0), size=11, weight="bold", color=DARK).pack(anchor="w", pady=4)
-
                 # Status
-                ac_f = ctk.CTkFrame(rf, fg_color="transparent", width=70)
+                ac_f = ctk.CTkFrame(rf, fg_color="transparent", width=64)
                 ac_f.pack(side="left", fill="y"); ac_f.pack_propagate(False)
-                lbl(ac_f, "✓ Active" if m["active"] else "✗ Off", size=10, weight="bold",
+                lbl(ac_f, "✓ Active" if m["active"] else "✗ Off", size=9, weight="bold",
                     color=GREEN if m["active"] else RED).pack(anchor="w", pady=4)
 
                 # Actions
                 af = ctk.CTkFrame(rf, fg_color="transparent")
-                af.pack(side="right", padx=(0, 8), fill="y")
-                ctk.CTkButton(af, text="🗑", width=30, height=28, corner_radius=6,
+                af.pack(side="right", padx=(0, 6), fill="y")
+                ctk.CTkButton(af, text="🗑", width=28, height=26, corner_radius=6,
                               fg_color="#FEE2E2", hover_color="#FECACA", text_color=RED,
-                              font=ctk.CTkFont(size=13),
+                              font=ctk.CTkFont(size=12),
                               command=lambda mid=m["id"],nm=name: self._delete_menu_item(mid, nm)
-                              ).pack(side="right", padx=(4,0))
+                              ).pack(side="right", padx=(2,0))
                 tog_txt = "Deactivate" if m["active"] else "Activate"
                 tog_clr = ORANGE if m["active"] else GREEN
-                ctk.CTkButton(af, text=tog_txt, width=84, height=28, corner_radius=6,
+                ctk.CTkButton(af, text=tog_txt, width=78, height=26, corner_radius=6,
                               fg_color=tog_clr,
                               hover_color=DGREEN if not m["active"] else "#EA580C",
-                              text_color=WHITE, font=ctk.CTkFont(size=10, weight="bold"),
+                              text_color=WHITE, font=ctk.CTkFont(size=9, weight="bold"),
                               command=lambda mid=m["id"],ac=m["active"]:
                                   self._toggle_menu_item(mid, not ac)
-                              ).pack(side="right", padx=(4,0))
-                ctk.CTkButton(af, text="✏️", width=30, height=28, corner_radius=6,
+                              ).pack(side="right", padx=(2,0))
+                ctk.CTkButton(af, text="✏️", width=28, height=26, corner_radius=6,
                               fg_color=BG_BLU, hover_color=T_BLU, text_color=BLUE,
-                              font=ctk.CTkFont(size=13),
+                              font=ctk.CTkFont(size=12),
                               command=lambda mid=m["id"],nm=name,sp=m["sp"],ac=m["active"]:
                                   self._modal_edit_menu(mid, nm, sp, ac)
-                              ).pack(side="right", padx=(4,0))
-                ctk.CTkButton(af, text="🔄", width=30, height=28, corner_radius=6,
+                              ).pack(side="right", padx=(2,0))
+                ctk.CTkButton(af, text="🔄", width=28, height=26, corner_radius=6,
                               fg_color="#FEF3C7", hover_color="#FDE68A", text_color="#92400E",
-                              font=ctk.CTkFont(size=13),
+                              font=ctk.CTkFont(size=12),
                               command=lambda mid=m["id"],nm=name:
                                   self._modal_update_batch(mid, nm)
-                              ).pack(side="right", padx=(4,0))
-                ctk.CTkButton(af, text="🥗", width=30, height=28, corner_radius=6,
+                              ).pack(side="right", padx=(2,0))
+                ctk.CTkButton(af, text="🥗", width=28, height=26, corner_radius=6,
                               fg_color=BG_GRN, hover_color=T_GRN, text_color=GREEN,
-                              font=ctk.CTkFont(size=13),
+                              font=ctk.CTkFont(size=12),
                               command=lambda mid=m["id"],nm=name:
                                   self._modal_edit_ingredients(mid, nm)
-                              ).pack(side="right", padx=(4,0))
+                              ).pack(side="right", padx=(2,0))
                 ix += 1
 
         search_var.trace_add("write", render_rows)
@@ -5588,14 +5582,14 @@ class CanteenApp(ctk.CTk):
             row = conn.execute("SELECT default_staff FROM menu WHERE id=?", (mid,)).fetchone()
             default_staff = row["default_staff"] if row else 0
 
-        body, card, close = self._show_modal(f"✏️  Edit Menu Item", 520, 480)
+        body, card, close = self._show_modal(f"✏️  Edit Menu Item", 520, 540)
 
         # Item name header
         ni = ctk.CTkFrame(body, fg_color=ARMY_BG, corner_radius=10)
         ni.pack(fill="x", pady=(0,14))
         lbl(ni, f"  🍽  {name}", size=14, weight="bold", color=WHITE).pack(
             padx=14, pady=(10,2), anchor="w")
-        lbl(ni, "  Edit selling price, staff consumption, and status below",
+        lbl(ni, "  Edit details, price, staff consumption, and status below",
             size=10, color=GOLD_LT).pack(padx=14, pady=(0,10), anchor="w")
 
         sep(body, color=BORDER, h=1).pack(fill="x", pady=(0,10))
@@ -5610,9 +5604,15 @@ class CanteenApp(ctk.CTk):
         lbl(info_row, status_txt, size=11, weight="bold", color=status_clr
             ).pack(side="right", padx=14, pady=8)
 
+        # Menu Item Name
+        lbl(body, "Menu Item Name", size=11, weight="bold",
+            color=ARMY_BG).pack(anchor="w", pady=(0,4))
+        e_name = entry(body, ph="e.g., Special Thali", h=42)
+        e_name.insert(0, name); e_name.pack(fill="x")
+
         # New price
         lbl(body, "New Selling Price (₹)", size=11, weight="bold",
-            color=ARMY_BG).pack(anchor="w", pady=(0,4))
+            color=ARMY_BG).pack(anchor="w", pady=(12,4))
         e_sp = entry(body, ph="e.g., 70", h=42)
         e_sp.insert(0, str(int(sp))); e_sp.pack(fill="x")
 
@@ -5632,6 +5632,10 @@ class CanteenApp(ctk.CTk):
         status_m.set("Active" if active else "Inactive"); status_m.pack(fill="x")
 
         def save():
+            new_name = e_name.get().strip()
+            if not new_name:
+                self._popup("⚠️ Invalid", "Menu item name cannot be empty."); return
+
             try:    new_sp = float(e_sp.get())
             except: self._popup("⚠️ Invalid", "Enter a numeric price."); return
             if new_sp <= 0: self._popup("⚠️ Invalid", "Price must be > 0."); return
@@ -5644,9 +5648,29 @@ class CanteenApp(ctk.CTk):
 
             new_ac = 1 if status_m.get() == "Active" else 0
             with get_db() as conn:
+                if new_name != name:
+                    # Check for case-insensitive duplicates
+                    dup = conn.execute("SELECT id FROM menu WHERE LOWER(name) = LOWER(?) AND id != ?", (new_name, mid)).fetchone()
+                    if dup:
+                        self._popup("⚠️ Duplicate Name", f"A menu item named '{new_name}' already exists.")
+                        return
+
+                    # Update menu name
+                    conn.execute("UPDATE menu SET name=? WHERE id=?", (new_name, mid))
+
+                    # Migrate historical waste tracker references
+                    conn.execute(
+                        "UPDATE waste_tracker SET reason = ? WHERE reason = ?",
+                        (f"Production waste - {new_name}", f"Production waste - {name}")
+                    )
+                    conn.execute(
+                        "UPDATE waste_tracker SET reason = ? WHERE reason = ?",
+                        (f"Batch update - {new_name}", f"Batch update - {name}")
+                    )
+
                 conn.execute("UPDATE menu SET sp=?,active=?,default_staff=? WHERE id=?",
                              (new_sp, new_ac, new_staff, mid))
-            self._toast(f"'{name}' updated  •  ₹{new_sp:.0f}  •  Staff: {new_staff}  •  {status_m.get()}")
+            self._toast(f"'{new_name}' updated  •  ₹{new_sp:.0f}  •  Staff: {new_staff}  •  {status_m.get()}")
             close(); self._switch_master_tab("menu")
 
         btn(card, "✅  Save Changes", save, fg=GREEN, hv=DGREEN, h=46).pack(
