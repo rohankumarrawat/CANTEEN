@@ -3215,14 +3215,16 @@ class CanteenApp(ctk.CTk):
         with get_db() as conn:
             inv_query = """
                 SELECT
-                    i.item, i.cat, i.unit, i.min_lvl,
-                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date < ?) AS opening,
-                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date >= ? AND date <= ? AND transaction_type = 'Received') AS received,
-                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date <= ?) AS stock
+                    i.item, i.cat, i.unit, i.min_lvl, i.stock,
+                    COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND date >= ? AND date <= ?
+                               AND transaction_type = 'Received'), 0) AS received,
+                    i.stock - COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND date >= ? AND date <= ?), 0) AS opening
                 FROM inventory i
                 ORDER BY i.cat, i.item
             """
-            inv = conn.execute(inv_query, (start, start, end, end)).fetchall()
+            inv = conn.execute(inv_query, (start, end, start, end)).fetchall()
             samp_rows = conn.execute(
                 "SELECT * FROM samples WHERE date>=? AND date<=? ORDER BY date DESC",
                 (start, end)).fetchall()
@@ -3674,7 +3676,7 @@ class CanteenApp(ctk.CTk):
 
         # Inventory closing stock
         self._rept_section(rc,"Inventory Closing Stock",
-            [("Item",4),("Category",2),("Unit",2),("Opening",2),("Received",2),("Stock",2),("Status",2)],
+            [("Item",4),("Category",2),("Unit",2),("Opening",2),("Received",2),("Closing",2),("Status",2)],
             [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
               f"{i['stock']:.1f}","⚠ LOW" if i["stock"]<i["min_lvl"] else "✓ OK"]
              for i in inv],
@@ -3736,15 +3738,17 @@ class CanteenApp(ctk.CTk):
             samp_rows = conn.execute("SELECT * FROM samples WHERE date>=? AND date<=? ORDER BY date DESC",
                                      (start,end)).fetchall()
             inv_query = """
-                SELECT 
-                    i.item, i.cat, i.unit, i.min_lvl,
-                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date < ?) AS opening,
-                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date >= ? AND date <= ? AND transaction_type = 'Received') AS received,
-                    (SELECT COALESCE(SUM(qty_change), 0) FROM stock_ledger WHERE inv_id = i.id AND date <= ?) AS stock
+                SELECT
+                    i.item, i.cat, i.unit, i.min_lvl, i.stock,
+                    COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND date >= ? AND date <= ?
+                               AND transaction_type = 'Received'), 0) AS received,
+                    i.stock - COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND date >= ? AND date <= ?), 0) AS opening
                 FROM inventory i
                 ORDER BY i.cat, i.item
             """
-            inv = conn.execute(inv_query, (start, start, end, end)).fetchall()
+            inv = conn.execute(inv_query, (start, end, start, end)).fetchall()
             sched_name_map = {}
             for row in conn.execute("SELECT dm.day, dm.meal_type, m.name FROM daily_menu dm JOIN menu m ON m.id=dm.menu_id"):
                 sched_name_map[(row["day"], row["meal_type"])] = row["name"]
