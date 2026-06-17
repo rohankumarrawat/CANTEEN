@@ -432,24 +432,22 @@ def trow(parent, cols_vals, col_weights, colors=None, bolds=None,
     n   = len(cols_vals)
     clr = colors or [DARK] * n
     bld = bolds  or [False] * n
-    rf  = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0, height=row_h)
+    rf  = tk.Frame(parent, bg=bg, height=row_h)
     rf.pack(fill="x")
     rf.pack_propagate(False)
     uid = abs(hash(tuple(col_weights)))
     total_wt = sum(col_weights) if col_weights else 1
     for j, (v, wt, c, b) in enumerate(zip(cols_vals, col_weights, clr, bld)):
-        cell = ctk.CTkFrame(rf, fg_color="transparent", corner_radius=0)
-        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
-        
         # Clip long text with ellipsis to prevent overflow
         text = str(v)
         limit = max(10, int(130 * wt / total_wt))
         if len(text) > limit:
             text = text[:limit-1] + "…"
             
-        lbl(cell, text, size=11, weight="bold" if b else "normal", color=c).pack(
-            anchor="w", padx=padx, pady=9)
-        cell.grid_columnconfigure(0, weight=1)
+        lbl_w = tk.Label(rf, text=text, bg=bg, fg=c,
+                         font=("Helvetica", 11, "bold" if b else "normal"),
+                         anchor="w")
+        lbl_w.grid(row=0, column=j, padx=padx, pady=0, sticky="ew")
         rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}")
     rf.grid_rowconfigure(0, weight=1)
     return rf
@@ -1705,8 +1703,11 @@ class CanteenApp(ctk.CTk):
             # Convert to plain dicts so we can use them off the Row object
             data = [dict(d) for d in data]
             # Schedule render back on main thread
-            if self.winfo_exists():
-                self.after(0, lambda: self._inv_on_data_ready(data, search_q))
+            try:
+                if self.winfo_exists():
+                    self.after(0, lambda: self._inv_on_data_ready(data, search_q))
+            except Exception:
+                pass
 
         threading.Thread(target=_fetch, daemon=True).start()
 
@@ -1731,31 +1732,42 @@ class CanteenApp(ctk.CTk):
         ci = {"Dry":"🌾","Fresh":"🥦","Milk Based Product":"🥛","Misc":"📦","Packing Material":"🛍️","Misc(Civ. Payment)":"💰"}
         widths = [w for _, w in self._inv_hdr]
 
-        for ix, item in enumerate(data):
-            low = item["stock"] < item["min_lvl"]
-            bg2 = "#FEE2E2" if low else (WHITE if ix % 2 == 0 else STRIPE)
+        def render_chunk(start_idx):
+            if not self._inv_sf.winfo_exists():
+                return
+            end_idx = min(start_idx + 30, len(data))
+            for ix in range(start_idx, end_idx):
+                item = data[ix]
+                low = item["stock"] < item["min_lvl"]
+                bg2 = "#FEE2E2" if low else (WHITE if ix % 2 == 0 else STRIPE)
 
-            rf = ctk.CTkFrame(self._inv_sf, fg_color=bg2, corner_radius=0, height=40)
-            rf.pack(fill="x"); rf.pack_propagate(False)
+                rf = tk.Frame(self._inv_sf, bg=bg2, height=40)
+                rf.pack(fill="x"); rf.pack_propagate(False)
 
-            cat_icon = ci.get(item["cat"], "•")
-            vals = [
-                (f"  {item['item']}",        True,  DARK),
-                (f"{cat_icon} {item['cat']}", False, MID),
-                (item["unit"],               False, MID),
-                (f"{item['opening']:.1f}",   False, MID),
-                (f"{item['received']:.1f}",  False, MID),
-                (f"{item['stock']:.1f}",     True,  RED if low else GREEN),
-                (f"{item['min_lvl']:.1f}",   False, MID),
-                ("⚠ LOW" if low else "✓ OK", True,  RED if low else GREEN),
-            ]
+                cat_icon = ci.get(item["cat"], "•")
+                vals = [
+                    (f"  {item['item']}",        True,  DARK),
+                    (f"{cat_icon} {item['cat']}", False, MID),
+                    (item["unit"],               False, MID),
+                    (f"{item['opening']:.1f}",   False, MID),
+                    (f"{item['received']:.1f}",  False, MID),
+                    (f"{item['stock']:.1f}",     True,  RED if low else GREEN),
+                    (f"{item['min_lvl']:.1f}",   False, MID),
+                    ("⚠ LOW" if low else "✓ OK", True,  RED if low else GREEN),
+                ]
 
-            for (val, bold, color), w in zip(vals, widths):
-                cf = ctk.CTkFrame(rf, fg_color="transparent", width=w)
-                cf.pack(side="left", fill="y"); cf.pack_propagate(False)
-                lbl(cf, str(val), size=11,
-                    weight="bold" if bold else "normal",
-                    color=color).pack(anchor="w", padx=10, pady=6)
+                for (val, bold, color), w in zip(vals, widths):
+                    cf = tk.Frame(rf, bg=bg2, width=w)
+                    cf.pack(side="left", fill="y"); cf.pack_propagate(False)
+                    lbl_w = tk.Label(cf, text=str(val), bg=bg2, fg=color,
+                                     font=("Helvetica", 11, "bold" if bold else "normal"),
+                                     anchor="w")
+                    lbl_w.pack(anchor="w", padx=10, pady=6)
+
+            if end_idx < len(data):
+                self.after(10, lambda: render_chunk(end_idx))
+
+        render_chunk(0)
 
     def _dlg_inv_add(self):
         body, card, close = self._show_modal("＋  Add New Inventory Item", 540, 520)
@@ -2818,34 +2830,57 @@ class CanteenApp(ctk.CTk):
         total = sum(r["amount"] for r in rows)
         esf = ctk.CTkScrollableFrame(ec, fg_color="transparent")
         esf.pack(fill="both", expand=True)
-        for ix, r in enumerate(rows):
-            bg2 = WHITE if ix%2==0 else STRIPE
-            rf = ctk.CTkFrame(esf, fg_color=bg2, corner_radius=0, height=38)
-            rf.pack(fill="x"); rf.pack_propagate(False)
-            for j,(v,wt) in enumerate(zip(
-                    [r["date"],r["category"],f"Rs. {f_in(r['amount'])}",r["notes"] or "—"],
-                    [2,3,2,4])):
-                lbl(rf,v,size=11,color=DARK if j<2 else MID,
-                    weight="bold" if j==2 else "normal").grid(row=0,column=j,padx=14,sticky="w")
-                rf.grid_columnconfigure(j,weight=wt)
-            
-            action_frame = ctk.CTkFrame(rf, fg_color="transparent")
-            action_frame.grid(row=0, column=4, padx=8, sticky="e")
-            rf.grid_columnconfigure(4, weight=2)
-            
-            edit_btn = ctk.CTkButton(action_frame, text="✏️", width=28, height=26,
-                                     fg_color=STRIPE, hover_color=ARMY_HVR,
-                                     text_color=BLUE, corner_radius=6,
-                                     font=ctk.CTkFont(size=11),
-                                     command=lambda rdata=dict(r): self._dlg_exp_edit(rdata))
-            edit_btn.pack(side="left", padx=2)
 
-            del_btn = ctk.CTkButton(action_frame, text="🗑", width=28, height=26,
-                                    fg_color=STRIPE, hover_color=T_RED,
-                                    text_color=RED, corner_radius=6,
-                                    font=ctk.CTkFont(size=11),
-                                    command=lambda rid=r["id"]: self._del_exp(rid))
-            del_btn.pack(side="left", padx=2)
+        col_weights = [2, 3, 2, 4, 2]
+        uid = abs(hash(tuple(col_weights)))
+
+        def render_chunk(start_idx):
+            if not esf.winfo_exists():
+                return
+            end_idx = min(start_idx + 30, len(rows))
+            for ix in range(start_idx, end_idx):
+                r = rows[ix]
+                bg2 = WHITE if ix % 2 == 0 else STRIPE
+                
+                rf = tk.Frame(esf, bg=bg2, height=38)
+                rf.pack(fill="x")
+                rf.pack_propagate(False)
+                
+                vals = [r["date"], r["category"], f"Rs. {f_in(r['amount'])}", r["notes"] or "—"]
+                wts = [2, 3, 2, 4]
+                clrs = [DARK, DARK, MID, MID]
+                bolds = [False, False, True, False]
+                
+                for j, (v, wt, col, bold) in enumerate(zip(vals, wts, clrs, bolds)):
+                    lbl_w = tk.Label(rf, text=str(v), bg=bg2, fg=col,
+                                     font=("Helvetica", 11, "bold" if bold else "normal"),
+                                     anchor="w")
+                    lbl_w.grid(row=0, column=j, padx=14, pady=0, sticky="ew")
+                    rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid}")
+                
+                action_frame = tk.Frame(rf, bg=bg2)
+                action_frame.grid(row=0, column=4, padx=8, sticky="e")
+                rf.grid_columnconfigure(4, weight=2, uniform=f"grp_{uid}")
+                rf.grid_rowconfigure(0, weight=1)
+                
+                edit_btn = ctk.CTkButton(action_frame, text="✏️", width=28, height=26,
+                                         fg_color=STRIPE, hover_color=ARMY_HVR,
+                                         text_color=BLUE, corner_radius=6,
+                                         font=ctk.CTkFont(size=11),
+                                         command=lambda rdata=dict(r): self._dlg_exp_edit(rdata))
+                edit_btn.pack(side="left", padx=2)
+
+                del_btn = ctk.CTkButton(action_frame, text="🗑", width=28, height=26,
+                                        fg_color=STRIPE, hover_color=T_RED,
+                                        text_color=RED, corner_radius=6,
+                                        font=ctk.CTkFont(size=11),
+                                        command=lambda rid=r["id"]: self._del_exp(rid))
+                del_btn.pack(side="left", padx=2)
+                
+            if end_idx < len(rows):
+                self.after(10, lambda: render_chunk(end_idx))
+
+        render_chunk(0)
 
         totf = ctk.CTkFrame(ec, fg_color=BG_RED, corner_radius=0, height=36)
         totf.pack(fill="x"); totf.pack_propagate(False)
@@ -3451,6 +3486,199 @@ class CanteenApp(ctk.CTk):
                   f"Rs. {f_in(r['cogs'])}",f"Rs. {f_in(r['sp']*r['sold'])}",r["payment"]]
                  for r in s_rows],
                 [3,5,1,2,2,2,4,2,2])
+        def render_trailing_parts():
+            # Payment breakdown
+            pmf = ctk.CTkFrame(rc, fg_color="transparent"); pmf.pack(fill="x", padx=PAD, pady=(20,0))
+            pmf.grid_rowconfigure(0,weight=1)
+            for i,(mode,amt,clr,bg_c,br) in enumerate([
+                ("💵 Cash",cash_a,GREEN,BG_GRN,T_GRN),
+                ("📱 UPI",upi_a,PURPLE,BG_PUR,T_PUR),
+                ("💳 Card",card_a,BLUE,BG_BLU,T_BLU),
+            ]):
+                pc = card(pmf,fg_color=bg_c,border_color=br)
+                pc.grid(row=0,column=i,padx=(0 if i==0 else 10),sticky="nsew")
+                pmf.grid_columnconfigure(i,weight=1)
+                lbl(pc,mode,size=13,weight="bold",color=clr).pack(padx=16,pady=(14,4),anchor="w")
+                lbl(pc,f"Rs. {f_in(amt)}",size=20,weight="bold",color=clr).pack(padx=16,pady=(0,2),anchor="w")
+                pct = f"{amt/rev*100:.0f}%" if rev else "0%"
+                lbl(pc,pct,size=10,color=MID).pack(padx=16,pady=(0,14),anchor="w")
+
+            # Expenditure — Dry / Fresh / Misc ingredient-level breakdown
+            CAT_CLR = {"Dry": ("#FF9933", "#253D27"), "Fresh": (TEAL, "#0E2C2B"),
+                       "Misc": (PURPLE, "#1E1733")}
+            if ing_by_cat:
+                band(rc, "📊  Expenditure Breakdown — Ingredients by Category", bg=ARMY_BG, tc=GOLD_LT, h=40)
+                ing_grand_total = sum(i["cost"] for items in ing_by_cat.values() for i in items)
+                for cat, items in ing_by_cat.items():
+                    cat_total = sum(i["cost"] for i in items)
+                    accent, hdr_bg = CAT_CLR.get(cat, (SAFFRON, "#253D27"))
+                    ch = ctk.CTkFrame(rc, fg_color=hdr_bg, corner_radius=0, height=34)
+                    ch.pack(fill="x")
+                    ch.pack_propagate(False)
+                    ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
+                    lbl(ch, f"  📂  {cat}", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
+                    lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
+                    thead(rc, [("Ingredient", 5), ("Unit", 2), ("Qty Used", 2), ("Rate/Unit", 2), ("Cost", 2)],
+                          bg=STRIPE, tc=MID)
+                    for ix, item in enumerate(items):
+                        clrs = [DARK, MID, DARK, MID, GREEN]
+                        trow(rc,
+                             [item["item"],
+                              item["unit"],
+                              f"{item['qty']:.2f}",
+                              f"Rs. {f_in(item['cp'], 2)}",
+                              f"Rs. {f_in(item['cost'])}"],
+                             [5, 2, 2, 2, 2],
+                             colors=clrs,
+                             bg=WHITE if ix % 2 == 0 else STRIPE)
+                    # Category subtotal bar
+                    sub_rf = ctk.CTkFrame(rc, fg_color="#E8F5E9", corner_radius=0, height=34)
+                    sub_rf.pack(fill="x")
+                    sub_rf.pack_propagate(False)
+                    uid_sub = abs(hash(cat + "sub"))
+                    for j, (txt, wt, bold) in enumerate([
+                        (f"{cat} Subtotal", 5, True),
+                        (f"{len(items)} ingredients", 2, False),
+                        ("", 2, False),
+                        ("", 2, False),
+                        (f"Rs. {f_in(cat_total)}", 2, True)
+                    ]):
+                        cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
+                        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
+                        lbl(cell, txt, size=11, weight="bold" if bold else "normal",
+                            color=ARMY_BG if bold else MID).pack(anchor="w", padx=8, pady=8)
+                        cell.grid_columnconfigure(0, weight=1)
+                        sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
+                    sub_rf.grid_rowconfigure(0, weight=1)
+                # Grand total footer
+                gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=44)
+                gt_f.pack(fill="x")
+                gt_f.pack_propagate(False)
+                lbl(gt_f, "  💸  Grand Total — All Ingredients", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
+                lbl(gt_f, f"Rs. {f_in(ing_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+
+            # Inventory Purchases Breakdown
+            if gr_by_cat:
+                band(rc, "📦  Inventory Purchases Breakdown — Goods Received", bg=ARMY_BG, tc=GOLD_LT, h=40)
+                gr_grand_total = sum(i["cost"] for items in gr_by_cat.values() for i in items)
+                for cat, items in gr_by_cat.items():
+                    cat_total = sum(i["cost"] for i in items)
+                    accent, hdr_bg = CAT_CLR.get(cat, (SAFFRON, "#253D27"))
+                    ch = ctk.CTkFrame(rc, fg_color=hdr_bg, corner_radius=0, height=34)
+                    ch.pack(fill="x")
+                    ch.pack_propagate(False)
+                    ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
+                    lbl(ch, f"  📂  {cat} Purchases", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
+                    lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
+                    thead(rc, [("Item Name", 5), ("Unit", 2), ("Qty Received", 2), ("Rate/Unit", 2), ("Total Cost", 2)],
+                          bg=STRIPE, tc=MID)
+                    for ix, item in enumerate(items):
+                        clrs = [DARK, MID, DARK, MID, GREEN]
+                        trow(rc,
+                             [item["item"],
+                              item["unit"],
+                              f"{item['qty']:.2f}",
+                              f"Rs. {f_in(item['rate'], 2)}",
+                              f"Rs. {f_in(item['cost'])}"],
+                             [5, 2, 2, 2, 2],
+                             colors=clrs,
+                             bg=WHITE if ix % 2 == 0 else STRIPE)
+                    # Category subtotal bar
+                    sub_rf = ctk.CTkFrame(rc, fg_color="#E8F5E9", corner_radius=0, height=34)
+                    sub_rf.pack(fill="x")
+                    sub_rf.pack_propagate(False)
+                    uid_sub = abs(hash(cat + "gr_sub"))
+                    for j, (txt, wt, bold) in enumerate([
+                        (f"{cat} Purchases Subtotal", 5, True),
+                        (f"{len(items)} items", 2, False),
+                        ("", 2, False),
+                        ("", 2, False),
+                        (f"Rs. {f_in(cat_total)}", 2, True)
+                    ]):
+                        cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
+                        cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
+                        lbl(cell, txt, size=11, weight="bold" if bold else "normal",
+                            color=ARMY_BG if bold else MID).pack(anchor="w", padx=8, pady=8)
+                        cell.grid_columnconfigure(0, weight=1)
+                        sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
+                    sub_rf.grid_rowconfigure(0, weight=1)
+                # Grand total footer
+                gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=44)
+                gt_f.pack(fill="x")
+                gt_f.pack_propagate(False)
+                lbl(gt_f, "  📦  Grand Total — All Purchases", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
+                lbl(gt_f, f"Rs. {f_in(gr_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+
+            if e_rows:
+                def _format_exp_note(r):
+                    raw_note = r["notes"] or ""
+                    import re as _re
+                    m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
+                    if m:
+                        return _resolve_meal_name(r["date"], m.group(1).strip())
+                    return raw_note or "—"
+
+                self._rept_section(rc, "Expenditure Summary",
+                    [("Notes", 8), ("Amount", 2)],
+                    [[_format_exp_note(r), f"Rs. {f_in(r['amount'])}"] for r in e_rows],
+                    [8, 2])
+
+            # Samples split into Complimentary and Staff
+            samp_complimentary = [s for s in samp_rows if (s["given_to"] or "").strip().lower() != "staff"]
+            samp_staff         = [s for s in samp_rows if (s["given_to"] or "").strip().lower() == "staff"]
+
+            # Complimentary Samples section
+            if samp_complimentary:
+                self._rept_section(rc, "🎁  Sample Complimentary",
+                    [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Given To",3)],
+                    [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
+                      f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["given_to"] or "General"]
+                     for s in samp_complimentary],
+                    [3,5,1,2,2,3])
+            else:
+                band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
+
+            # Staff Update their details section
+            if samp_staff:
+                self._rept_section(rc, "👨‍🍳  Staff Update their details",
+                    [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Notes",3)],
+                    [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
+                      f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["notes"] or "—"]
+                     for s in samp_staff],
+                    [3,5,1,2,2,3])
+
+            # Inventory closing stock
+            self._rept_section(rc,"Inventory Closing Stock",
+                [("Item",4),("Category",2),("Unit",2),("Opening",2),("Received",2),("Closing",2),("Status",2)],
+                [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
+                  f"{i['closing']:.1f}","⚠ LOW" if i["closing"]<i["min_lvl"] else "✓ OK"]
+                 for i in inv],
+                [4,2,2,2,2,2,2])
+
+            # Signature block
+            sf = ctk.CTkFrame(rc, fg_color="transparent"); sf.pack(fill="x", padx=PAD, pady=(20,16))
+            sf.grid_rowconfigure(0,weight=1)
+            for i,(role,name) in enumerate([
+                ("NCO I/C", "Canteen NCO In-Charge"),
+                ("JCO I/C", "Junior Commissioned Officer"),
+                ("OIC", "Officer In-Charge (Captain)"),
+            ]):
+                sc = card(sf); sc.grid(row=0,column=i,padx=(0 if i==0 else 14),sticky="nsew")
+                sf.grid_columnconfigure(i,weight=1)
+                lbl(sc,role,size=10,color=MID,weight="bold").pack(padx=14,pady=(12,2),anchor="w")
+                lbl(sc,name,size=11,color=DARK).pack(padx=14,anchor="w")
+                lbl(sc,"Signature: ________________________",size=10,color=MID).pack(padx=14,pady=(8,4),anchor="w")
+                lbl(sc,f"Date: {end}",size=10,color=MID).pack(padx=14,pady=(0,12),anchor="w")
+
+            ft = ctk.CTkFrame(rc, fg_color="transparent", height=6); ft.pack(fill="x"); ft.pack_propagate(False)
+            for c in (SAFFRON, WHITE, IND_GREEN):
+                ctk.CTkFrame(ft, fg_color=c).pack(side="left", fill="both", expand=True)
+            lbl(rc,"जय हिन्द  •  RESTRICTED — For Official Use Only  •  " +
+                datetime.now().strftime("Generated: %d %b %Y %I:%M %p"),
+                size=9, color=MID).pack(pady=(8,14))
+
+        if start == end:
+            render_trailing_parts()
         else:
             # Group sales by date
             import collections as _col
@@ -3477,299 +3705,116 @@ class CanteenApp(ctk.CTk):
 
             if not all_dates:
                 band(rc, "No records found for this period", bg=STRIPE, tc=MID, h=36)
+                render_trailing_parts()
             else:
-                for date_str in all_dates:
-                    day_rows = sales_by_date.get(date_str, [])
-                    day_exps = exp_by_date.get(date_str, [])
+                def render_dates_chunk(start_idx):
+                    if not rc.winfo_exists():
+                        return
+                    end_idx = min(start_idx + 2, len(all_dates))
+                    for idx in range(start_idx, end_idx):
+                        date_str = all_dates[idx]
+                        day_rows = sales_by_date.get(date_str, [])
+                        day_exps = exp_by_date.get(date_str, [])
 
-                    day_sold = sum(r["sold"] for r in day_rows)
-                    day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
-                    day_exp = sum(e["amount"] for e in day_exps)
+                        day_sold = sum(r["sold"] for r in day_rows)
+                        day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
+                        day_exp = sum(e["amount"] for e in day_exps)
 
-                    try:
-                        d_obj = _dt.date.fromisoformat(date_str)
-                        date_display = d_obj.strftime("%A, %d %b %Y")
-                    except Exception:
-                        date_display = date_str
+                        try:
+                            d_obj = _dt.date.fromisoformat(date_str)
+                            date_display = d_obj.strftime("%A, %d %b %Y")
+                        except Exception:
+                            date_display = date_str
 
-                    # Date header sub-band (with day totals on the right)
-                    dh = ctk.CTkFrame(rc, fg_color="#253D27", corner_radius=0, height=32)
-                    dh.pack(fill="x")
-                    dh.pack_propagate(False)
-                    ctk.CTkFrame(dh, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
-                    lbl(dh, f"  📅  {date_display}", size=11, weight="bold", color=GOLD_LT).pack(side="left", padx=8)
+                        # Date header sub-band (with day totals on the right)
+                        dh = ctk.CTkFrame(rc, fg_color="#253D27", corner_radius=0, height=32)
+                        dh.pack(fill="x")
+                        dh.pack_propagate(False)
+                        ctk.CTkFrame(dh, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+                        lbl(dh, f"  📅  {date_display}", size=11, weight="bold", color=GOLD_LT).pack(side="left", padx=8)
 
-                    # Prepare summary text for the header
-                    info_parts = []
-                    if day_rows:
-                        info_parts.append(f"Sold: {day_sold} (Rs. {f_in(day_rev)})")
-                    if day_exps:
-                        info_parts.append(f"Exp: Rs. {f_in(day_exp)}")
-                    lbl(dh, "  |  ".join(info_parts), size=10, color=SAFFRON).pack(side="right", padx=14)
+                        # Prepare summary text for the header
+                        info_parts = []
+                        if day_rows:
+                            info_parts.append(f"Sold: {day_sold} (Rs. {f_in(day_rev)})")
+                        if day_exps:
+                            info_parts.append(f"Exp: Rs. {f_in(day_exp)}")
+                        lbl(dh, "  |  ".join(info_parts), size=10, color=SAFFRON).pack(side="right", padx=14)
 
-                    # 1. Render Meal Sales Table
-                    if day_rows:
-                        thead(rc, [("Meal Item", 8), ("Sold", 2), ("Wastage", 2), ("Sample", 2), ("Staff", 2), ("Cost of Goods Sold", 5), ("Revenue", 3), ("Payment", 3)], bg=STRIPE, tc=MID)
-                        for ix, r in enumerate(day_rows):
-                            trow(rc, [
-                                _resolve_meal_name(r["date"], r["meal"]),
-                                str(r["sold"]),
-                                str(r["wastage"]),
-                                str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                                str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                                f"Rs. {f_in(r['cogs'])}",
-                                f"Rs. {f_in(r['sp']*r['sold'])}",
-                                r["payment"]
-                            ], [8,2,2,2,2,5,3,3], bg=WHITE if ix % 2 == 0 else STRIPE)
-
-                    # 2. Render Expenditure Table
-                    if day_exps:
-                        cats = sorted(list(set(e["category"] for e in day_exps)))
-                        cats_str = ", ".join(cats)
-                        lbl(rc, f"   💸  Expenditures {cats_str}:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
-                        thead(rc, [("Category", 3), ("Meal / Batch", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
-                        import re as _re
-                        for ix, e in enumerate(day_exps):
-                            # Parse meal type out of auto-generated notes e.g. "Auto-expenditure for LUNCH batch"
-                            raw_note = e["notes"] or ""
-                            m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
-                            if m:
-                                meal_token = m.group(1)
-                                resolved   = _resolve_meal_name(date_str, meal_token)
-                                batch_lbl  = resolved
-                                note_txt   = "Auto batch"
-                            else:
-                                batch_lbl = raw_note or "—"
-                                note_txt  = ""
-                            trow(rc, [
-                                e["category"],
-                                batch_lbl,
-                                f"Rs. {f_in(e['amount'])}",
-                                note_txt or "—"
-                            ], [3,5,2,3], bg=WHITE if ix % 2 == 0 else STRIPE)
-
-                    # 3. Ingredients used this day (grouped by category)
-                    day_ings = ing_by_date.get(date_str, {})
-                    if day_ings:
-                        lbl(rc, "   🧂  Ingredients Used:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
-                        for cat_name, items in day_ings.items():
-                            # Category sub-header
-                            cat_hdr = ctk.CTkFrame(rc, fg_color="#E8F0E8", corner_radius=0, height=22)
-                            cat_hdr.pack(fill="x")
-                            cat_hdr.pack_propagate(False)
-                            ctk.CTkFrame(cat_hdr, fg_color=SAFFRON, width=3, corner_radius=0).pack(side="left", fill="y")
-                            cat_total = sum(it["cost"] for it in items)
-                            lbl(cat_hdr, f"  {cat_name}", size=9, weight="bold", color=ARMY_BG).pack(side="left", padx=6)
-                            lbl(cat_hdr, f"Rs. {f_in(cat_total)}", size=9, weight="bold", color=ARMY_BG).pack(side="right", padx=10)
-                            # Items under this category
-                            thead(rc, [("Item", 6), ("Qty Used", 2), ("Unit", 2), ("Rate/Unit", 2), ("Cost", 2)], bg=STRIPE, tc=MID)
-                            for jx, it in enumerate(items):
+                        # 1. Render Meal Sales Table
+                        if day_rows:
+                            thead(rc, [("Meal Item", 8), ("Sold", 2), ("Wastage", 2), ("Sample", 2), ("Staff", 2), ("Cost of Goods Sold", 5), ("Revenue", 3), ("Payment", 3)], bg=STRIPE, tc=MID)
+                            for ix, r in enumerate(day_rows):
                                 trow(rc, [
-                                    it["item"],
-                                    f"{it['qty']:.2f}",
-                                    it["unit"],
-                                    f"Rs. {f_in(it['cp'], 2)}",
-                                    f"Rs. {f_in(it['cost'], 2)}"
-                                ], [6,2,2,2,2], bg=WHITE if jx % 2 == 0 else STRIPE)
+                                    _resolve_meal_name(r["date"], r["meal"]),
+                                    str(r["sold"]),
+                                    str(r["wastage"]),
+                                    str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
+                                    str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
+                                    f"Rs. {f_in(r['cogs'])}",
+                                    f"Rs. {f_in(r['sp']*r['sold'])}",
+                                    r["payment"]
+                                ], [8,2,2,2,2,5,3,3], bg=WHITE if ix % 2 == 0 else STRIPE)
 
-                    # Small spacer between days
-                    ctk.CTkFrame(rc, fg_color="transparent", height=10).pack(fill="x")
+                        # 2. Render Expenditure Table
+                        if day_exps:
+                            cats = sorted(list(set(e["category"] for e in day_exps)))
+                            cats_str = ", ".join(cats)
+                            lbl(rc, f"   💸  Expenditures {cats_str}:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                            thead(rc, [("Category", 3), ("Meal / Batch", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
+                            import re as _re
+                            for ix, e in enumerate(day_exps):
+                                # Parse meal type out of auto-generated notes e.g. "Auto-expenditure for LUNCH batch"
+                                raw_note = e["notes"] or ""
+                                m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
+                                if m:
+                                    meal_token = m.group(1)
+                                    resolved   = _resolve_meal_name(date_str, meal_token)
+                                    batch_lbl  = resolved
+                                    note_txt   = "Auto batch"
+                                else:
+                                    batch_lbl = raw_note or "—"
+                                    note_txt  = ""
+                                trow(rc, [
+                                    e["category"],
+                                    batch_lbl,
+                                    f"Rs. {f_in(e['amount'])}",
+                                    note_txt or "—"
+                                ], [3,5,2,3], bg=WHITE if ix % 2 == 0 else STRIPE)
 
-        # Payment breakdown
-        pmf = ctk.CTkFrame(rc, fg_color="transparent"); pmf.pack(fill="x", padx=PAD, pady=(20,0))
-        pmf.grid_rowconfigure(0,weight=1)
-        for i,(mode,amt,clr,bg_c,br) in enumerate([
-            ("💵 Cash",cash_a,GREEN,BG_GRN,T_GRN),
-            ("📱 UPI",upi_a,PURPLE,BG_PUR,T_PUR),
-            ("💳 Card",card_a,BLUE,BG_BLU,T_BLU),
-        ]):
-            pc = card(pmf,fg_color=bg_c,border_color=br)
-            pc.grid(row=0,column=i,padx=(0 if i==0 else 10),sticky="nsew")
-            pmf.grid_columnconfigure(i,weight=1)
-            lbl(pc,mode,size=13,weight="bold",color=clr).pack(padx=16,pady=(14,4),anchor="w")
-            lbl(pc,f"Rs. {f_in(amt)}",size=20,weight="bold",color=clr).pack(padx=16,pady=(0,2),anchor="w")
-            pct = f"{amt/rev*100:.0f}%" if rev else "0%"
-            lbl(pc,pct,size=10,color=MID).pack(padx=16,pady=(0,14),anchor="w")
+                        # 3. Ingredients used this day (grouped by category)
+                        day_ings = ing_by_date.get(date_str, {})
+                        if day_ings:
+                            lbl(rc, "   🧂  Ingredients Used:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                            for cat_name, items in day_ings.items():
+                                # Category sub-header
+                                cat_hdr = ctk.CTkFrame(rc, fg_color="#E8F0E8", corner_radius=0, height=22)
+                                cat_hdr.pack(fill="x")
+                                cat_hdr.pack_propagate(False)
+                                ctk.CTkFrame(cat_hdr, fg_color=SAFFRON, width=3, corner_radius=0).pack(side="left", fill="y")
+                                cat_total = sum(it["cost"] for it in items)
+                                lbl(cat_hdr, f"  {cat_name}", size=9, weight="bold", color=ARMY_BG).pack(side="left", padx=6)
+                                lbl(cat_hdr, f"Rs. {f_in(cat_total)}", size=9, weight="bold", color=ARMY_BG).pack(side="right", padx=10)
+                                # Items under this category
+                                thead(rc, [("Item", 6), ("Qty Used", 2), ("Unit", 2), ("Rate/Unit", 2), ("Cost", 2)], bg=STRIPE, tc=MID)
+                                for jx, it in enumerate(items):
+                                    trow(rc, [
+                                        it["item"],
+                                        f"{it['qty']:.2f}",
+                                        it["unit"],
+                                        f"Rs. {f_in(it['cp'], 2)}",
+                                        f"Rs. {f_in(it['cost'], 2)}"
+                                    ], [6,2,2,2,2], bg=WHITE if jx % 2 == 0 else STRIPE)
 
-        # Expenditure — Dry / Fresh / Misc ingredient-level breakdown
-        # Cat colours: Dry=SAFFRON, Fresh=TEAL, Misc=PURPLE
-        CAT_CLR = {"Dry": ("#FF9933", "#253D27"), "Fresh": (TEAL, "#0E2C2B"),
-                   "Misc": (PURPLE, "#1E1733")}
-        if ing_by_cat:
-            band(rc, "📊  Expenditure Breakdown — Ingredients by Category", bg=ARMY_BG, tc=GOLD_LT, h=40)
-            ing_grand_total = sum(i["cost"] for items in ing_by_cat.values() for i in items)
-            for cat, items in ing_by_cat.items():
-                cat_total = sum(i["cost"] for i in items)
-                accent, hdr_bg = CAT_CLR.get(cat, (SAFFRON, "#253D27"))
-                # Category sub-header
-                ch = ctk.CTkFrame(rc, fg_color=hdr_bg, corner_radius=0, height=34)
-                ch.pack(fill="x")
-                ch.pack_propagate(False)
-                ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
-                lbl(ch, f"  📂  {cat}", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
-                lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
-                # Column header
-                thead(rc, [("Ingredient", 5), ("Unit", 2), ("Qty Used", 2), ("Rate/Unit", 2), ("Cost", 2)],
-                      bg=STRIPE, tc=MID)
-                # Ingredient rows
-                for ix, item in enumerate(items):
-                    clrs = [DARK, MID, DARK, MID, GREEN]
-                    trow(rc,
-                         [item["item"],
-                          item["unit"],
-                          f"{item['qty']:.2f}",
-                          f"Rs. {f_in(item['cp'], 2)}",
-                          f"Rs. {f_in(item['cost'])}"],
-                         [5, 2, 2, 2, 2],
-                         colors=clrs,
-                         bg=WHITE if ix % 2 == 0 else STRIPE)
-                # Category subtotal bar
-                sub_rf = ctk.CTkFrame(rc, fg_color="#E8F5E9", corner_radius=0, height=34)
-                sub_rf.pack(fill="x")
-                sub_rf.pack_propagate(False)
-                uid_sub = abs(hash(cat + "sub"))
-                for j, (txt, wt, bold) in enumerate([
-                    (f"{cat} Subtotal", 5, True),
-                    (f"{len(items)} ingredients", 2, False),
-                    ("", 2, False),
-                    ("", 2, False),
-                    (f"Rs. {f_in(cat_total)}", 2, True)
-                ]):
-                    cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
-                    cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
-                    lbl(cell, txt, size=11, weight="bold" if bold else "normal",
-                        color=ARMY_BG if bold else MID).pack(anchor="w", padx=8, pady=8)
-                    cell.grid_columnconfigure(0, weight=1)
-                    sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
-                sub_rf.grid_rowconfigure(0, weight=1)
-            # Grand total footer
-            gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=44)
-            gt_f.pack(fill="x")
-            gt_f.pack_propagate(False)
-            lbl(gt_f, "  💸  Grand Total — All Ingredients", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
-            lbl(gt_f, f"Rs. {f_in(ing_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
-        # Inventory Purchases Breakdown
-        if gr_by_cat:
-            band(rc, "📦  Inventory Purchases Breakdown — Goods Received", bg=ARMY_BG, tc=GOLD_LT, h=40)
-            gr_grand_total = sum(i["cost"] for items in gr_by_cat.values() for i in items)
-            for cat, items in gr_by_cat.items():
-                cat_total = sum(i["cost"] for i in items)
-                accent, hdr_bg = CAT_CLR.get(cat, (SAFFRON, "#253D27"))
-                # Category sub-header
-                ch = ctk.CTkFrame(rc, fg_color=hdr_bg, corner_radius=0, height=34)
-                ch.pack(fill="x")
-                ch.pack_propagate(False)
-                ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
-                lbl(ch, f"  📂  {cat} Purchases", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
-                lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
-                # Column header
-                thead(rc, [("Item Name", 5), ("Unit", 2), ("Qty Received", 2), ("Rate/Unit", 2), ("Total Cost", 2)],
-                      bg=STRIPE, tc=MID)
-                # Rows
-                for ix, item in enumerate(items):
-                    clrs = [DARK, MID, DARK, MID, GREEN]
-                    trow(rc,
-                         [item["item"],
-                          item["unit"],
-                          f"{item['qty']:.2f}",
-                          f"Rs. {f_in(item['rate'], 2)}",
-                          f"Rs. {f_in(item['cost'])}"],
-                         [5, 2, 2, 2, 2],
-                         colors=clrs,
-                         bg=WHITE if ix % 2 == 0 else STRIPE)
-                # Category subtotal bar
-                sub_rf = ctk.CTkFrame(rc, fg_color="#E8F5E9", corner_radius=0, height=34)
-                sub_rf.pack(fill="x")
-                sub_rf.pack_propagate(False)
-                uid_sub = abs(hash(cat + "gr_sub"))
-                for j, (txt, wt, bold) in enumerate([
-                    (f"{cat} Purchases Subtotal", 5, True),
-                    (f"{len(items)} items", 2, False),
-                    ("", 2, False),
-                    ("", 2, False),
-                    (f"Rs. {f_in(cat_total)}", 2, True)
-                ]):
-                    cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
-                    cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
-                    lbl(cell, txt, size=11, weight="bold" if bold else "normal",
-                        color=ARMY_BG if bold else MID).pack(anchor="w", padx=8, pady=8)
-                    cell.grid_columnconfigure(0, weight=1)
-                    sub_rf.grid_columnconfigure(j, weight=wt, uniform=f"grp_{uid_sub}")
-                sub_rf.grid_rowconfigure(0, weight=1)
-            # Grand total footer
-            gt_f = ctk.CTkFrame(rc, fg_color=ARMY_BG, corner_radius=0, height=44)
-            gt_f.pack(fill="x")
-            gt_f.pack_propagate(False)
-            lbl(gt_f, "  📦  Grand Total — All Purchases", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
-            lbl(gt_f, f"Rs. {f_in(gr_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+                        # Small spacer between days
+                        ctk.CTkFrame(rc, fg_color="transparent", height=10).pack(fill="x")
 
-        if e_rows:
-            def _format_exp_note(r):
-                raw_note = r["notes"] or ""
-                import re as _re
-                m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
-                if m:
-                    return _resolve_meal_name(r["date"], m.group(1).strip())
-                return raw_note or "—"
+                    if end_idx < len(all_dates):
+                        self.after(10, lambda: render_dates_chunk(end_idx))
+                    else:
+                        render_trailing_parts()
 
-            self._rept_section(rc, "Expenditure Summary",
-                [("Notes", 8), ("Amount", 2)],
-                [[_format_exp_note(r), f"Rs. {f_in(r['amount'])}"] for r in e_rows],
-                [8, 2])
-
-        # Samples split into Complimentary and Staff
-        samp_complimentary = [s for s in samp_rows if (s["given_to"] or "").strip().lower() != "staff"]
-        samp_staff         = [s for s in samp_rows if (s["given_to"] or "").strip().lower() == "staff"]
-
-        # Complimentary Samples section
-        if samp_complimentary:
-            self._rept_section(rc, "🎁  Sample Complimentary",
-                [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Given To",3)],
-                [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
-                  f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["given_to"] or "General"]
-                 for s in samp_complimentary],
-                [3,5,1,2,2,3])
-        else:
-            band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
-
-        # Staff Update their details section
-        if samp_staff:
-            self._rept_section(rc, "👨‍🍳  Staff Update their details",
-                [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Notes",3)],
-                [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
-                  f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["notes"] or "—"]
-                 for s in samp_staff],
-                [3,5,1,2,2,3])
-
-        # Inventory closing stock
-        self._rept_section(rc,"Inventory Closing Stock",
-            [("Item",4),("Category",2),("Unit",2),("Opening",2),("Received",2),("Closing",2),("Status",2)],
-            [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
-              f"{i['closing']:.1f}","⚠ LOW" if i["closing"]<i["min_lvl"] else "✓ OK"]
-             for i in inv],
-            [4,2,2,2,2,2,2])
-
-        # Signature block
-        sf = ctk.CTkFrame(rc, fg_color="transparent"); sf.pack(fill="x", padx=PAD, pady=(20,16))
-        sf.grid_rowconfigure(0,weight=1)
-        for i,(role,name) in enumerate([
-            ("NCO I/C", "Canteen NCO In-Charge"),
-            ("JCO I/C", "Junior Commissioned Officer"),
-            ("OIC", "Officer In-Charge (Captain)"),
-        ]):
-            sc = card(sf); sc.grid(row=0,column=i,padx=(0 if i==0 else 14),sticky="nsew")
-            sf.grid_columnconfigure(i,weight=1)
-            lbl(sc,role,size=10,color=MID,weight="bold").pack(padx=14,pady=(12,2),anchor="w")
-            lbl(sc,name,size=11,color=DARK).pack(padx=14,anchor="w")
-            lbl(sc,"Signature: ________________________",size=10,color=MID).pack(padx=14,pady=(8,4),anchor="w")
-            lbl(sc,f"Date: {end}",size=10,color=MID).pack(padx=14,pady=(0,12),anchor="w")
-
-        ft = ctk.CTkFrame(rc, fg_color="transparent", height=6); ft.pack(fill="x"); ft.pack_propagate(False)
-        for c in (SAFFRON, WHITE, IND_GREEN):
-            ctk.CTkFrame(ft, fg_color=c).pack(side="left", fill="both", expand=True)
-        lbl(rc,"जय हिन्द  •  RESTRICTED — For Official Use Only  •  " +
-            datetime.now().strftime("Generated: %d %b %Y %I:%M %p"),
-            size=9, color=MID).pack(pady=(8,14))
+                render_dates_chunk(0)
 
     def _rept_section(self, parent, title, cols, rows, wts):
         band(parent, title, bg=ARMY_BG, tc=GOLD_LT, h=40)
