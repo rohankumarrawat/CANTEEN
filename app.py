@@ -3526,7 +3526,7 @@ class CanteenApp(ctk.CTk):
                     if day_exps:
                         cats = sorted(list(set(e["category"] for e in day_exps)))
                         cats_str = ", ".join(cats)
-                        lbl(rc, f"   💸  Expenditures ({cats_str}):", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                        lbl(rc, f"   💸  Expenditures {cats_str}:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
                         thead(rc, [("Category", 3), ("Meal / Batch", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
                         import re as _re
                         for ix, e in enumerate(day_exps):
@@ -4148,7 +4148,7 @@ class CanteenApp(ctk.CTk):
                 # Combine and sort all unique dates descending
                 all_dates = sorted(list(set(sales_by_date.keys()) | set(exp_by_date.keys())), reverse=True)
 
-                DATE_SUBHDR = S("DS", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
+                DATE_SUBHDR = S("DS", fontName="Helvetica-Bold", fontSize=10, textColor=OliveGreen)
                 for date_str in all_dates:
                     day_rows = sales_by_date.get(date_str, [])
                     day_exps = exp_by_date.get(date_str, [])
@@ -4189,7 +4189,7 @@ class CanteenApp(ctk.CTk):
                     if day_exps:
                         cats = sorted(list(set(e["category"] for e in day_exps)))
                         cats_str = ", ".join(cats)
-                        story.append(Paragraph(f"Expenditures ({cats_str}):", S("ES_SUB", fontName="Helvetica-Bold", fontSize=8, textColor=OliveGreen)))
+                        story.append(Paragraph(f"Expenditures {cats_str}:", S("ES_SUB", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)))
                         story.append(Spacer(1, 0.05*cm))
                         import re as _re
                         exp_data = []
@@ -4211,14 +4211,14 @@ class CanteenApp(ctk.CTk):
                     # 3. Ingredients used this day (per-date, by category)
                     day_ings = ing_by_date.get(date_str, {})
                     if day_ings:
-                        ING_SUB = S("ING_SUB", fontName="Helvetica-Bold", fontSize=8, textColor=OliveGreen)
+                        ING_SUB = S("ING_SUB", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
                         story.append(Paragraph("Ingredients Used:", ING_SUB))
                         story.append(Spacer(1, 0.05*cm))
                         for cat_name, items in day_ings.items():
                             cat_total = sum(it["cost"] for it in items)
                             story.append(Paragraph(
                                 f"  {cat_name}  (Rs.{f_in(cat_total)})",
-                                S("IC", fontName="Helvetica-Bold", fontSize=7.5, textColor=OliveGreen)
+                                S("IC", fontName="Helvetica-Bold", fontSize=8.5, textColor=OliveGreen)
                             ))
                             story.append(Spacer(1, 0.03*cm))
                             story.append(pdf_table(
@@ -4262,7 +4262,7 @@ class CanteenApp(ctk.CTk):
                     cat_total = sum(it["cost"] for it in items)
                     story.append(Paragraph(
                         f"  📂  {cat_name} (Subtotal: Rs.{f_in(cat_total)})",
-                        S("IC_PDF", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
+                        S("IC_PDF", fontName="Helvetica-Bold", fontSize=10, textColor=OliveGreen)
                     ))
                     story.append(Spacer(1, 0.08*cm))
                     story.append(pdf_table(
@@ -4277,7 +4277,7 @@ class CanteenApp(ctk.CTk):
         # Inventory Purchases Breakdown in PDF
         story.append(Paragraph("Inventory Purchases Breakdown", SEC)); story.append(Spacer(1, 0.15*cm))
         if gr_rows:
-            GR_SUBHDR = S("GRS", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
+            GR_SUBHDR = S("GRS", fontName="Helvetica-Bold", fontSize=10, textColor=OliveGreen)
             for cat, items in gr_by_cat.items():
                 cat_total = sum(i["cost"] for i in items)
                 story.append(Paragraph(f"{cat} Purchases (Subtotal: Rs.{f_in(cat_total)})", GR_SUBHDR))
