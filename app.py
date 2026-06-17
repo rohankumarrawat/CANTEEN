@@ -111,6 +111,28 @@ def get_db():
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
+def sync_inventory_stock(conn=None):
+    if conn is None:
+        with get_db() as c:
+            c.execute("""
+                UPDATE inventory
+                SET stock = COALESCE((
+                    SELECT SUM(qty_change)
+                    FROM stock_ledger
+                    WHERE inv_id = inventory.id
+                ), 0)
+            """)
+            c.commit()
+    else:
+        conn.execute("""
+            UPDATE inventory
+            SET stock = COALESCE((
+                SELECT SUM(qty_change)
+                FROM stock_ledger
+                WHERE inv_id = inventory.id
+            ), 0)
+        """)
+
 def _hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
 def _has_col(conn, table, col):
@@ -303,6 +325,7 @@ def init_db():
                 c.execute("INSERT INTO user_roles (user_id,role) VALUES (?,?)", (cur.lastrowid, role))
 
         # No auto-seed: inventory, menu and recipes are entered by users only
+        sync_inventory_stock(c)
 
 init_db()
 
@@ -788,7 +811,7 @@ class CanteenApp(ctk.CTk):
             sales = conn.execute("SELECT * FROM sales WHERE date=?", (today,)).fetchall()
             inv   = conn.execute("SELECT * FROM inventory").fetchall()
             waste = conn.execute("SELECT * FROM waste_tracker WHERE date=?", (today,)).fetchall()
-            samp  = conn.execute("SELECT * FROM samples WHERE date=?", (today,)).fetchall()
+            samp  = conn.execute("SELECT * FROM samples WHERE date=? AND COALESCE(notes, '') != 'Migrated from wastage'", (today,)).fetchall()
             exp   = conn.execute("SELECT SUM(amount) FROM expenditure WHERE date=?", (today,)).fetchone()[0] or 0
             # 7-day trend data
             week_data = conn.execute(
@@ -3188,7 +3211,12 @@ class CanteenApp(ctk.CTk):
         self._render_report_inner(start, end)
 
     def _render_report_inner(self, start, end):
-        MEAL_TYPE_MAP = {"LUNCH": "Lunch", "MINI": "Mini Meal", "PARATHA": "Paratha"}
+        MEAL_TYPE_MAP = {
+            "LUNCH": "Lunch",
+            "MINI": "Mini Meal",
+            "MINI MEAL": "Mini Meal",
+            "PARATHA": "Paratha"
+        }
         with get_db() as conn:
             s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC",
                                   (start,end)).fetchall()
@@ -3213,34 +3241,49 @@ class CanteenApp(ctk.CTk):
         def _resolve_meal_name(date_str, meal_str):
             """Return specific name like 'Paratha (Aalo Paratha)' if found in daily_menu."""
             import datetime as _dt
+            import re as _re
             try:
+                base_match = _re.match(r"^([^\(]+)(?:\((.*)\))?$", meal_str.strip())
+                if base_match:
+                    mtype_raw = base_match.group(1).strip()
+                    specific_raw = base_match.group(2).strip() if base_match.group(2) else None
+                else:
+                    mtype_raw = meal_str.strip()
+                    specific_raw = None
+
                 d = _dt.date.fromisoformat(date_str)
-                dow = d.strftime("%A")  # 'Monday', 'Tuesday', …
-                mtype = MEAL_TYPE_MAP.get(meal_str.upper().strip())
+                dow = d.strftime("%A")
+                mtype = MEAL_TYPE_MAP.get(mtype_raw.upper())
                 if mtype:
                     specific = sched_name_map.get((dow, mtype))
                     if specific:
                         return f"{mtype} ({specific})"
+                    if specific_raw:
+                        return f"{mtype} ({specific_raw})"
                     return mtype
             except Exception:
                 pass
-            return meal_str.strip().title()
+            title_str = meal_str.strip()
+            title_str = _re.sub(r"([^\s])\(", r"\1 (", title_str)
+            return title_str
 
         with get_db() as conn:
             inv_query = """
                 SELECT
-                    i.item, i.cat, i.unit, i.min_lvl, i.stock,
+                    i.item, i.cat, i.unit, i.min_lvl,
+                    COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND (date < ? OR (date = ? AND transaction_type = 'Opening'))), 0) AS opening,
                     COALESCE((SELECT SUM(qty_change) FROM stock_ledger
                                WHERE inv_id = i.id AND date >= ? AND date <= ?
                                AND transaction_type = 'Received'), 0) AS received,
-                    i.stock - COALESCE((SELECT SUM(qty_change) FROM stock_ledger
-                               WHERE inv_id = i.id AND date >= ? AND date <= ?), 0) AS opening
+                    COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND date <= ?), 0) AS closing
                 FROM inventory i
                 ORDER BY i.cat, i.item
             """
-            inv = conn.execute(inv_query, (start, end, start, end)).fetchall()
+            inv = conn.execute(inv_query, (start, start, start, end, end)).fetchall()
             samp_rows = conn.execute(
-                "SELECT * FROM samples WHERE date>=? AND date<=? ORDER BY date DESC",
+                "SELECT * FROM samples WHERE date>=? AND date<=? AND COALESCE(notes, '') != 'Migrated from wastage' ORDER BY date DESC",
                 (start, end)).fetchall()
             # Ingredient-level cost grouped by inventory category (Dry/Fresh/Misc)
             ing_rows = conn.execute("""
@@ -3481,7 +3524,9 @@ class CanteenApp(ctk.CTk):
 
                     # 2. Render Expenditure Table
                     if day_exps:
-                        lbl(rc, "   💸  Expenditures:", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
+                        cats = sorted(list(set(e["category"] for e in day_exps)))
+                        cats_str = ", ".join(cats)
+                        lbl(rc, f"   💸  Expenditures ({cats_str}):", size=10, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(6,2))
                         thead(rc, [("Category", 3), ("Meal / Batch", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
                         import re as _re
                         for ix, e in enumerate(day_exps):
@@ -3659,9 +3704,17 @@ class CanteenApp(ctk.CTk):
             lbl(gt_f, f"Rs. {f_in(gr_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
 
         if e_rows:
+            def _format_exp_note(r):
+                raw_note = r["notes"] or ""
+                import re as _re
+                m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
+                if m:
+                    return _resolve_meal_name(r["date"], m.group(1).strip())
+                return raw_note or "—"
+
             self._rept_section(rc, "Expenditure Summary",
                 [("Notes", 8), ("Amount", 2)],
-                [[r["notes"] or "—", f"Rs. {f_in(r['amount'])}"] for r in e_rows],
+                [[_format_exp_note(r), f"Rs. {f_in(r['amount'])}"] for r in e_rows],
                 [8, 2])
 
         # Samples split into Complimentary and Staff
@@ -3692,7 +3745,7 @@ class CanteenApp(ctk.CTk):
         self._rept_section(rc,"Inventory Closing Stock",
             [("Item",4),("Category",2),("Unit",2),("Opening",2),("Received",2),("Closing",2),("Status",2)],
             [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
-              f"{i['stock']:.1f}","⚠ LOW" if i["stock"]<i["min_lvl"] else "✓ OK"]
+              f"{i['closing']:.1f}","⚠ LOW" if i["closing"]<i["min_lvl"] else "✓ OK"]
              for i in inv],
             [4,2,2,2,2,2,2])
 
@@ -3749,20 +3802,22 @@ class CanteenApp(ctk.CTk):
                                   (start,end)).fetchall()
             w_rows = conn.execute("SELECT * FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchall()
-            samp_rows = conn.execute("SELECT * FROM samples WHERE date>=? AND date<=? ORDER BY date DESC",
+            samp_rows = conn.execute("SELECT * FROM samples WHERE date>=? AND date<=? AND COALESCE(notes, '') != 'Migrated from wastage' ORDER BY date DESC",
                                      (start,end)).fetchall()
             inv_query = """
                 SELECT
-                    i.item, i.cat, i.unit, i.min_lvl, i.stock,
+                    i.item, i.cat, i.unit, i.min_lvl,
+                    COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND (date < ? OR (date = ? AND transaction_type = 'Opening'))), 0) AS opening,
                     COALESCE((SELECT SUM(qty_change) FROM stock_ledger
                                WHERE inv_id = i.id AND date >= ? AND date <= ?
                                AND transaction_type = 'Received'), 0) AS received,
-                    i.stock - COALESCE((SELECT SUM(qty_change) FROM stock_ledger
-                               WHERE inv_id = i.id AND date >= ? AND date <= ?), 0) AS opening
+                    COALESCE((SELECT SUM(qty_change) FROM stock_ledger
+                               WHERE inv_id = i.id AND date <= ?), 0) AS closing
                 FROM inventory i
                 ORDER BY i.cat, i.item
             """
-            inv = conn.execute(inv_query, (start, end, start, end)).fetchall()
+            inv = conn.execute(inv_query, (start, start, start, end, end)).fetchall()
             sched_name_map = {}
             for row in conn.execute("SELECT dm.day, dm.meal_type, m.name FROM daily_menu dm JOIN menu m ON m.id=dm.menu_id"):
                 sched_name_map[(row["day"], row["meal_type"])] = row["name"]
@@ -3862,20 +3917,39 @@ class CanteenApp(ctk.CTk):
             else:
                 samples_lookup[(d, mid)] = samples_lookup.get((d, mid), 0) + q
 
-        MEAL_TYPE_MAP = {"LUNCH": "Lunch", "MINI": "Mini Meal", "PARATHA": "Paratha"}
+        MEAL_TYPE_MAP = {
+            "LUNCH": "Lunch",
+            "MINI": "Mini Meal",
+            "MINI MEAL": "Mini Meal",
+            "PARATHA": "Paratha"
+        }
         def _resolve_meal_name(date_str, meal_str):
             import datetime as _dt
+            import re as _re
             try:
+                base_match = _re.match(r"^([^\(]+)(?:\((.*)\))?$", meal_str.strip())
+                if base_match:
+                    mtype_raw = base_match.group(1).strip()
+                    specific_raw = base_match.group(2).strip() if base_match.group(2) else None
+                else:
+                    mtype_raw = meal_str.strip()
+                    specific_raw = None
+
                 d = _dt.date.fromisoformat(date_str)
                 dow = d.strftime("%A")
-                mtype = MEAL_TYPE_MAP.get(meal_str.upper())
+                mtype = MEAL_TYPE_MAP.get(mtype_raw.upper())
                 if mtype:
                     specific = sched_name_map.get((dow, mtype))
                     if specific:
                         return f"{mtype} ({specific})"
+                    if specific_raw:
+                        return f"{mtype} ({specific_raw})"
+                    return mtype
             except Exception:
                 pass
-            return meal_str
+            title_str = meal_str.strip()
+            title_str = _re.sub(r"([^\s])\(", r"\1 (", title_str)
+            return title_str
 
         rev    = sum(r["sp"]*r["sold"] for r in s_rows)
         meals  = sum(r["sold"] for r in s_rows)
@@ -3903,13 +3977,15 @@ class CanteenApp(ctk.CTk):
         styles = getSampleStyleSheet()
 
         def S(name, **kw): return ParagraphStyle(name, **kw)
-        TITLE = S("T", fontName="Helvetica-Bold", fontSize=18, textColor=RL_COLORS.white, alignment=TA_CENTER)
-        SUB   = S("S", fontName="Helvetica",      fontSize=10, textColor=Gold, alignment=TA_CENTER)
+        TITLE = S("T", fontName="Helvetica-Bold", fontSize=16, textColor=RL_COLORS.white, alignment=TA_CENTER)
+        SUB   = S("S", fontName="Helvetica",      fontSize=12, textColor=Gold, alignment=TA_CENTER)
         SEC   = S("H", fontName="Helvetica-Bold", fontSize=12, textColor=OliveGreen)
         BODY  = S("B", fontName="Helvetica",      fontSize=9,  textColor=RL_COLORS.black, leading=14)
         TH    = S("TH",fontName="Helvetica-Bold", fontSize=9,  textColor=RL_COLORS.white, alignment=TA_CENTER)
         TD    = S("TD",fontName="Helvetica",      fontSize=8,  textColor=RL_COLORS.black, alignment=TA_CENTER)
         TDL   = S("TDL",fontName="Helvetica",     fontSize=8,  textColor=RL_COLORS.black)
+        TH_kpi = S("TH_kpi", parent=TH, fontSize=8)
+        TD_kpi = S("TD_kpi", parent=TD, fontSize=8)
 
         def pdf_table(headers, rows_data, col_widths):
             hrow = [Paragraph(h, TH) for h in headers]
@@ -3933,33 +4009,46 @@ class CanteenApp(ctk.CTk):
         story = []
 
         # Letterhead
-        lh_data = [[Paragraph("INDIAN ARMY — AWWA LUNCH PROJECT", TITLE)]]
+        lh_data = [
+            [Paragraph("INDIAN ARMY — AWWA LUNCH PROJECT", TITLE)],
+            [Paragraph(f"DAILY OPERATIONS REPORT  |  Period: {start} to {end}", S("SUB_LH", parent=SUB, textColor=RL_COLORS.HexColor("#FDE047"), fontSize=12, fontName="Helvetica-Bold"))]
+        ]
         lh_t = Table(lh_data, colWidths=[W_A4 - 4*cm])
         lh_t.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,-1), OliveGreen),
-            ("TOPPADDING", (0,0), (-1,-1), 16),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+            ("ALIGN", (0,0), (-1,-1), "CENTER"),
+            ("TOPPADDING", (0,0), (-1,-1), 12),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 12),
+            ("BOTTOMPADDING", (0,0), (0,0), 2),
         ]))
         story.append(lh_t)
-        story.append(Paragraph(f"DAILY OPERATIONS REPORT  |  Period: {start} to {end}", SUB))
         story.append(Spacer(1, 0.4*cm))
 
         # KPI summary
+        w_avail = W_A4 - 4*cm
+        kpi_cols = [2.15*cm, 2.1*cm] * 4
+        
+        val_w = (w_avail - 6.45*cm) / 3
+        sub_cols = [2.15*cm, val_w] * 3
+
         kpi_d1 = [
-            [Paragraph("Total Revenue", TH), Paragraph(f"Rs. {f_in(rev)}", TD),
-             Paragraph("Expenditure",   TH), Paragraph(f"Rs. {f_in(exp)}", TD),
-             Paragraph("Wastage Cost", TH), Paragraph(f"Rs. {f_in(waste)}", TD),
-             Paragraph("Net Profit",    TH), Paragraph(f"Rs. {f_in(net)}",  TD)],
+            [Paragraph("Total Revenue", TH_kpi), Paragraph(f"Rs. {f_in(rev)}", TD_kpi),
+             Paragraph("Expenditure",   TH_kpi), Paragraph(f"Rs. {f_in(exp)}", TD_kpi),
+             Paragraph("Wastage Cost", TH_kpi), Paragraph(f"Rs. {f_in(waste)}", TD_kpi),
+             Paragraph("Net Profit",    TH_kpi), Paragraph(f"Rs. {f_in(net)}",  TD_kpi)],
         ]
-        kpi_t1 = Table(kpi_d1, colWidths=[2*cm, 2.25*cm, 2*cm, 2.25*cm, 2*cm, 2.25*cm, 2*cm, 2.25*cm])
+        kpi_t1 = Table(kpi_d1, colWidths=kpi_cols)
         kpi_t1.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (0,0), TableHdr), 
             ("BACKGROUND",    (2,0), (2,0), TableHdr),
             ("BACKGROUND",    (4,0), (4,0), TableHdr),
             ("BACKGROUND",    (6,0), (6,0), TableHdr),
-            ("TOPPADDING",    (0,0), (-1,-1), 6), 
-            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+            ("TOPPADDING",    (0,0), (-1,-1), 5), 
+            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("LEFTPADDING",   (0,0), (-1,-1), 2),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 2),
             ("BOX",           (0,0), (-1,-1), 1, Gold),
+            ("INNERGRID",     (0,0), (-1,-1), 0.5, Gold),
             ("ALIGN",         (0,0), (-1,-1), "CENTER"),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
@@ -3967,18 +4056,21 @@ class CanteenApp(ctk.CTk):
         story.append(Spacer(1, 0.15*cm))
 
         kpi_d2 = [
-            [Paragraph("Meals Sold", TH), Paragraph(f"{f_in(meals)}", TD),
-             Paragraph("Samples",     TH), Paragraph(f"{f_in(samp_qty)} (Rs. {f_in(samp_cost)})", TD),
-             Paragraph("Staff",       TH), Paragraph(f"{f_in(stf_qty)} (Rs. {f_in(stf_cost)})", TD)],
+            [Paragraph("Meals Sold", TH_kpi), Paragraph(f"{f_in(meals)}", TD_kpi),
+             Paragraph("Samples",     TH_kpi), Paragraph(f"{f_in(samp_qty)} (Rs. {f_in(samp_cost)})", TD_kpi),
+             Paragraph("Staff",       TH_kpi), Paragraph(f"{f_in(stf_qty)} (Rs. {f_in(stf_cost)})", TD_kpi)],
         ]
-        kpi_t2 = Table(kpi_d2, colWidths=[2.5*cm, 2.5*cm, 2*cm, 4*cm, 2*cm, 4*cm])
+        kpi_t2 = Table(kpi_d2, colWidths=sub_cols)
         kpi_t2.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (0,0), TableHdr), 
             ("BACKGROUND",    (2,0), (2,0), TableHdr),
             ("BACKGROUND",    (4,0), (4,0), TableHdr),
-            ("TOPPADDING",    (0,0), (-1,-1), 6), 
-            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+            ("TOPPADDING",    (0,0), (-1,-1), 5), 
+            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("LEFTPADDING",   (0,0), (-1,-1), 2),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 2),
             ("BOX",           (0,0), (-1,-1), 1, Gold),
+            ("INNERGRID",     (0,0), (-1,-1), 0.5, Gold),
             ("ALIGN",         (0,0), (-1,-1), "CENTER"),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
@@ -4000,18 +4092,21 @@ class CanteenApp(ctk.CTk):
         pct_card = f"{card_a/rev*100:.0f}%" if rev > 0 else "0%"
 
         pay_d = [
-            [Paragraph("💵 Cash", TH), Paragraph(f"Rs. {f_in(cash_a)} ({pct_cash})", TD),
-             Paragraph("📱 UPI", TH), Paragraph(f"Rs. {f_in(upi_a)} ({pct_upi})", TD),
-             Paragraph("💳 Card", TH), Paragraph(f"Rs. {f_in(card_a)} ({pct_card})", TD)]
+            [Paragraph("Cash", TH_kpi), Paragraph(f"Rs. {f_in(cash_a)} ({pct_cash})", TD_kpi),
+             Paragraph("UPI", TH_kpi), Paragraph(f"Rs. {f_in(upi_a)} ({pct_upi})", TD_kpi),
+             Paragraph("Card", TH_kpi), Paragraph(f"Rs. {f_in(card_a)} ({pct_card})", TD_kpi)]
         ]
-        pay_t = Table(pay_d, colWidths=[2.5*cm, 3*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm])
+        pay_t = Table(pay_d, colWidths=sub_cols)
         pay_t.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (0,0), TableHdr), 
             ("BACKGROUND",    (2,0), (2,0), TableHdr),
             ("BACKGROUND",    (4,0), (4,0), TableHdr),
-            ("TOPPADDING",    (0,0), (-1,-1), 6), 
-            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+            ("TOPPADDING",    (0,0), (-1,-1), 5), 
+            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("LEFTPADDING",   (0,0), (-1,-1), 2),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 2),
             ("BOX",           (0,0), (-1,-1), 1, Gold),
+            ("INNERGRID",     (0,0), (-1,-1), 0.5, Gold),
             ("ALIGN",         (0,0), (-1,-1), "CENTER"),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
@@ -4092,7 +4187,9 @@ class CanteenApp(ctk.CTk):
 
                     # 2. Expenditure Table
                     if day_exps:
-                        story.append(Paragraph("Expenditures:", S("ES_SUB", fontName="Helvetica-Bold", fontSize=8, textColor=OliveGreen)))
+                        cats = sorted(list(set(e["category"] for e in day_exps)))
+                        cats_str = ", ".join(cats)
+                        story.append(Paragraph(f"Expenditures ({cats_str}):", S("ES_SUB", fontName="Helvetica-Bold", fontSize=8, textColor=OliveGreen)))
                         story.append(Spacer(1, 0.05*cm))
                         import re as _re
                         exp_data = []
@@ -4141,9 +4238,17 @@ class CanteenApp(ctk.CTk):
         if start == end:
             story.append(Paragraph("Expenditure Summary", SEC)); story.append(Spacer(1, 0.15*cm))
             if e_rows:
+                def _format_exp_note_pdf(r):
+                    raw_note = r["notes"] or ""
+                    import re as _re
+                    m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
+                    if m:
+                        return _resolve_meal_name(r["date"], m.group(1).strip())
+                    return raw_note or "—"
+
                 story.append(pdf_table(
                     ["Notes", "Amount"],
-                    [[r["notes"] or "—", f"Rs.{f_in(r['amount'])}"] for r in e_rows],
+                    [[_format_exp_note_pdf(r), f"Rs.{f_in(r['amount'])}"] for r in e_rows],
                     [12.5*cm, 4*cm]))
             else:
                 story.append(Paragraph("No expenditure recorded.", BODY))
@@ -4222,7 +4327,7 @@ class CanteenApp(ctk.CTk):
         story.append(pdf_table(
             ["Item","Category","Unit","Opening","Received","Closing","Status"],
             [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
-              f"{i['stock']:.1f}","LOW" if i["stock"]<i["min_lvl"] else "OK"]
+              f"{i['closing']:.1f}","LOW" if i["closing"]<i["min_lvl"] else "OK"]
              for i in inv],
             [4*cm, 2.5*cm, 1.5*cm, 2*cm, 2*cm, 2*cm, 2*cm]))
         story.append(Spacer(1, 0.5*cm))
@@ -8369,10 +8474,10 @@ class CanteenApp(ctk.CTk):
                     return
 
                 with get_db() as conn:
-                    # Update inventory master (closing stock = new_bcf)
+                    # Update inventory master details (do not write daily bcf to stock)
                     conn.execute(
-                        "UPDATE inventory SET item=?, cat=?, unit=?, cp=?, stock=? WHERE id=?",
-                        (new_name, new_cat, new_unit, new_cp, new_bcf, inv_id))
+                        "UPDATE inventory SET item=?, cat=?, unit=?, cp=? WHERE id=?",
+                        (new_name, new_cat, new_unit, new_cp, inv_id))
 
                     # Re-sync stock_ledger for this date
                     conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
@@ -8388,6 +8493,8 @@ class CanteenApp(ctk.CTk):
                         conn.execute(
                             "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
                             "VALUES (?,?,'Batch_Prep',?,'Material used for production')", (d, inv_id, -new_iss))
+                    
+                    sync_inventory_stock(conn)
 
                 overlay.destroy()
                 self._toast(f"✅ Inventory '{new_name}' updated")
@@ -8475,13 +8582,13 @@ class CanteenApp(ctk.CTk):
                     existing = conn.execute("SELECT id FROM inventory WHERE item=? COLLATE NOCASE", (new_name,)).fetchone()
                     if existing:
                         inv_id = existing[0]
-                        conn.execute("UPDATE inventory SET cat=?, unit=?, cp=?, stock=? WHERE id=?",
-                                     (new_cat, new_unit, new_cp, new_bcf, inv_id))
+                        conn.execute("UPDATE inventory SET cat=?, unit=?, cp=? WHERE id=?",
+                                     (new_cat, new_unit, new_cp, inv_id))
                     else:
                         cur = conn.execute(
                             "INSERT INTO inventory (item, cat, unit, stock, min_lvl, opening, received, cp, updated) "
-                            "VALUES (?,?,?,?,0.0,?,?,?,?)",
-                            (new_name, new_cat, new_unit, new_bcf, new_op, new_rec, new_cp, d))
+                            "VALUES (?,?,?,0.0,0.0,?,?,?,?)",
+                            (new_name, new_cat, new_unit, new_op, new_rec, new_cp, d))
                         inv_id = cur.lastrowid
 
                     conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
@@ -8498,6 +8605,8 @@ class CanteenApp(ctk.CTk):
                             "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
                             "VALUES (?,?,'Batch_Prep',?,'Material used for production')", (d, inv_id, -new_iss))
 
+                    sync_inventory_stock(conn)
+
                 overlay.destroy()
                 self._toast(f"✅ Inventory '{new_name}' added")
                 refresh_cb()
@@ -8509,6 +8618,7 @@ class CanteenApp(ctk.CTk):
                              f"(The inventory item itself is NOT deleted.)"):
                 with get_db() as conn:
                     conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
+                    sync_inventory_stock(conn)
                 self._toast(f"🗑  Removed ledger entries for '{item}' on {d}")
                 refresh_cb()
 
@@ -8691,7 +8801,7 @@ class CanteenApp(ctk.CTk):
 
             with get_db() as conn:
                 rows = conn.execute(
-                    "SELECT * FROM samples WHERE date=? ORDER BY id", (d,)).fetchall()
+                    "SELECT * FROM samples WHERE date=? AND COALESCE(notes, '') != 'Migrated from wastage' ORDER BY id", (d,)).fetchall()
 
             if not rows:
                 lbl(sc, "  No samples recorded for this date.", size=11, color=MID).pack(

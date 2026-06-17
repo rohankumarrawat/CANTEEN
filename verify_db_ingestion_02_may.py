@@ -55,7 +55,7 @@ def run_verifications():
         errors.append(f"Dry items BCF value mismatch: {dry_bcf_val:.2f} vs 234594.07")
 
     # 2. Verification of Packaging Items (Misc cat, excluding Burfi/Petha)
-    rows_pkg = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item NOT LIKE 'SWEET%' AND item != 'PETHA'").fetchall()
+    rows_pkg = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item NOT LIKE 'SWEET%' AND item != 'Petha'").fetchall()
     pkg_ids = [row['id'] for row in rows_pkg]
     print(f"Packaging Items count: {len(rows_pkg)} (Expected: 16)")
     if len(rows_pkg) != 16:
@@ -73,7 +73,7 @@ def run_verifications():
         errors.append(f"Packaging items BCF value mismatch: {pkg_bcf_val:.2f} vs 65642.72")
 
     # 3. Verification of Sweets
-    rows_sw = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND (item LIKE 'SWEET%' OR item = 'PETHA')").fetchall()
+    rows_sw = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND (item LIKE 'SWEET%' OR item = 'Petha')").fetchall()
     sw_ids = [row['id'] for row in rows_sw]
     print(f"Sweets count: {len(rows_sw)} (Expected: 2)")
     if len(rows_sw) != 2:

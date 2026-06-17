@@ -4,144 +4,144 @@ DATE = "2026-05-27"
 
 dry_items = [
     # (name, unit, bbf, received, issue, rate, amt, bcf, bcf_amt)
-    ('ATTA', 'Kgs', 1412.000, 0.000, 50.000, 31.00, 1550.000, 1362.000, 42222.00),
-    ('RICE', 'Kgs', 958.000, 0.000, 38.000, 68.00, 2584.000, 920.000, 62560.00),
-    ('R/OIL', 'Ltr', 330.000, 0.000, 9.000, 180.92, 1628.308, 330.000, 58076.31),
+    ('Atta', 'Kgs', 1412.000, 0.000, 50.000, 31.00, 1550.000, 1362.000, 42222.00),
+    ('Rice', 'Kgs', 958.000, 0.000, 38.000, 68.00, 2584.000, 920.000, 62560.00),
+    ('R/oil', 'Ltr', 330.000, 0.000, 9.000, 180.92, 1628.308, 330.000, 58076.31),
     ('Sarso Dana', 'Kgs', 0.350, 0.000, 0.000, 105.00, 0.000, 0.350, 36.75),
-    ('RAJMAH', 'Kgs', 111.000, 0.000, 15.000, 115.00, 1725.000, 96.000, 11040.00),
-    ('URD (S)', 'Kgs', 0.000, 0.000, 0.000, 120.00, 0.000, 0.000, 0.00),
-    ('DAL CHANA', 'Kgs', 90.000, 0.000, 0.000, 80.00, 0.000, 90.000, 7200.00),
-    ('BESAN', 'Kgs', 70.000, 0.000, 3.000, 94.50, 283.500, 67.000, 6331.50),
-    ('DAL ARHAR', 'Kgs', 79.000, 0.000, 0.000, 120.00, 0.000, 79.000, 9480.00),
-    ('DAL MASOOR (S)', 'Pkt', 23.000, 0.000, 0.000, 85.00, 0.000, 23.000, 1955.00),
-    ('URD CRD(CHILKA)', 'KGS', 15.000, 0.000, 0.000, 110.00, 0.000, 15.000, 1650.00),
-    ('MASUR CRD(Malika)', 'Kgs', 15.000, 0.000, 0.000, 85.00, 0.000, 15.000, 1275.00),
-    ('MOONG Crd(Chilka)', 'Kgs', 15.000, 0.000, 0.000, 110.00, 0.000, 15.000, 1650.00),
-    ('URD DHULI', 'Kgs', 0.000, 0.000, 0.000, 140.00, 0.000, 0.000, 0.00),
-    ('LOBHIYA', 'Kgs', 0.000, 0.000, 0.000, 100.00, 0.000, 0.000, 0.00),
-    ('JEERA (S)', 'Kgs', 2.440, 0.000, 0.200, 315.00, 63.000, 2.240, 705.60),
-    ('HALDI PDR', 'Kgs', 8.600, 0.000, 0.300, 231.00, 69.300, 8.300, 1917.30),
-    ('MIRCHI PDR', 'Kgs', 7.100, 0.000, 0.300, 315.00, 94.500, 6.800, 2142.00),
-    ('DAL CHINI', 'Kgs', 0.070, 0.000, 0.010, 357.00, 3.570, 0.060, 21.42),
-    ('LAUNG', 'Kgs', 0.240, 0.000, 0.020, 1155.00, 23.100, 0.220, 254.10),
-    ('HING', 'Nos', 25.000, 0.000, 0.000, 89.25, 0.000, 25.000, 2231.25),
-    ('KITCHEN KING', 'Kgs', 4.600, 0.000, 0.200, 800.00, 160.001, 4.400, 3520.03),
-    ('DEGI MIRCH', 'Kgs', 4.500, 0.000, 0.200, 959.99, 191.999, 4.300, 4127.97),
-    ('KASURI METHI', 'Kgs', 0.950, 0.000, 0.050, 336.00, 16.800, 0.900, 302.40),
-    ('GARAM MASALA', 'Kgs', 2.500, 0.000, 0.200, 920.00, 183.999, 2.300, 2115.99),
-    ('SALT', 'Kgs', 43.000, 0.000, 4.000, 28.00, 112.000, 39.000, 1092.00),
-    ('DANIYA (S)', 'Kgs', 1.960, 0.000, 0.200, 199.50, 39.901, 1.760, 351.13),
-    ('JEERA PDR', 'Kgs', 2.700, 0.000, 0.200, 420.00, 84.000, 2.500, 1050.00),
-    ('CHANA MASALA (Pkt)', 'Pkt', 0.000, 0.000, 0.000, 736.01, 0.000, 0.000, 0.00),
-    ('B ELAICHI', 'Kgs', 0.240, 0.000, 0.020, 1995.00, 39.900, 0.220, 438.90),
-    ('METHI DANA', 'Kgs', 0.350, 0.000, 0.000, 105.00, 0.000, 0.350, 36.75),
-    ('RAJMA MASALA', 'Pkt', 0.000, 0.000, 0.000, 72.00, 0.000, 0.000, 0.00),
-    ('TEJ PATTA', 'Kgs', 0.660, 0.000, 0.020, 168.00, 3.360, 0.640, 107.52),
-    ('AJINO MOTO', 'Kgs', 0.000, 0.000, 0.000, 260.00, 0.000, 0.000, 0.00),
-    ('DESI GHEE', 'Kgs', 31.500, 0.000, 1.500, 504.00, 756.000, 30.000, 15120.00),
-    ('SARSOO', 'Kgs', 0.000, 0.000, 0.000, 210.00, 0.000, 0.000, 0.00),
-    ('CLEAN WRAP', 'Pkt', 0.000, 0.000, 0.000, 600.00, 0.000, 0.000, 0.00),
-    ('AJWAIN', 'Pkt', 0.900, 0.000, 0.100, 252.00, 25.200, 0.800, 201.60),
-    ('MIRCHI (S)', 'Kgs', 0.900, 0.000, 0.100, 367.50, 36.750, 0.800, 294.00),
-    ('CHAT MASALA', 'Kgs', 2.100, 0.000, 0.200, 752.00, 150.400, 1.900, 1428.80),
-    ('RAJMAH MASALA (Kgs)', 'Kgs', 2.300, 0.000, 0.400, 736.25, 294.500, 1.900, 1398.88),
-    ('GULAB JAL', 'BTL', 9.000, 0.000, 0.000, 66.15, 0.000, 9.000, 595.37),
-    ('CHANA MASALA', 'Kgs', 1.600, 0.000, 0.000, 751.88, 0.000, 1.600, 1203.00),
-    ('KALA CHANA', 'Kgs', 103.000, 0.000, 0.000, 78.00, 0.000, 103.000, 8034.00),
-    ('VINAYGER', 'BTL', 0.000, 0.000, 0.000, 53.00, 0.000, 0.000, 0.00),
-    ('RED CHILLI SAUCE', 'BTL', 0.000, 0.000, 0.000, 84.00, 0.000, 0.000, 0.00),
-    ('MATAR PANEER MASALA', 'BTL', 0.000, 0.000, 0.000, 35.00, 0.000, 0.000, 0.00),
-    ('PAV BHAJI MASALA', 'BTL', 0.000, 0.000, 0.000, 90.00, 0.000, 0.000, 0.00),
-    ('MATAR TF', 'Kgs', 16.000, 0.000, 0.000, 60.00, 0.000, 16.000, 960.00),
-    ('STAR FOOL MASALA', 'Kgs', 0.000, 0.000, 0.000, 1600.00, 0.000, 0.000, 0.00),
-    ('FOOD COLOUR', 'PKT', 5.000, 0.000, 0.000, 68.44, 0.000, 5.000, 342.20),
-    ('KEVADA WATER', 'BTL', 10.000, 0.000, 0.000, 70.80, 0.000, 10.000, 708.00),
-    ('BIRIYANI MASALA', 'Pkt', 14.000, 0.000, 0.000, 73.50, 0.000, 14.000, 1029.00),
-    ('ilaychi small Gr', 'Kgs', 0.000, 0.000, 0.000, 3150.00, 0.000, 0.000, 0.00),
-    ('DHANIYA PDR', 'Kgs', 6.800, 0.000, 0.200, 199.50, 39.900, 6.600, 1316.70),
-    ('KALI MIRCH( S)', 'Kgs', 0.454, 0.000, 0.050, 882.00, 44.100, 0.404, 356.33),
-    ('MUMFALI DANA', 'Kgs', 20.000, 0.000, 3.000, 168.00, 504.000, 17.000, 2856.00),
-    ('SAMBHAR MASALA', 'Pkt', 0.000, 0.000, 0.000, 76.00, 0.000, 0.000, 0.00),
+    ('Rajma', 'Kgs', 111.000, 0.000, 15.000, 115.00, 1725.000, 96.000, 11040.00),
+    ('Urad (s)', 'Kgs', 0.000, 0.000, 0.000, 120.00, 0.000, 0.000, 0.00),
+    ('Dal Chana', 'Kgs', 90.000, 0.000, 0.000, 80.00, 0.000, 90.000, 7200.00),
+    ('Besan', 'Kgs', 70.000, 0.000, 3.000, 94.50, 283.500, 67.000, 6331.50),
+    ('Dal Arhar', 'Kgs', 79.000, 0.000, 0.000, 120.00, 0.000, 79.000, 9480.00),
+    ('Dal masoor (s)', 'Pkt', 23.000, 0.000, 0.000, 85.00, 0.000, 23.000, 1955.00),
+    ('Urad Dal Chilka', 'KGS', 15.000, 0.000, 0.000, 110.00, 0.000, 15.000, 1650.00),
+    ('Masoor Dal (Malika)', 'Kgs', 15.000, 0.000, 0.000, 85.00, 0.000, 15.000, 1275.00),
+    ('Moong Dal Chilka', 'Kgs', 15.000, 0.000, 0.000, 110.00, 0.000, 15.000, 1650.00),
+    ('Urad Dhuli', 'Kgs', 0.000, 0.000, 0.000, 140.00, 0.000, 0.000, 0.00),
+    ('Lobia', 'Kgs', 0.000, 0.000, 0.000, 100.00, 0.000, 0.000, 0.00),
+    ('Jeera (s)', 'Kgs', 2.440, 0.000, 0.200, 315.00, 63.000, 2.240, 705.60),
+    ('Haldi Powder', 'Kgs', 8.600, 0.000, 0.300, 231.00, 69.300, 8.300, 1917.30),
+    ('Mirchi Powder', 'Kgs', 7.100, 0.000, 0.300, 315.00, 94.500, 6.800, 2142.00),
+    ('Dal chini', 'Kgs', 0.070, 0.000, 0.010, 357.00, 3.570, 0.060, 21.42),
+    ('Laung', 'Kgs', 0.240, 0.000, 0.020, 1155.00, 23.100, 0.220, 254.10),
+    ('Hing', 'Nos', 25.000, 0.000, 0.000, 89.25, 0.000, 25.000, 2231.25),
+    ('Kitchen King', 'Kgs', 4.600, 0.000, 0.200, 800.00, 160.001, 4.400, 3520.03),
+    ('Degi Mirch', 'Kgs', 4.500, 0.000, 0.200, 959.99, 191.999, 4.300, 4127.97),
+    ('Kasuri Methi', 'Kgs', 0.950, 0.000, 0.050, 336.00, 16.800, 0.900, 302.40),
+    ('Garam Masala', 'Kgs', 2.500, 0.000, 0.200, 920.00, 183.999, 2.300, 2115.99),
+    ('Salt', 'Kgs', 43.000, 0.000, 4.000, 28.00, 112.000, 39.000, 1092.00),
+    ('Dhaniya (s)', 'Kgs', 1.960, 0.000, 0.200, 199.50, 39.901, 1.760, 351.13),
+    ('Jeera Powder', 'Kgs', 2.700, 0.000, 0.200, 420.00, 84.000, 2.500, 1050.00),
+    ('Chana Masala (pkt)', 'Pkt', 0.000, 0.000, 0.000, 736.01, 0.000, 0.000, 0.00),
+    ('Badi Elaichi', 'Kgs', 0.240, 0.000, 0.020, 1995.00, 39.900, 0.220, 438.90),
+    ('Methi Dana', 'Kgs', 0.350, 0.000, 0.000, 105.00, 0.000, 0.350, 36.75),
+    ('Rajma Masala', 'Pkt', 0.000, 0.000, 0.000, 72.00, 0.000, 0.000, 0.00),
+    ('Tej Patta', 'Kgs', 0.660, 0.000, 0.020, 168.00, 3.360, 0.640, 107.52),
+    ('Ajinomoto', 'Kgs', 0.000, 0.000, 0.000, 260.00, 0.000, 0.000, 0.00),
+    ('Desi Ghee', 'Kgs', 31.500, 0.000, 1.500, 504.00, 756.000, 30.000, 15120.00),
+    ('Sarson', 'Kgs', 0.000, 0.000, 0.000, 210.00, 0.000, 0.000, 0.00),
+    ('Clean Wrap', 'Pkt', 0.000, 0.000, 0.000, 600.00, 0.000, 0.000, 0.00),
+    ('Ajwain', 'Pkt', 0.900, 0.000, 0.100, 252.00, 25.200, 0.800, 201.60),
+    ('Mirchi (s)', 'Kgs', 0.900, 0.000, 0.100, 367.50, 36.750, 0.800, 294.00),
+    ('Chat Masala', 'Kgs', 2.100, 0.000, 0.200, 752.00, 150.400, 1.900, 1428.80),
+    ('Rajma Masala (Kgs)', 'Kgs', 2.300, 0.000, 0.400, 736.25, 294.500, 1.900, 1398.88),
+    ('Gulab Jal', 'BTL', 9.000, 0.000, 0.000, 66.15, 0.000, 9.000, 595.37),
+    ('Chana Masala', 'Kgs', 1.600, 0.000, 0.000, 751.88, 0.000, 1.600, 1203.00),
+    ('Kala Chana', 'Kgs', 103.000, 0.000, 0.000, 78.00, 0.000, 103.000, 8034.00),
+    ('Vinegar', 'BTL', 0.000, 0.000, 0.000, 53.00, 0.000, 0.000, 0.00),
+    ('Red Chilli Sauce', 'BTL', 0.000, 0.000, 0.000, 84.00, 0.000, 0.000, 0.00),
+    ('Matar Paneer Masala', 'BTL', 0.000, 0.000, 0.000, 35.00, 0.000, 0.000, 0.00),
+    ('Pav Bhaji Masala', 'BTL', 0.000, 0.000, 0.000, 90.00, 0.000, 0.000, 0.00),
+    ('Matar (TF)', 'Kgs', 16.000, 0.000, 0.000, 60.00, 0.000, 16.000, 960.00),
+    ('Star Phool Masala', 'Kgs', 0.000, 0.000, 0.000, 1600.00, 0.000, 0.000, 0.00),
+    ('Food Colour', 'PKT', 5.000, 0.000, 0.000, 68.44, 0.000, 5.000, 342.20),
+    ('Kewra Water', 'BTL', 10.000, 0.000, 0.000, 70.80, 0.000, 10.000, 708.00),
+    ('Biryani Masala', 'Pkt', 14.000, 0.000, 0.000, 73.50, 0.000, 14.000, 1029.00),
+    ('Elaichi Small Gr', 'Kgs', 0.000, 0.000, 0.000, 3150.00, 0.000, 0.000, 0.00),
+    ('Dhaniya Powder', 'Kgs', 6.800, 0.000, 0.200, 199.50, 39.900, 6.600, 1316.70),
+    ('Kali Mirch (s)', 'Kgs', 0.454, 0.000, 0.050, 882.00, 44.100, 0.404, 356.33),
+    ('Moongphali Dana', 'Kgs', 20.000, 0.000, 3.000, 168.00, 504.000, 17.000, 2856.00),
+    ('Sambhar Masala', 'Pkt', 0.000, 0.000, 0.000, 76.00, 0.000, 0.000, 0.00),
     ('LPG', 'Kgs', 66.700, 0.000, 15.000, 61.83, 927.465, 51.700, 3196.66),
-    ('RAI', 'Pkt', 0.000, 0.000, 0.000, 315.00, 0.000, 0.000, 0.00),
-    ('SUGAR', 'kgs', 0.000, 0.000, 0.000, 49.00, 0.000, 0.000, 0.00),
-    ('BAKING PDR', 'PKT', 3.000, 0.000, 0.000, 67.20, 0.000, 3.000, 201.60),
-    ('SAHI PANEER MASALA (Pkt)', 'PKT', 0.000, 0.000, 0.000, 86.50, 0.000, 0.000, 0.00),
-    ('SAHI PANEER MASALA (Kgs)', 'kgs', 1.700, 0.000, 0.300, 880.00, 264.000, 1.400, 1232.00),
-    ('SOYA BEAN BADIYA', 'kgs', 50.000, 0.000, 0.000, 94.50, 0.000, 50.000, 4725.00),
-    ('JAVTITRI', 'Kgs', 0.150, 0.000, 0.060, 2730.00, 163.800, 0.090, 245.70),
-    ('AMCHUR PDR', 'Pkt', 10.000, 0.000, 0.000, 105.00, 0.000, 10.000, 1050.00),
-    ('EMLI', 'Pkt', 0.000, 0.000, 0.000, 45.00, 0.000, 0.000, 0.00),
-    ('EMLI (expensive)', 'Pkt', 3.750, 0.000, 0.000, 120.00, 0.000, 3.750, 450.00),
-    ('SABUDANA', 'Pkt', 10.000, 0.000, 0.000, 105.00, 0.000, 10.000, 1050.00),
+    ('Rai', 'Pkt', 0.000, 0.000, 0.000, 315.00, 0.000, 0.000, 0.00),
+    ('Sugar', 'kgs', 0.000, 0.000, 0.000, 49.00, 0.000, 0.000, 0.00),
+    ('Baking Powder', 'PKT', 3.000, 0.000, 0.000, 67.20, 0.000, 3.000, 201.60),
+    ('Shahi Paneer Masala (pkt)', 'PKT', 0.000, 0.000, 0.000, 86.50, 0.000, 0.000, 0.00),
+    ('Shahi Paneer Masala (kgs)', 'kgs', 1.700, 0.000, 0.300, 880.00, 264.000, 1.400, 1232.00),
+    ('Soya Bean Badiya', 'kgs', 50.000, 0.000, 0.000, 94.50, 0.000, 50.000, 4725.00),
+    ('Javitri', 'Kgs', 0.150, 0.000, 0.060, 2730.00, 163.800, 0.090, 245.70),
+    ('Amchur Powder', 'Pkt', 10.000, 0.000, 0.000, 105.00, 0.000, 10.000, 1050.00),
+    ('Imli', 'Pkt', 0.000, 0.000, 0.000, 45.00, 0.000, 0.000, 0.00),
+    ('Imli (expensive)', 'Pkt', 3.750, 0.000, 0.000, 120.00, 0.000, 3.750, 450.00),
+    ('Sabudana', 'Pkt', 10.000, 0.000, 0.000, 105.00, 0.000, 10.000, 1050.00),
 ]
 
 packaging_items = [
     # (name, unit, bbf, received, issue, rate, amt, bcf, bcf_amt)
-    ("PP BOX (DAL) MINI MEAL", "Nos", 3159, 0, 403, 3.186, 1283.96, 2756, 8780.62),
-    ("FOIL BOX (RICE,SABJI)", "Nos", 3820, 0, 806, 1.575, 1269.45, 3014, 4747.05),
-    ("ROTI POUCH", "Nos", 8300, 0, 2900, 0.236, 684.40, 5400, 1274.40),
-    ("SALAD PKT", "Nos", 6674, 0, 806, 0.177, 142.66, 5868, 1038.64),
-    ("SPOON/MINI MEAL", "Nos", 3431, 0, 462, 0.504, 232.85, 2969, 1496.38),
-    ("NEPKIN TUSSU PEPAR", "Nos", 8385, 0, 476, 0.354, 168.50, 7909, 2799.79),
-    ("SALT POUCH", "Nos", 3380, 0, 403, 0.150, 60.45, 2977, 446.55),
-    ("PICKLE & PARATHA", "Nos", 4292, 0, 476, 0.896, 426.42, 3816, 3418.50),
-    ("TAPE", "Nos", 6, 0, 2, 23.600, 47.20, 4, 94.40),
-    ("BIG FOIL BOX (BIRIYANI)", "Nos", 218, 0, 59, 3.150, 185.85, 159, 500.85),
-    ("PAPER BOX (LUNCH)", "Nos", 5529, 0, 403, 4.956, 1997.27, 5126, 25404.46),
-    ("BUTTER ROTI PAPER", "Nos", 600, 0, 50, 0.236, 11.80, 550, 129.80),
-    ("PARATHA BOX", "Nos", 278, 0, 73, 3.360, 245.28, 205, 688.80),
-    ("PARTATION BOX", "Nos", 47, 0, 0, 6.960, 0.00, 47, 327.12),
-    ("BLACK PACKET", "Nos", 4, 0, 1, 141.600, 141.60, 3, 424.80),
-    ("400 ML PP BOX", "Nos", 120, 0, 59, 4.720, 278.48, 61, 287.92),
-    ("SILVER FOIL", "Kgs", 1.400, 0, 0.500, 708.000, 354.00, 0.900, 637.20),
-    ("FOIL SILVER", "Kgs", 0, 0, 0, 531.000, 0.00, 0, 0.00),
+    ("PP Box (Dal) Mini Meal", "Nos", 3159, 0, 403, 3.186, 1283.96, 2756, 8780.62),
+    ("Foil Box (Rice, Sabji)", "Nos", 3820, 0, 806, 1.575, 1269.45, 3014, 4747.05),
+    ("Roti pouch", "Nos", 8300, 0, 2900, 0.236, 684.40, 5400, 1274.40),
+    ("Salad Pkt", "Nos", 6674, 0, 806, 0.177, 142.66, 5868, 1038.64),
+    ("Spoon/Mini Meal", "Nos", 3431, 0, 462, 0.504, 232.85, 2969, 1496.38),
+    ("Napkin Tissue Paper", "Nos", 8385, 0, 476, 0.354, 168.50, 7909, 2799.79),
+    ("Salt Pouch", "Nos", 3380, 0, 403, 0.150, 60.45, 2977, 446.55),
+    ("Pickle & Paratha", "Nos", 4292, 0, 476, 0.896, 426.42, 3816, 3418.50),
+    ("Tape", "Nos", 6, 0, 2, 23.600, 47.20, 4, 94.40),
+    ("Big Foil Box (Biryani)", "Nos", 218, 0, 59, 3.150, 185.85, 159, 500.85),
+    ("Paper Box (Lunch)", "Nos", 5529, 0, 403, 4.956, 1997.27, 5126, 25404.46),
+    ("Butter Roti Paper", "Nos", 600, 0, 50, 0.236, 11.80, 550, 129.80),
+    ("Paratha Box", "Nos", 278, 0, 73, 3.360, 245.28, 205, 688.80),
+    ("Partition Box", "Nos", 47, 0, 0, 6.960, 0.00, 47, 327.12),
+    ("Black Packet", "Nos", 4, 0, 1, 141.600, 141.60, 3, 424.80),
+    ("400 ML PP Box", "Nos", 120, 0, 59, 4.720, 278.48, 61, 287.92),
+    ("Silver foil", "Kgs", 1.400, 0, 0.500, 708.000, 354.00, 0.900, 637.20),
+    ("Foil silver", "Kgs", 0, 0, 0, 531.000, 0.00, 0, 0.00),
 ]
 
 sweets_items = [
     # (name, unit, bbf, received, issue, rate, amt, bcf, bcf_amt)
-    ("SWEET (BURFI)", "KGS", 24.000, 0, 10.000, 280.00, 2800.00, 14.000, 3920.00),
-    ("PETHA", "KGS", 15.000, 0, 0.000, 150.00, 0.00, 15.000, 2250.00),
-    ("GULDANA", "KGS", 0.000, 0, 0.000, 250.00, 0.00, 0.000, 0.00),
+    ("Sweet (Burfi)", "KGS", 24.000, 0, 10.000, 280.00, 2800.00, 14.000, 3920.00),
+    ("Petha", "KGS", 15.000, 0, 0.000, 150.00, 0.00, 15.000, 2250.00),
+    ("Guldana", "KGS", 0.000, 0, 0.000, 250.00, 0.00, 0.000, 0.00),
 ]
 
 fresh_items = [
     # (name, unit, bbf, received, issue, rate, amt, bcf, bcf_amt)
-    ("POTATO", "Kgs", 48.000, 0, 5.000, 13.000, 65.00, 43.000, 559.00),
-    ("ONION", "Kgs", 71.000, 0, 28.000, 24.000, 672.00, 43.000, 1032.00),
-    ("TOMATO", "Kgs", 38.000, 0, 12.000, 25.000, 300.00, 26.000, 650.00),
-    ("GINGER", "Kgs", 3.000, 0, 1.000, 70.000, 70.00, 2.000, 140.00),
-    ("GARLIC", "Kgs", 3.040, 0, 1.000, 154.000, 154.00, 2.040, 314.16),
-    ("PUMPKIN", "Kgs", 0.000, 0, 0.000, 17.000, 0.00, 0.000, 0.00),
-    ("GREEN CHILLI", "Kgs", 1.000, 0, 1.000, 65.000, 65.00, 0.000, 0.00),
-    ("CORRENDER", "Kgs", 0.000, 0, 0.000, 30.000, 0.00, 0.000, 0.00),
-    ("CAPSICUM", "Kgs", 0.000, 14.460, 14.460, 35.000, 506.10, 0.000, 0.00),
-    ("BEANS", "Kgs", 0.000, 1.410, 1.410, 94.000, 132.54, 0.000, 0.00),
-    ("CARROT", "Kgs", 0.000, 2.730, 2.730, 35.000, 95.55, 0.000, 0.00),
-    ("CAULI FLOWER", "Kgs", 0.000, 3.140, 3.140, 61.000, 191.54, 0.000, 0.00),
-    ("GREEN ONION", "Kgs", 0.000, 0, 0.000, 37.000, 0.00, 0.000, 0.00),
-    ("BOTTLE GD", "Kgs", 0.000, 0, 0.000, 20.000, 0.00, 0.000, 0.00),
-    ("CABBAGE", "Kgs", 0.000, 0, 0.000, 44.000, 0.00, 0.000, 0.00),
-    ("CUCUMBER", "Kgs", 20.800, 0, 10.000, 22.000, 220.00, 10.800, 237.60),
-    ("MATAR", "Kgs", 0.000, 0, 0.000, 100.000, 0.00, 0.000, 0.00),
-    ("PANEER", "Kgs", 0.000, 12.000, 12.000, 250.000, 3000.00, 0.000, 0.00),
-    ("LIME S", "Kgs", 0.000, 0, 0.000, 198.000, 0.00, 0.000, 0.00),
-    ("DAHI", "Kgs", 0.000, 0, 0.000, 75.000, 0.00, 0.000, 0.00),
-    ("KULCHA", "Kgs", 0.000, 0, 0.000, 30.000, 0.00, 0.000, 0.00),
-    ("TORI", "Nos", 0.000, 0, 0.000, 25.000, 0.00, 0.000, 0.00),
-    ("PAV", "Nos", 0.000, 0, 0.000, 35.000, 0.00, 0.000, 0.00),
+    ("Potato", "Kgs", 48.000, 0, 5.000, 13.000, 65.00, 43.000, 559.00),
+    ("Onion", "Kgs", 71.000, 0, 28.000, 24.000, 672.00, 43.000, 1032.00),
+    ("Tomato", "Kgs", 38.000, 0, 12.000, 25.000, 300.00, 26.000, 650.00),
+    ("Ginger", "Kgs", 3.000, 0, 1.000, 70.000, 70.00, 2.000, 140.00),
+    ("Garlic", "Kgs", 3.040, 0, 1.000, 154.000, 154.00, 2.040, 314.16),
+    ("Pumpkin", "Kgs", 0.000, 0, 0.000, 17.000, 0.00, 0.000, 0.00),
+    ("Green chilli", "Kgs", 1.000, 0, 1.000, 65.000, 65.00, 0.000, 0.00),
+    ("Coriander", "Kgs", 0.000, 0, 0.000, 30.000, 0.00, 0.000, 0.00),
+    ("Capsicum", "Kgs", 0.000, 14.460, 14.460, 35.000, 506.10, 0.000, 0.00),
+    ("Beans", "Kgs", 0.000, 1.410, 1.410, 94.000, 132.54, 0.000, 0.00),
+    ("Carrot", "Kgs", 0.000, 2.730, 2.730, 35.000, 95.55, 0.000, 0.00),
+    ("Cauli flower", "Kgs", 0.000, 3.140, 3.140, 61.000, 191.54, 0.000, 0.00),
+    ("Green onion", "Kgs", 0.000, 0, 0.000, 37.000, 0.00, 0.000, 0.00),
+    ("Bottle GD", "Kgs", 0.000, 0, 0.000, 20.000, 0.00, 0.000, 0.00),
+    ("Cabbage", "Kgs", 0.000, 0, 0.000, 44.000, 0.00, 0.000, 0.00),
+    ("Cucumber", "Kgs", 20.800, 0, 10.000, 22.000, 220.00, 10.800, 237.60),
+    ("Matar", "Kgs", 0.000, 0, 0.000, 100.000, 0.00, 0.000, 0.00),
+    ("Paneer", "Kgs", 0.000, 12.000, 12.000, 250.000, 3000.00, 0.000, 0.00),
+    ("Lime S", "Kgs", 0.000, 0, 0.000, 198.000, 0.00, 0.000, 0.00),
+    ("Dahi", "Kgs", 0.000, 0, 0.000, 75.000, 0.00, 0.000, 0.00),
+    ("Kulcha", "Kgs", 0.000, 0, 0.000, 30.000, 0.00, 0.000, 0.00),
+    ("Tori", "Nos", 0.000, 0, 0.000, 25.000, 0.00, 0.000, 0.00),
+    ("Pav", "Nos", 0.000, 0, 0.000, 35.000, 0.00, 0.000, 0.00),
 ]
 
 sales_summary = [
     # (name, prepared, sold, rate, income, expdr)
     ("LUNCH", 403, 400, 70.0, 28000.0, 24515.0),
-    ("PARATHA", 73, 71, 40.0, 2840.0, 2445.0),
-    ("DAHI", 240, 239, 10.0, 2390.0, 2151.0),
-    ("CHACH", 200, 193, 10.0, 1930.0, 1737.0),
+    ("Paratha", 73, 71, 40.0, 2840.0, 2445.0),
+    ("Dahi", 240, 239, 10.0, 2390.0, 2151.0),
+    ("Chach", 200, 193, 10.0, 1930.0, 1737.0),
     ("MINI", 59, 57, 50.0, 2850.0, 1174.0),
-    ("AMUL", 5, 5, 25.0, 125.0, 110.0),
-    ("LAHARI JEERA", 2, 0, 10.0, 0.0, 0.0),
-    ("LASSI", 4, 0, 20.0, 0.0, 0.0),
+    ("Amul Kool", 5, 5, 25.0, 125.0, 110.0),
+    ("Lahori Zeera", 2, 0, 10.0, 0.0, 0.0),
+    ("Lassi", 4, 0, 20.0, 0.0, 0.0),
 ]
 
 def seed_db():
@@ -155,6 +155,7 @@ def seed_db():
         cursor.execute("DELETE FROM goods_received WHERE date = ?", (DATE,))
         cursor.execute("DELETE FROM expenditure WHERE date = ?", (DATE,))
         cursor.execute("DELETE FROM stock_ledger WHERE date = ?", (DATE,))
+        cursor.execute("DELETE FROM samples WHERE date = ?", (DATE,))
 
         def process_item_list(items, category):
             for item, unit, bbf, received, issue, rate, amt, bcf, bcf_amt in items:
@@ -234,35 +235,90 @@ def seed_db():
         process_item_list(fresh_items, 'Fresh')
 
         print("Processing Sales logs & Menu updates...")
+        samples_list = [
+            ("LUNCH",    3, "03 X LUNCH SAMPLE",      "General"),
+            ("Paratha",  2, "02 X PARATHA SAMPLE",    "General"),
+            ("MINI",     2, "02 X MINI LUNCH SAMPLE", "General"),
+            ("Dahi",     1, "01 X DAHI SAMPLE",       "General"),
+            ("Chach",    1, "01 X CHACH SAMPLE",      "General"),
+            ("Chach", 7, "07 X CHACH FOR LADIES", "Staff"),
+        ]
+        # Get the day of the week for DATE
+        from datetime import datetime as _dt
+        day_name = _dt.strptime(DATE, "%Y-%m-%d").strftime("%A")
+        
+        # Map of generic meal name to daily_menu meal_type
+        meal_type_map = {
+            "LUNCH": "Lunch",
+            "PARATHA": "Paratha",
+            "MINI": "Mini Meal",
+            "MINI MEAL": "Mini Meal"
+        }
+
         for meal, prepared, sold, rate, income, expdr in sales_summary:
-            cursor.execute("SELECT id FROM menu WHERE name = ? COLLATE NOCASE", (meal,))
-            menu_row = cursor.fetchone()
+            meal_upper = meal.upper()
+            menu_id = None
+            specific_name = meal
+            if meal_upper in meal_type_map:
+                mtype = meal_type_map[meal_upper]
+                # Query daily_menu for the specific menu_id
+                cursor.execute(
+                    "SELECT dm.menu_id, m.name FROM daily_menu dm JOIN menu m ON m.id=dm.menu_id WHERE dm.day = ? AND dm.meal_type = ?",
+                    (day_name, mtype)
+                )
+                spec_row = cursor.fetchone()
+                if spec_row:
+                    menu_id = spec_row[0]
+                    specific_name = spec_row[1]
+            
+            if menu_id is None:
+                # Fall back to looking up by name
+                cursor.execute("SELECT id FROM menu WHERE name = ? COLLATE NOCASE", (meal,))
+                menu_row = cursor.fetchone()
+                if menu_row:
+                    menu_id = menu_row[0]
+                else:
+                    cursor.execute('''
+                        INSERT INTO menu (name, sp, active, cogs)
+                        VALUES (?, ?, 1, ?)
+                    ''', (meal, rate, 0.0))
+                    menu_id = cursor.lastrowid
+
             cpu = (expdr / prepared) if prepared > 0 else 0.0
-            if menu_row:
-                menu_id = menu_row[0]
-                cursor.execute("UPDATE menu SET sp = ?, cogs = ?, active = 1 WHERE id = ?", (rate, cpu, menu_id))
-            else:
+            # Update menu item's sp and cogs
+            cursor.execute("UPDATE menu SET sp = ?, cogs = ?, active = 1 WHERE id = ?", (rate, cpu, menu_id))
+
+            # Insert all sample rows for this meal
+            mtype = meal_type_map.get(meal_upper)
+            formatted_meal_name = f"{mtype} ({specific_name})" if mtype else specific_name
+
+            total_sample_qty = 0
+            for sml_meal, qty, notes, given_to in samples_list:
+                if sml_meal == meal:
+                    total_sample_qty += qty
+                    cost = qty * cpu
+                    cursor.execute('''
+                        INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (DATE, menu_id, formatted_meal_name, rate, qty, cost, given_to, notes))
+
+            wastage = max(0, prepared - sold - total_sample_qty)
+            # Only insert if prepared > 0 or sold > 0 (some templates check this, some don't, but checking is safer)
+            if prepared > 0 or sold > 0:
                 cursor.execute('''
-                    INSERT INTO menu (name, sp, active, cogs)
-                    VALUES (?, ?, 1, ?)
-                ''', (meal, rate, cpu))
-                menu_id = cursor.lastrowid
+                    INSERT INTO sales (date, menu_id, meal, sp, sold, wastage, cogs, payment)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Cash')
+                ''', (DATE, menu_id, formatted_meal_name, rate, sold, wastage, expdr))
 
-            wastage = prepared - sold
-            cursor.execute('''
-                INSERT INTO sales (date, menu_id, meal, sp, sold, wastage, cogs, payment)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'Cash')
-            ''', (DATE, menu_id, meal, rate, sold, wastage, expdr))
+                cursor.execute('''
+                    INSERT INTO batch_prep (date, menu_id, qty_prepared)
+                    VALUES (?, ?, ?)
+                ''', (DATE, menu_id, prepared))
 
-            cursor.execute('''
-                INSERT INTO batch_prep (date, menu_id, qty_prepared)
-                VALUES (?, ?, ?)
-            ''', (DATE, menu_id, prepared))
-
-            cursor.execute('''
-                INSERT INTO expenditure (date, amount, category, notes)
-                VALUES (?, ?, 'Raw Materials', ?)
-            ''', (DATE, expdr, f"Auto-expenditure for {meal} batch"))
+                cursor.execute('''
+                    INSERT INTO expenditure (date, amount, category, notes)
+                    VALUES (?, ?, 'Raw Materials', ?)
+                ''', (DATE, expdr, f"Auto-expenditure for {meal} batch"))
 
         conn.commit()
         print("🎉 Database successfully updated for 27 May 2026!")

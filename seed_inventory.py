@@ -21,7 +21,7 @@ def seed_realistic_inventory():
             elif cat == 'Vegetables':
                 min_lvl = random.choice([10, 15, 20])
                 # Herbs/small veggies
-                if any(x in name_lower for x in ['chilli', 'ginger', 'garlic', 'corrender']):
+                if any(x in name_lower for x in ['chilli', 'ginger', 'garlic', 'coriander']):
                     min_lvl = 2
                     stock = random.uniform(3.0, 8.0)
                 else:

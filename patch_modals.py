@@ -561,9 +561,9 @@ MENU_ITEMS = [
     ("Kala Chana Thali",     70),
     ("Chana Dal Paneer Thali",70),
     ("Veg Manchurian & Fried Rice", 50),
-    ("Kadhi Chawal",  50),
+    ("Kadhi chawal",  50),
     ("Rajma Rice",    50),
-    ("Veg Biryani",   50),
+    ("Veg biryani",   50),
     ("Matar Kulcha",  50),
 ]
 for nm, sp in MENU_ITEMS:
@@ -580,9 +580,9 @@ menus = {r["name"]: r["id"] for r in conn.execute("SELECT id,name FROM menu")}
 # Fri: Chana Dal Paneer Thali + Matar Kulcha
 WEEKDAY_MENU = {
     0: ("Panchratna Dal Thali",     "Veg Manchurian & Fried Rice"),  # Mon
-    1: ("Kadhi Pakoda Thali",       "Kadhi Chawal"),                  # Tue
+    1: ("Kadhi Pakoda Thali",       "Kadhi chawal"),                  # Tue
     2: ("Rajma Thali",              "Rajma Rice"),                    # Wed
-    3: ("Kala Chana Thali",         "Veg Biryani"),                   # Thu
+    3: ("Kala Chana Thali",         "Veg biryani"),                   # Thu
     4: ("Chana Dal Paneer Thali",   "Matar Kulcha"),                  # Fri
 }
 import random

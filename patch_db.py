@@ -30,7 +30,7 @@ def patch_database():
                 VALUES ('2026-05-11', 85, 'Batch_Prep', -150.0, 'Manual register math reconciliation (BUTTER ROTI PAPER BCF error)')
             ''')
 
-        # 3. ilaychi small Gr (inv_id = 54)
+        # 3. ELAICHI SMALL GR (inv_id = 54)
         # Check if correction ledger entry already exists
         cursor.execute("SELECT id FROM stock_ledger WHERE inv_id = 54 AND notes LIKE '%correction%'")
         if not cursor.fetchone():
@@ -54,8 +54,8 @@ def patch_database():
         cursor.execute("DELETE FROM inventory WHERE id IN (114, 115)")
 
         # Rename id 40 and 41 and set correct stock & CP
-        cursor.execute("UPDATE inventory SET item = 'CHAT MASALA', stock = 0.9, cp = 752.0, updated = '2026-05-13' WHERE id = 40")
-        cursor.execute("UPDATE inventory SET item = 'RAJMAH MASALA (Kgs)', stock = 2.0, cp = 736.0, updated = '2026-05-13' WHERE id = 41")
+        cursor.execute("UPDATE inventory SET item = 'Chat Masala', stock = 0.9, cp = 752.0, updated = '2026-05-13' WHERE id = 40")
+        cursor.execute("UPDATE inventory SET item = 'Rajma Masala (Kgs)', stock = 2.0, cp = 736.0, updated = '2026-05-13' WHERE id = 41")
 
         # Delete duplicate 'Opening' entries created on May 4 for id 40 and 41
         cursor.execute("DELETE FROM stock_ledger WHERE date = '2026-05-04' AND transaction_type = 'Opening' AND inv_id IN (40, 41)")

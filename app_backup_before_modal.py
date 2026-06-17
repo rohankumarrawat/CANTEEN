@@ -181,8 +181,8 @@ def init_db():
             ("Panchratna Dal Thali",70), ("Kadhi Pakoda Thali",70),
             ("Rajma Thali",70), ("Kala Chana Thali",70),
             ("Chana Dal Paneer Thali",70), ("Veg Manchurian & Fried Rice",50),
-            ("Kadhi Chawal",50), ("Rajma Rice",50),
-            ("Veg Biryani",50), ("Matar Kulcha",50),
+            ("Kadhi chawal",50), ("Rajma Rice",50),
+            ("Veg biryani",50), ("Matar Kulcha",50),
         ])
         mid = {r[1]: r[0] for r in c.execute("SELECT id,name FROM menu")}
         iid = {r[1]: r[0] for r in c.execute("SELECT id,item FROM inventory")}
@@ -207,11 +207,11 @@ def init_db():
             ("Veg Manchurian & Fried Rice","Veg Manchurian",0.22),
             ("Veg Manchurian & Fried Rice","Fried Rice Mix",0.40),
             ("Veg Manchurian & Fried Rice","Salad Ingredients",0.08),
-            ("Kadhi Chawal","Kadhi Base",0.35),("Kadhi Chawal","Rice",0.40),
-            ("Kadhi Chawal","Salad Ingredients",0.08),
+            ("Kadhi chawal","Kadhi Base",0.35),("Kadhi chawal","Rice",0.40),
+            ("Kadhi chawal","Salad Ingredients",0.08),
             ("Rajma Rice","Rajma",0.25),("Rajma Rice","Rice",0.40),
             ("Rajma Rice","Salad Ingredients",0.08),
-            ("Veg Biryani","Biryani Mix",0.45),("Veg Biryani","Salad Ingredients",0.10),
+            ("Veg biryani","Biryani Mix",0.45),("Veg biryani","Salad Ingredients",0.10),
             ("Matar Kulcha","Matar",0.20),("Matar Kulcha","Kulcha",2.00),
             ("Matar Kulcha","Salad Ingredients",0.08),
         ]

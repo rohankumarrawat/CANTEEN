@@ -44,7 +44,7 @@ def run_verifications():
     dry_issue_val = get_ledger_issue_val(dry_ids)
     dry_bcf_val = get_stock_val(dry_ids)
 
-    # In the register: expected_dry_issue = 13643.23. The clerk missed one of the EMLI issue rows (value 45.00) in the sum: 13688.22 - 45.00 = 13643.22. DB sum is 13688.18.
+    # In the register: expected_dry_issue = 13643.23. The clerk missed one of the IMLI issue rows (value 45.00) in the sum: 13688.22 - 45.00 = 13643.22. DB sum is 13688.18.
     # In the register: BCF sum is 74307.86. The clerk made a math error of exactly 120.00 (the true sum of BCF columns in register is 74187.86). DB sum is 74187.51 (due to R/OIL and LPG rate/rounding diffs).
     expected_dry_issue = 13688.18
     expected_dry_bcf = 74187.51
@@ -58,7 +58,7 @@ def run_verifications():
         errors.append(f"Dry items BCF value mismatch: {dry_bcf_val:.2f} vs {expected_dry_bcf:.2f}")
 
     # 2. Verification of Packaging Items (Misc cat, excluding Burfi/Petha/Guldana)
-    rows_pkg = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item NOT IN ('SWEET (BURFI)', 'PETHA', 'GULDANA')").fetchall()
+    rows_pkg = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item NOT IN ('Sweet (Burfi)', 'Petha', 'Guldana')").fetchall()
     pkg_ids = [row['id'] for row in rows_pkg]
     print(f"Packaging Items count: {len(rows_pkg)}")
 
@@ -79,7 +79,7 @@ def run_verifications():
         errors.append(f"Packaging items BCF value mismatch: {pkg_bcf_val:.2f} vs {expected_pkg_bcf:.2f}")
 
     # 3. Verification of Sweets
-    rows_sw = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item IN ('SWEET (BURFI)', 'PETHA', 'GULDANA')").fetchall()
+    rows_sw = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item IN ('Sweet (Burfi)', 'Petha', 'Guldana')").fetchall()
     sw_ids = [row['id'] for row in rows_sw]
     print(f"Sweets count: {len(rows_sw)}")
 

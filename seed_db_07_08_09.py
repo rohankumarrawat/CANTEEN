@@ -6,27 +6,27 @@ days_data = [
         "date": "2026-05-07",
         "sales": [("Lunch", 523, 20), ("Mini Mil", 62, 0), ("Paratha", 73, 0)],
         "rates": {
-            "POTATO": 10.0, "ONION": 23.0, "TOMATO": 18.0, "GINGER": 135.0, 
-            "GREEN CHILLI": 55.0
+            "Potato": 10.0, "Onion": 23.0, "Tomato": 18.0, "Ginger": 135.0, 
+            "Green chilli": 55.0
         }
     },
     {
         "date": "2026-05-08",
         "sales": [("Lunch", 540, 20), ("Mini Mil", 62, 0), ("Paratha", 73, 0)],
         "rates": {
-            "POTATO": 10.0, "ONION": 23.0, "TOMATO": 18.0, "GINGER": 135.0, 
-            "GREEN CHILLI": 60.0, "PAV/KULCHA": 30.0
+            "Potato": 10.0, "Onion": 23.0, "Tomato": 18.0, "Ginger": 135.0, 
+            "Green chilli": 60.0, "Pav/Kulcha": 30.0
             # Also adding PEAS GREEN since it appeared on the 8th sheet
         },
-        "new_items": [("PEAS GREEN", "Vegetables", "Kgs", 95.0)]
+        "new_items": [("Peas green", "Vegetables", "Kgs", 95.0)]
     },
     {
         "date": "2026-05-09",
         "sales": [("Lunch", 142, 12), ("Mini Mil", 18, 0), ("Paratha", 0, 0)],
         "rates": {
-            "POTATO": 10.0, "ONION": 22.0, "TOMATO": 16.0, "GINGER": 65.0, 
-            "GREEN CHILLI": 60.0, "PUMPKIN": 15.0, "CORRENDER": 20.0, 
-            "CAPSICUM": 22.0, "BOTTLE GD": 12.0, "DAHI": 75.0, "PAV/KULCHA": 35.0
+            "Potato": 10.0, "Onion": 22.0, "Tomato": 16.0, "Ginger": 65.0, 
+            "Green chilli": 60.0, "Pumpkin": 15.0, "Coriander": 20.0, 
+            "Capsicum": 22.0, "Bottle GD": 12.0, "Dahi": 75.0, "Pav/Kulcha": 35.0
         }
     }
 ]

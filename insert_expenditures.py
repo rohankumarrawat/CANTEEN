@@ -7,8 +7,8 @@ expenditures = [
     ("2026-04-30", 2151.0, "Raw Materials", "Auto-expenditure for DAHI batch"),
     ("2026-04-30", 1755.0, "Raw Materials", "Auto-expenditure for CHACH batch"),
     ("2026-04-30", 873.0, "Raw Materials", "Auto-expenditure for MINI batch"),
-    ("2026-04-30", 110.0, "Raw Materials", "Auto-expenditure for AMUL batch"),
-    ("2026-04-30", 135.0, "Raw Materials", "Auto-expenditure for LAHARI JEERA batch"),
+    ("2026-04-30", 110.0, "Raw Materials", "Auto-expenditure for AMUL KOOL batch"),
+    ("2026-04-30", 135.0, "Raw Materials", "Auto-expenditure for LAHORI ZEERA batch"),
     ("2026-04-30", 342.0, "Raw Materials", "Auto-expenditure for LASSI batch"),
     
     # 02 May 2026

@@ -12,11 +12,11 @@ def run_verifications():
 
     # Map of 30 April rates to override the current inventory.cp values for historical calculations
     rates_30_apr = {
-        "POTATO": 12.0, "ONION": 22.0, "TOMATO": 30.0, "GINGER": 65.0, "GARLIC": 132.0,
-        "PEAS GREEN": 95.0, "GREEN CHILLI": 55.0, "CORRENDER": 40.0, "CAPSICUM": 18.0,
-        "BEANS": 55.0, "CARROT": 33.0, "CAULI FLOWER": 55.0, "GREEN ONION": 37.0,
-        "BOTTLE GD": 15.0, "CABBAGE": 44.0, "CUCUMBER": 15.0, "MATAR": 100.0,
-        "PANEER": 250.0, "LIME S": 198.0, "DAHI": 75.0, "PAV/KULCHA": 35.0
+        "Potato": 12.0, "Onion": 22.0, "Tomato": 30.0, "Ginger": 65.0, "Garlic": 132.0,
+        "Peas green": 95.0, "Green chilli": 55.0, "Coriander": 40.0, "Capsicum": 18.0,
+        "Beans": 55.0, "Carrot": 33.0, "Cauli flower": 55.0, "Green onion": 37.0,
+        "Bottle GD": 15.0, "Cabbage": 44.0, "Cucumber": 15.0, "Matar": 100.0,
+        "Paneer": 250.0, "Lime S": 198.0, "Dahi": 75.0, "Pav/Kulcha": 35.0
     }
 
     # Helper function to get ledger issues sum for a set of item IDs
@@ -65,7 +65,7 @@ def run_verifications():
         errors.append(f"Dry items BCF value mismatch: {dry_bcf_val:.2f} vs 238550.10")
 
     # 2. Verification of Packaging Items (stored under category 'Misc' in inventory)
-    rows_pkg = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item NOT LIKE 'SWEET%' AND item != 'PETHA'").fetchall()
+    rows_pkg = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND item NOT LIKE 'SWEET%' AND item != 'Petha'").fetchall()
     pkg_ids = [row['id'] for row in rows_pkg]
     print(f"Packaging Items count: {len(rows_pkg)} (Expected: 16)")
     if len(rows_pkg) != 16:
@@ -83,7 +83,7 @@ def run_verifications():
         errors.append(f"Packaging items BCF value mismatch: {pkg_bcf_val:.2f} vs 68021.78")
 
     # 3. Verification of Sweets (also under cat='Misc' but name filtered)
-    rows_sw = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND (item LIKE 'SWEET%' OR item = 'PETHA')").fetchall()
+    rows_sw = cursor.execute("SELECT id FROM inventory WHERE cat='Misc' AND (item LIKE 'SWEET%' OR item = 'Petha')").fetchall()
     sw_ids = [row['id'] for row in rows_sw]
     print(f"Sweets count: {len(rows_sw)} (Expected: 2)")
     if len(rows_sw) != 2:
