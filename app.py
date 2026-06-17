@@ -819,13 +819,13 @@ class CanteenApp(ctk.CTk):
 
         # KPI cards ------------------------------------------------------------
         KPI = [
-            ("\U0001f4b0", "Revenue",        f"\u20b9{f_in(rev)}",   SAFFRON, BG_SAF, T_SAF),
+            ("\U0001f4b0", "Revenue",        f"Rs. {f_in(rev)}",   SAFFRON, BG_SAF, T_SAF),
             ("\U0001f35b", "Meals Served",    str(meals),          GREEN,   BG_GRN, T_GRN),
-            ("\U0001f4c8", "Net Profit",      f"\u20b9{f_in(profit)}", BLUE,    BG_BLU, T_BLU),
-            ("\U0001f4b8", "Expenditure",     f"\u20b9{f_in(exp)}",    PURPLE,  BG_PUR, T_PUR),
-            ("\u267b\ufe0f", "Wastage Cost",  f"\u20b9{f_in(wcost)}",  ORANGE,  BG_SAF, T_SAF),
-            ("\U0001f381", f"Samples ({sqty})", f"\u20b9{f_in(scost)}", TEAL,  BG_TEA, T_TEA),
-            ("👨‍🍳", f"Staff ({stf_qty})", f"₹{f_in(stf_cost)}", ARMY_BG, "#f1f5f9", ARMY_BG),
+            ("\U0001f4c8", "Net Profit",      f"Rs. {f_in(profit)}", BLUE,    BG_BLU, T_BLU),
+            ("\U0001f4b8", "Expenditure",     f"Rs. {f_in(exp)}",    PURPLE,  BG_PUR, T_PUR),
+            ("\u267b\ufe0f", "Wastage Cost",  f"Rs. {f_in(wcost)}",  ORANGE,  BG_SAF, T_SAF),
+            ("\U0001f381", f"Samples ({sqty})", f"Rs. {f_in(scost)}", TEAL,  BG_TEA, T_TEA),
+            ("👨‍🍳", f"Staff ({stf_qty})", f"Rs. {f_in(stf_cost)}", ARMY_BG, "#f1f5f9", ARMY_BG),
             ("\u26a0\ufe0f", "Low Stock",     str(len(low)),       RED,     BG_RED, T_RED),
         ]
         # Two rows: 4 KPIs top row, 4 KPIs bottom row
@@ -880,9 +880,9 @@ class CanteenApp(ctk.CTk):
                 ax1.plot(range(len(dates)), revs, color="#138808", linewidth=2.5, marker="o",
                          markersize=5, markerfacecolor="#FF9933")
                 ax1.set_xticks(range(len(dates))); ax1.set_xticklabels(dates, fontsize=7)
-                ax1.set_ylabel("\u20b9", fontsize=8)
+                ax1.set_ylabel("Rs. ", fontsize=8)
                 for i2, v in enumerate(revs):
-                    ax1.annotate(f"\u20b9{f_in(v)}", (i2, v), textcoords="offset points",
+                    ax1.annotate(f"Rs. {f_in(v)}", (i2, v), textcoords="offset points",
                                  xytext=(0,8), ha="center", fontsize=6, color="#138808")
             else:
                 ax1.text(0.5, 0.5, "No sales data yet", ha="center", va="center",
@@ -948,13 +948,13 @@ class CanteenApp(ctk.CTk):
         for ix, r in enumerate(sales):
             pi = {"Cash":"💵","UPI":"📱","Card":"💳"}.get(r["payment"],"💰")
             trow(sf,[r["meal"],str(r["sold"]),
-                     f"₹{f_in(r['sp']*r['sold'])}",f"{pi} {r['payment']}"],
+                     f"Rs. {f_in(r['sp']*r['sold'])}",f"{pi} {r['payment']}"],
                   [3,1,2,1],
                   colors=[DARK,MID,GREEN,MID],bolds=[True,False,True,False],
                   bg=WHITE if ix%2==0 else STRIPE)
         totf = ctk.CTkFrame(sc, fg_color=BG_SAF, corner_radius=0, height=34)
         totf.pack(fill="x"); totf.pack_propagate(False)
-        lbl(totf, f"  TOTAL: {meals} meals  •  ₹{f_in(rev)}", size=11,
+        lbl(totf, f"  TOTAL: {meals} meals  •  Rs. {f_in(rev)}", size=11,
             weight="bold", color=SAFFRON).pack(side="left", padx=10)
 
         # Alerts
@@ -1070,7 +1070,7 @@ class CanteenApp(ctk.CTk):
         sf.pack(fill="x", padx=PAD, pady=(10,0)); sf.pack_propagate(False)
         for icon, label, val, clr in [
             ("🍽", "Total Sold",   f"{tot_sold}",           SAFFRON),
-            ("💰", "Revenue",      f"₹{f_in(tot_rev)}",       "#4ADE80"),
+            ("💰", "Revenue",      f"Rs. {f_in(tot_rev)}",       "#4ADE80"),
             ("📊", "Transactions", f"{len(today_sales)}", WHITE),
         ]:
             cf = ctk.CTkFrame(sf, fg_color="transparent"); cf.pack(side="left", padx=24, expand=True)
@@ -1112,7 +1112,7 @@ class CanteenApp(ctk.CTk):
             top.pack(fill="x"); top.pack_propagate(False)
             lbl(top, f"  {'🍛' if is_thali else '🍽️'}  {name2}",
                 size=11, weight="bold", color=WHITE).pack(side="left", padx=8)
-            lbl(top, f"₹{sp2:.0f}", size=12, weight="bold",
+            lbl(top, f"Rs. {sp2:.0f}", size=12, weight="bold",
                 color=SAFFRON).pack(side="right", padx=12)
 
             # Today's running total badge
@@ -1121,7 +1121,7 @@ class CanteenApp(ctk.CTk):
                 si.pack(fill="x"); si.pack_propagate(False)
                 entries_txt = f"{agg['entries']} batch" if agg['entries'] == 1 else f"{agg['entries']} batches"
                 lbl(si,
-                    f"  ✅  Today: {agg['sold']} sold • {entries_txt} • ₹{f_in(agg['revenue'])}",
+                    f"  ✅  Today: {agg['sold']} sold • {entries_txt} • Rs. {f_in(agg['revenue'])}",
                     size=9, weight="bold", color=GREEN).pack(side="left", padx=6)
 
             body = ctk.CTkFrame(mc, fg_color="transparent")
@@ -1135,12 +1135,12 @@ class CanteenApp(ctk.CTk):
                                  border_color=BORDER, justify="center")
             e_qty.pack(fill="x", pady=(4,8))
 
-            rev_lbl = lbl(body, "Revenue: ₹0", size=11, weight="bold", color=GREEN)
+            rev_lbl = lbl(body, "Revenue: Rs. 0", size=11, weight="bold", color=GREEN)
             rev_lbl.pack(anchor="w")
 
             def _upd(event=None, eq=e_qty, rl=rev_lbl, sp=sp2):
-                try:    rl.configure(text=f"Revenue: ₹{f_in(int(eq.get() or 0)*sp)}")
-                except: rl.configure(text="Revenue: ₹0")
+                try:    rl.configure(text=f"Revenue: Rs. {f_in(int(eq.get() or 0)*sp)}")
+                except: rl.configure(text="Revenue: Rs. 0")
             e_qty.bind("<KeyRelease>", _upd)
 
             pm = ctk.CTkOptionMenu(body, values=["Cash","UPI","Card"],
@@ -1192,15 +1192,15 @@ class CanteenApp(ctk.CTk):
                     else:
                         deduct_cell = "⚠ No recipe"
                     trow(sc,[r["meal"],str(r["sold"]),
-                             f"₹{f_in(r['cogs'])}",f"₹{f_in(rev2)}",r["payment"],deduct_cell],
+                             f"Rs. {f_in(r['cogs'])}",f"Rs. {f_in(rev2)}",r["payment"],deduct_cell],
                          [4,1,1,1,1,3], bg=WHITE if ix%2==0 else STRIPE)
             totf = ctk.CTkFrame(sc, fg_color=BG_GRN, corner_radius=0, height=38)
             totf.pack(fill="x"); totf.pack_propagate(False)
             lbl(totf, "  TOTAL", size=11, weight="bold", color=GREEN).grid(
                 row=0, column=0, padx=14, sticky="w")
-            lbl(totf, f"₹{f_in(tot_cogs)}", size=11, weight="bold",
+            lbl(totf, f"Rs. {f_in(tot_cogs)}", size=11, weight="bold",
                 color=GREEN).grid(row=0, column=2, sticky="w", padx=14)
-            lbl(totf, f"₹{f_in(tot_rev)}", size=13, weight="bold",
+            lbl(totf, f"Rs. {f_in(tot_rev)}", size=13, weight="bold",
                 color=GREEN).grid(row=0, column=3, sticky="w", padx=14)
             for i,w in enumerate([4,1,1,1,1,3]):
                 totf.grid_columnconfigure(i, weight=w)
@@ -1304,7 +1304,7 @@ class CanteenApp(ctk.CTk):
             deduct_str = " | ⚠ No recipe linked — stock NOT deducted"
 
         self._toast(
-            f"{meal} — {sold} sold • ₹{f_in(sp*sold)} • COGS ₹{f_in(sold*cpu)}"
+            f"{meal} — {sold} sold • Rs. {f_in(sp*sold)} • COGS Rs. {f_in(sold*cpu)}"
             f"{deduct_str}",
             duration_ms=4000)
         self._live_refresh("sales")
@@ -1780,7 +1780,7 @@ class CanteenApp(ctk.CTk):
         fields["min_lvl"] = e_min
 
         # ── Cost Price ────────────────────────────────────────────────────────
-        lbl(body, "Cost Price per Unit (₹)", size=11, weight="bold",
+        lbl(body, "Cost Price per Unit (Rs.)", size=11, weight="bold",
             color=ARMY_BG).pack(anchor="w", pady=(8, 3))
         e_cp = entry(body, ph="e.g., 90", h=38); e_cp.pack(fill="x")
         fields["cp"] = e_cp
@@ -1831,7 +1831,7 @@ class CanteenApp(ctk.CTk):
         lbl(body, "Quantity Received", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(0,3))
         e_qty = entry(body, ph="e.g., 25.5", h=38); e_qty.pack(fill="x", pady=(0,10))
 
-        lbl(body, "New Cost Price (₹)  •  leave blank to keep existing",
+        lbl(body, "New Cost Price (Rs.)  •  leave blank to keep existing",
             size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(0,3))
         e_cp = entry(body, ph="e.g., 42", h=38); e_cp.pack(fill="x")
 
@@ -1847,7 +1847,7 @@ class CanteenApp(ctk.CTk):
                              (qty, qty, new_cp, item))
                 conn.execute("INSERT INTO goods_received (date,inv_id,qty,total_cost) VALUES (?,?,?,?)",
                              (datetime.now().strftime("%Y-%m-%d"), row["id"], qty, qty*new_cp))
-            self._popup("✅ Stock Received!", f"{item}: +{qty} @ ₹{new_cp}/unit")
+            self._popup("✅ Stock Received!", f"{item}: +{qty} @ Rs. {new_cp}/unit")
             close(); self._go("inventory")
 
         btn(card, "✅  Confirm Receipt", save, fg=TEAL, hv=ARMY_BG, h=46).pack(
@@ -1889,7 +1889,7 @@ class CanteenApp(ctk.CTk):
         for lbl_t, attr, ph in [
             ("New Stock Level (leave blank to skip)", "stock",   "e.g., 50"),
             ("New Min Level  (leave blank to skip)",  "min_lvl", "e.g., 10"),
-            ("New Cost Price ₹ (leave blank to skip)","cp",      "e.g., 45"),
+            ("New Cost Price Rs. (leave blank to skip)","cp",      "e.g., 45"),
         ]:
             lbl(body, lbl_t, size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
             e = entry(body, ph=ph, h=38); e.pack(fill="x", pady=(0,4))
@@ -2139,7 +2139,7 @@ class CanteenApp(ctk.CTk):
                         eq2 = entry(qr, ph="e.g. 10.0", h=38)
                         eq2.grid(row=1, column=0, sticky="ew", padx=(0, 8))
                         fields["qty"] = eq2
-                        lbl(qr, "Cost Price ₹/unit (optional)", size=11, weight="bold",
+                        lbl(qr, "Cost Price Rs./unit (optional)", size=11, weight="bold",
                             color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0, 3))
                         ecp2 = entry(qr, ph="leave blank to keep current", h=38)
                         ecp2.grid(row=1, column=1, sticky="ew")
@@ -2185,7 +2185,7 @@ class CanteenApp(ctk.CTk):
                         e_min.grid(row=1, column=1, sticky="ew")
                         fields["new_min"] = e_min
 
-                        lbl(fp, "Cost Price ₹/unit", size=11, weight="bold",
+                        lbl(fp, "Cost Price Rs./unit", size=11, weight="bold",
                             color=ARMY_BG).pack(anchor="w", pady=(8, 3))
                         e_cp2 = entry(fp, ph="e.g., 90", h=38); e_cp2.pack(fill="x")
                         fields["new_cp"] = e_cp2
@@ -2305,7 +2305,7 @@ class CanteenApp(ctk.CTk):
                                     flag, clr = "✗ skip — add category+unit", RED
                                 lbl(prev,
                                     f"  {r['item'][:26]:26s}  +{r['qty']}"
-                                    + (f"  @₹{r['cp']}" if r["cp"] else "")
+                                    + (f"  @Rs. {r['cp']}" if r["cp"] else "")
                                     + f"  [{flag}]",
                                     size=9, color=clr).pack(anchor="w", padx=10)
                             if len(rows_ok) > 8:
@@ -2399,7 +2399,7 @@ class CanteenApp(ctk.CTk):
 
                 m_name = mom.get()
                 default_sp = str(int(menu_map[m_name]["sp"])) if m_name in menu_map else ""
-                lbl(rf, "Selling Price ₹/plate", size=11, weight="bold",
+                lbl(rf, "Selling Price Rs./plate", size=11, weight="bold",
                     color=ARMY_BG).grid(row=0, column=1, sticky="w", pady=(0,3))
                 e_sp = entry(rf, ph="e.g. 45", h=38)
                 e_sp.grid(row=1, column=1, sticky="ew", pady=(0,8))
@@ -2641,7 +2641,7 @@ class CanteenApp(ctk.CTk):
 
                 self._toast(
                     f"✅ Batch: {menu_name} ×{qty} logged for {date_str}"
-                    + (f"  |  ₹{f_in(total_raw_cost)} expenditure" if do_exp else ""))
+                    + (f"  |  Rs. {f_in(total_raw_cost)} expenditure" if do_exp else ""))
                 close(); self._live_refresh("batch")
 
             # ── Sales ─────────────────────────────────────────────────────────
@@ -2675,8 +2675,8 @@ class CanteenApp(ctk.CTk):
                         (qty * cpu, new_sale_id))
 
                 self._toast(
-                    f"✅ Sale: {menu_name} ×{qty} @ ₹{sp:.0f} ({payment}) for {date_str}"
-                    f"  |  Revenue ₹{f_in(sp*qty)}")
+                    f"✅ Sale: {menu_name} ×{qty} @ Rs. {sp:.0f} ({payment}) for {date_str}"
+                    f"  |  Revenue Rs. {f_in(sp*qty)}")
                 close(); self._live_refresh("sales")
 
         btn(card_w, "✅  Save Entry", _save, fg=GREEN, hv=DGREEN, h=46).pack(
@@ -2702,7 +2702,7 @@ class CanteenApp(ctk.CTk):
 
         lbl(ff,"Date",size=11,weight="bold",color=ARMY_BG).grid(row=0,column=0,sticky="w",pady=(0,4))
         lbl(ff,"Category",size=11,weight="bold",color=ARMY_BG).grid(row=0,column=1,sticky="w",padx=(20,0),pady=(0,4))
-        lbl(ff,"Amount (₹)",size=11,weight="bold",color=ARMY_BG).grid(row=0,column=2,sticky="w",padx=(20,0),pady=(0,4))
+        lbl(ff,"Amount (Rs.)",size=11,weight="bold",color=ARMY_BG).grid(row=0,column=2,sticky="w",padx=(20,0),pady=(0,4))
 
         self._exp_deduct = ctk.BooleanVar(value=False)
         cdc = ctk.CTkCheckBox(fc, text="Link to Inventory (Add this purchase to stock)", 
@@ -2759,9 +2759,9 @@ class CanteenApp(ctk.CTk):
                                  (eq, eq, new_cp, it))
                     conn.execute("INSERT INTO goods_received (date,inv_id,qty,total_cost) VALUES (?,?,?,?)",
                                  (exp_date, row["id"], eq, amt))
-            self._popup("✅ Expenditure Saved!", f"₹{f_in(amt)} under {cat}")
+            self._popup("✅ Expenditure Saved!", f"Rs. {f_in(amt)} under {cat}")
             e_amt.delete(0,"end"); e_notes.delete(0,"end")
-            self._toast(f"✅ ₹{f_in(amt)} under {cat}")
+            self._toast(f"✅ Rs. {f_in(amt)} under {cat}")
             self._live_refresh("expenditure")
 
         btn(fc,"✅  Save Expenditure",save_exp,fg=GREEN,hv=DGREEN,h=44).pack(padx=18,pady=(0,16),fill="x")
@@ -2800,7 +2800,7 @@ class CanteenApp(ctk.CTk):
             rf = ctk.CTkFrame(esf, fg_color=bg2, corner_radius=0, height=38)
             rf.pack(fill="x"); rf.pack_propagate(False)
             for j,(v,wt) in enumerate(zip(
-                    [r["date"],r["category"],f"₹{f_in(r['amount'])}",r["notes"] or "—"],
+                    [r["date"],r["category"],f"Rs. {f_in(r['amount'])}",r["notes"] or "—"],
                     [2,3,2,4])):
                 lbl(rf,v,size=11,color=DARK if j<2 else MID,
                     weight="bold" if j==2 else "normal").grid(row=0,column=j,padx=14,sticky="w")
@@ -2827,7 +2827,7 @@ class CanteenApp(ctk.CTk):
         totf = ctk.CTkFrame(ec, fg_color=BG_RED, corner_radius=0, height=36)
         totf.pack(fill="x"); totf.pack_propagate(False)
         lbl(totf, "TOTAL", size=11, weight="bold", color=RED).grid(row=0,column=0,padx=14,sticky="w")
-        lbl(totf, f"₹{f_in(total)}", size=13, weight="bold", color=RED).grid(row=0,column=2,padx=14,sticky="w")
+        lbl(totf, f"Rs. {f_in(total)}", size=13, weight="bold", color=RED).grid(row=0,column=2,padx=14,sticky="w")
         totf.grid_columnconfigure(0,weight=2); totf.grid_columnconfigure(1,weight=3)
         totf.grid_columnconfigure(2,weight=2); totf.grid_columnconfigure(3,weight=4)
         totf.grid_columnconfigure(4,weight=2)
@@ -2857,7 +2857,7 @@ class CanteenApp(ctk.CTk):
         cat_menu.set(current_cat)
         cat_menu.pack(fill="x", pady=(0,8))
 
-        lbl(body, "Amount (₹)", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
+        lbl(body, "Amount (Rs.)", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
         e_amt = entry(body, ph="e.g., 1500", h=38)
         e_amt.insert(0, str(rdata["amount"]))
         e_amt.pack(fill="x", pady=(0,8))
@@ -2912,7 +2912,7 @@ class CanteenApp(ctk.CTk):
         sf.pack(fill="x", padx=PAD, pady=(10,0)); sf.pack_propagate(False)
         for icon, label, val, clr in [
             ("\U0001f5d1", "Entries Today", str(len(wr)), SAFFRON),
-            ("\U0001f4b8", "Total Loss", f"\u20b9{f_in(total_wc)}", "#F87171"),
+            ("\U0001f4b8", "Total Loss", f"Rs. {f_in(total_wc)}", "#F87171"),
         ]:
             cf = ctk.CTkFrame(sf, fg_color="transparent"); cf.pack(side="left", padx=24, expand=True)
             lbl(cf, f"{icon}  {label}", size=10, color="#94A3B8").pack(anchor="w")
@@ -2946,7 +2946,7 @@ class CanteenApp(ctk.CTk):
         self._wq = entry(r2, ph="e.g., 2.5", h=36)
         self._wq.grid(row=1, column=0, sticky="ew", padx=(0,8))
 
-        lbl(r2, "Estimated Cost (\u20b9)", size=11, weight="bold", color=ARMY_BG).grid(
+        lbl(r2, "Estimated Cost (Rs.)", size=11, weight="bold", color=ARMY_BG).grid(
             row=0, column=1, sticky="w", padx=(8,0), pady=(0,4))
         self._wc = entry(r2, ph="e.g., 150", h=36)
         self._wc.grid(row=1, column=1, sticky="ew", padx=(8,0))
@@ -3010,7 +3010,7 @@ class CanteenApp(ctk.CTk):
                 rf.pack(fill="x"); rf.pack_propagate(False)
                 for j,(v,wt) in enumerate(zip(
                         [w["item"],f"{w['qty_wasted']:.1f}",w["reason"],
-                         f"\u20b9{w['cost_lost']:.0f}",w["recorded_by"] or "\u2014"],
+                         f"Rs. {w['cost_lost']:.0f}",w["recorded_by"] or "\u2014"],
                         [3,1,2,1,2])):
                     lbl(rf,v,size=11,color=DARK if j==0 else MID,
                         weight="bold" if j==0 else "normal").grid(row=0,column=j,padx=14,sticky="w")
@@ -3024,7 +3024,7 @@ class CanteenApp(ctk.CTk):
                 rf.grid_columnconfigure(5,weight=1)
             tot = ctk.CTkFrame(lc, fg_color=BG_RED, height=34, corner_radius=0)
             tot.pack(fill="x"); tot.pack_propagate(False)
-            lbl(tot, f"  TOTAL WASTE: \u20b9{f_in(total_wc)}", size=11,
+            lbl(tot, f"  TOTAL WASTE: Rs. {f_in(total_wc)}", size=11,
                 weight="bold", color=RED).pack(side="left", padx=10)
 
         # ── All Waste History ────────────────────────────────────────────────
@@ -3044,7 +3044,7 @@ class CanteenApp(ctk.CTk):
                 rf.pack(fill="x"); rf.pack_propagate(False)
                 for j,(v,wt) in enumerate(zip(
                         [w["date"],w["item"],f"{w['qty_wasted']:.1f}",w["reason"],
-                         f"\u20b9{w['cost_lost']:.0f}"],
+                         f"Rs. {w['cost_lost']:.0f}"],
                         [2,3,1,2,1])):
                     lbl(rf,v,size=11,color=DARK if j<=1 else MID,
                         weight="bold" if j<=1 else "normal").grid(row=0,column=j,padx=14,sticky="w")
@@ -3381,13 +3381,13 @@ class CanteenApp(ctk.CTk):
         kf = ctk.CTkFrame(rc, fg_color="transparent"); kf.pack(fill="x", padx=PAD, pady=(20,0))
         kf.grid_rowconfigure(0, weight=1)
         for i,(icon,t,v,tc,bg_c,br) in enumerate([
-            ("💰","Revenue",f"₹{f_in(rev)}",GREEN,BG_GRN,T_GRN),
+            ("💰","Revenue",f"Rs. {f_in(rev)}",GREEN,BG_GRN,T_GRN),
             ("🍽","Meals",f_in(meals),SAFFRON,BG_SAF,T_SAF),
-            ("♻️","Wastage Cost",f"₹{f_in(waste)}",ORANGE,BG_SAF,T_SAF),
-            ("🎁",f"Samples ({f_in(samp_qty)})",f"₹{f_in(samp_cost)}",TEAL,BG_TEA,T_TEA),
-            ("👨‍🍳",f"Staff ({f_in(stf_qty)})",f"₹{f_in(stf_cost)}",ARMY_BG,"#f1f5f9",ARMY_BG),
-            ("💸","Expenditure",f"₹{f_in(exp)}",PURPLE,BG_PUR,T_PUR),
-            ("📈","Net Profit",f"₹{f_in(net)}",net>=0 and BLUE or RED,BG_BLU,T_BLU),
+            ("♻️","Wastage Cost",f"Rs. {f_in(waste)}",ORANGE,BG_SAF,T_SAF),
+            ("🎁",f"Samples ({f_in(samp_qty)})",f"Rs. {f_in(samp_cost)}",TEAL,BG_TEA,T_TEA),
+            ("👨‍🍳",f"Staff ({f_in(stf_qty)})",f"Rs. {f_in(stf_cost)}",ARMY_BG,"#f1f5f9",ARMY_BG),
+            ("💸","Expenditure",f"Rs. {f_in(exp)}",PURPLE,BG_PUR,T_PUR),
+            ("📈","Net Profit",f"Rs. {f_in(net)}",net>=0 and BLUE or RED,BG_BLU,T_BLU),
         ]):
             kc = card(kf, fg_color=bg_c, border_color=br)
             kc.grid(row=0,column=i,padx=(0 if i==0 else 10),sticky="nsew")
@@ -3405,7 +3405,7 @@ class CanteenApp(ctk.CTk):
                   str(r["sold"]),str(r["wastage"]),
                   str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
                   str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                  f"₹{f_in(r['cogs'])}",f"₹{f_in(r['sp']*r['sold'])}",r["payment"]]
+                  f"Rs. {f_in(r['cogs'])}",f"Rs. {f_in(r['sp']*r['sold'])}",r["payment"]]
                  for r in s_rows],
                 [3,5,1,2,2,2,4,2,2])
         else:
@@ -3459,9 +3459,9 @@ class CanteenApp(ctk.CTk):
                     # Prepare summary text for the header
                     info_parts = []
                     if day_rows:
-                        info_parts.append(f"Sold: {day_sold} (₹{f_in(day_rev)})")
+                        info_parts.append(f"Sold: {day_sold} (Rs. {f_in(day_rev)})")
                     if day_exps:
-                        info_parts.append(f"Exp: ₹{f_in(day_exp)}")
+                        info_parts.append(f"Exp: Rs. {f_in(day_exp)}")
                     lbl(dh, "  |  ".join(info_parts), size=10, color=SAFFRON).pack(side="right", padx=14)
 
                     # 1. Render Meal Sales Table
@@ -3474,8 +3474,8 @@ class CanteenApp(ctk.CTk):
                                 str(r["wastage"]),
                                 str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
                                 str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                                f"₹{f_in(r['cogs'])}",
-                                f"₹{f_in(r['sp']*r['sold'])}",
+                                f"Rs. {f_in(r['cogs'])}",
+                                f"Rs. {f_in(r['sp']*r['sold'])}",
                                 r["payment"]
                             ], [8,2,2,2,2,5,3,3], bg=WHITE if ix % 2 == 0 else STRIPE)
 
@@ -3499,7 +3499,7 @@ class CanteenApp(ctk.CTk):
                             trow(rc, [
                                 e["category"],
                                 batch_lbl,
-                                f"₹{f_in(e['amount'])}",
+                                f"Rs. {f_in(e['amount'])}",
                                 note_txt or "—"
                             ], [3,5,2,3], bg=WHITE if ix % 2 == 0 else STRIPE)
 
@@ -3515,7 +3515,7 @@ class CanteenApp(ctk.CTk):
                             ctk.CTkFrame(cat_hdr, fg_color=SAFFRON, width=3, corner_radius=0).pack(side="left", fill="y")
                             cat_total = sum(it["cost"] for it in items)
                             lbl(cat_hdr, f"  {cat_name}", size=9, weight="bold", color=ARMY_BG).pack(side="left", padx=6)
-                            lbl(cat_hdr, f"₹{f_in(cat_total)}", size=9, weight="bold", color=ARMY_BG).pack(side="right", padx=10)
+                            lbl(cat_hdr, f"Rs. {f_in(cat_total)}", size=9, weight="bold", color=ARMY_BG).pack(side="right", padx=10)
                             # Items under this category
                             thead(rc, [("Item", 6), ("Qty Used", 2), ("Unit", 2), ("Rate/Unit", 2), ("Cost", 2)], bg=STRIPE, tc=MID)
                             for jx, it in enumerate(items):
@@ -3523,8 +3523,8 @@ class CanteenApp(ctk.CTk):
                                     it["item"],
                                     f"{it['qty']:.2f}",
                                     it["unit"],
-                                    f"₹{f_in(it['cp'], 2)}",
-                                    f"₹{f_in(it['cost'], 2)}"
+                                    f"Rs. {f_in(it['cp'], 2)}",
+                                    f"Rs. {f_in(it['cost'], 2)}"
                                 ], [6,2,2,2,2], bg=WHITE if jx % 2 == 0 else STRIPE)
 
                     # Small spacer between days
@@ -3542,7 +3542,7 @@ class CanteenApp(ctk.CTk):
             pc.grid(row=0,column=i,padx=(0 if i==0 else 10),sticky="nsew")
             pmf.grid_columnconfigure(i,weight=1)
             lbl(pc,mode,size=13,weight="bold",color=clr).pack(padx=16,pady=(14,4),anchor="w")
-            lbl(pc,f"₹{f_in(amt)}",size=20,weight="bold",color=clr).pack(padx=16,pady=(0,2),anchor="w")
+            lbl(pc,f"Rs. {f_in(amt)}",size=20,weight="bold",color=clr).pack(padx=16,pady=(0,2),anchor="w")
             pct = f"{amt/rev*100:.0f}%" if rev else "0%"
             lbl(pc,pct,size=10,color=MID).pack(padx=16,pady=(0,14),anchor="w")
 
@@ -3562,7 +3562,7 @@ class CanteenApp(ctk.CTk):
                 ch.pack_propagate(False)
                 ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
                 lbl(ch, f"  📂  {cat} Ration", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
-                lbl(ch, f"₹{f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
+                lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
                 # Column header
                 thead(rc, [("Ingredient", 5), ("Unit", 2), ("Qty Used", 2), ("Rate/Unit", 2), ("Cost", 2)],
                       bg=STRIPE, tc=MID)
@@ -3573,8 +3573,8 @@ class CanteenApp(ctk.CTk):
                          [item["item"],
                           item["unit"],
                           f"{item['qty']:.2f}",
-                          f"₹{f_in(item['cp'], 2)}",
-                          f"₹{f_in(item['cost'])}"],
+                          f"Rs. {f_in(item['cp'], 2)}",
+                          f"Rs. {f_in(item['cost'])}"],
                          [5, 2, 2, 2, 2],
                          colors=clrs,
                          bg=WHITE if ix % 2 == 0 else STRIPE)
@@ -3588,7 +3588,7 @@ class CanteenApp(ctk.CTk):
                     (f"{len(items)} ingredients", 2, False),
                     ("", 2, False),
                     ("", 2, False),
-                    (f"₹{f_in(cat_total)}", 2, True)
+                    (f"Rs. {f_in(cat_total)}", 2, True)
                 ]):
                     cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
                     cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
@@ -3602,7 +3602,7 @@ class CanteenApp(ctk.CTk):
             gt_f.pack(fill="x")
             gt_f.pack_propagate(False)
             lbl(gt_f, "  💸  Grand Total — All Ingredients", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
-            lbl(gt_f, f"₹{f_in(ing_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+            lbl(gt_f, f"Rs. {f_in(ing_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
         # Inventory Purchases Breakdown
         if gr_by_cat:
             band(rc, "📦  Inventory Purchases Breakdown — Goods Received", bg=ARMY_BG, tc=GOLD_LT, h=40)
@@ -3616,7 +3616,7 @@ class CanteenApp(ctk.CTk):
                 ch.pack_propagate(False)
                 ctk.CTkFrame(ch, fg_color=accent, width=5, corner_radius=0).pack(side="left", fill="y")
                 lbl(ch, f"  📂  {cat} Purchases", size=12, weight="bold", color="#FFFFFF").pack(side="left", padx=8)
-                lbl(ch, f"₹{f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
+                lbl(ch, f"Rs. {f_in(cat_total)}", size=12, weight="bold", color=accent).pack(side="right", padx=14)
                 # Column header
                 thead(rc, [("Item Name", 5), ("Unit", 2), ("Qty Received", 2), ("Rate/Unit", 2), ("Total Cost", 2)],
                       bg=STRIPE, tc=MID)
@@ -3627,8 +3627,8 @@ class CanteenApp(ctk.CTk):
                          [item["item"],
                           item["unit"],
                           f"{item['qty']:.2f}",
-                          f"₹{f_in(item['rate'], 2)}",
-                          f"₹{f_in(item['cost'])}"],
+                          f"Rs. {f_in(item['rate'], 2)}",
+                          f"Rs. {f_in(item['cost'])}"],
                          [5, 2, 2, 2, 2],
                          colors=clrs,
                          bg=WHITE if ix % 2 == 0 else STRIPE)
@@ -3642,7 +3642,7 @@ class CanteenApp(ctk.CTk):
                     (f"{len(items)} items", 2, False),
                     ("", 2, False),
                     ("", 2, False),
-                    (f"₹{f_in(cat_total)}", 2, True)
+                    (f"Rs. {f_in(cat_total)}", 2, True)
                 ]):
                     cell = ctk.CTkFrame(sub_rf, fg_color="transparent", corner_radius=0)
                     cell.grid(row=0, column=j, padx=0, pady=0, sticky="nsew")
@@ -3656,12 +3656,12 @@ class CanteenApp(ctk.CTk):
             gt_f.pack(fill="x")
             gt_f.pack_propagate(False)
             lbl(gt_f, "  📦  Grand Total — All Purchases", size=12, weight="bold", color=GOLD_LT).pack(side="left", padx=14)
-            lbl(gt_f, f"₹{f_in(gr_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
+            lbl(gt_f, f"Rs. {f_in(gr_grand_total)}", size=15, weight="bold", color=SAFFRON).pack(side="right", padx=16)
 
         if e_sum_rows:
             self._rept_section(rc, "Expenditure Summary",
                 [("Category", 4), ("Amount", 2)],
-                [[r["category"], f"₹{f_in(r['t'])}"] for r in e_sum_rows],
+                [[r["category"], f"Rs. {f_in(r['t'])}"] for r in e_sum_rows],
                 [4, 2])
 
         # Samples split into Complimentary and Staff
@@ -3671,9 +3671,9 @@ class CanteenApp(ctk.CTk):
         # Complimentary Samples section
         if samp_complimentary:
             self._rept_section(rc, "🎁  Sample Complimentary",
-                [("Date",3),("Item",5),("Qty",1),("Rate ₹",2),("Cost ₹",2),("Given To",3)],
+                [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Given To",3)],
                 [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
-                  f"₹{f_in(s['sp'])}",f"₹{f_in(s['cost'])}",s["given_to"] or "General"]
+                  f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["given_to"] or "General"]
                  for s in samp_complimentary],
                 [3,5,1,2,2,3])
         else:
@@ -3682,9 +3682,9 @@ class CanteenApp(ctk.CTk):
         # Staff Update their details section
         if samp_staff:
             self._rept_section(rc, "👨‍🍳  Staff Update their details",
-                [("Date",3),("Item",5),("Qty",1),("Rate ₹",2),("Cost ₹",2),("Notes",3)],
+                [("Date",3),("Item",5),("Qty",1),("Rate Rs. ",2),("Cost Rs. ",2),("Notes",3)],
                 [[s["date"],_resolve_meal_name(s["date"], s["meal"]),str(s["qty"]),
-                  f"₹{f_in(s['sp'])}",f"₹{f_in(s['cost'])}",s["notes"] or "—"]
+                  f"Rs. {f_in(s['sp'])}",f"Rs. {f_in(s['cost'])}",s["notes"] or "—"]
                  for s in samp_staff],
                 [3,5,1,2,2,3])
 
@@ -4381,7 +4381,7 @@ class CanteenApp(ctk.CTk):
         # Column headers
         hdr = ctk.CTkFrame(mc, fg_color=STRIPE, corner_radius=0, height=32)
         hdr.pack(fill="x"); hdr.pack_propagate(False)
-        for col, w in [("Menu Item", 220), ("Type", 80), ("Day", 70), ("Price ₹", 64),
+        for col, w in [("Menu Item", 220), ("Type", 80), ("Day", 70), ("Price Rs. ", 64),
                        ("Cost / Profit / Waste", 180), ("Status", 64), ("Actions", 0)]:
             lbl(hdr, col, size=10, weight="bold", color=MID).pack(
                 side="left", padx=8, pady=6)
@@ -4467,7 +4467,7 @@ class CanteenApp(ctk.CTk):
                 # Price
                 pr_f = ctk.CTkFrame(rf, fg_color="transparent", width=64)
                 pr_f.pack(side="left", fill="y"); pr_f.pack_propagate(False)
-                lbl(pr_f, f"₹{m['sp']:.0f}", size=11, weight="bold",
+                lbl(pr_f, f"Rs. {m['sp']:.0f}", size=11, weight="bold",
                     color=GREEN if m["active"] else MID).pack(anchor="w", pady=4)
 
                 # Cost / Profit — single compact line
@@ -4479,7 +4479,7 @@ class CanteenApp(ctk.CTk):
                 pf_f.pack(side="left", fill="y"); pf_f.pack_propagate(False)
                 if cogs_val > 0:
                     profit_color = GREEN if profit_v > 0 else RED
-                    lbl(pf_f, f"Cost ₹{cogs_val:.1f} | Profit ₹{profit_v:.1f} ({margin_pct:.0f}%) | Waste ₹{wc_val:.1f}",
+                    lbl(pf_f, f"Cost Rs. {cogs_val:.1f} | Profit Rs. {profit_v:.1f} ({margin_pct:.0f}%) | Waste Rs. {wc_val:.1f}",
                         size=8, weight="bold", color=profit_color).pack(anchor="w", pady=4)
                 else:
                     lbl(pf_f, "No cost data", size=9, color=MID).pack(anchor="w", pady=4)
@@ -4822,15 +4822,15 @@ class CanteenApp(ctk.CTk):
                         unit_str = inv_data[iname].get("unit", "")
                         lines.append(
                             f"  {iname}:  {serve:.4f} {unit_str}/plate  |  "
-                            f"₹{cost_per_plate:.2f}/plate  |  "
-                            f"waste ₹{wc:.1f}  |  deducts {raw} {unit_str}")
+                            f"Rs. {cost_per_plate:.2f}/plate  |  "
+                            f"waste Rs. {wc:.1f}  |  deducts {raw} {unit_str}")
                         max_p = max(max_p, int(made))
                 batch_portions[0] = max_p
                 if lines:
                     cost_lbl_ref[0].configure(
-                        text=f"  {max_p} plates  |  Total Cost/plate: ₹{total_plate:.2f}\n" +
+                        text=f"  {max_p} plates  |  Total Cost/plate: Rs. {total_plate:.2f}\n" +
                              "\n".join(lines) +
-                             f"\n\n  ⭐ TOTAL cost/plate: ₹{total_plate:.2f}",
+                             f"\n\n  ⭐ TOTAL cost/plate: Rs. {total_plate:.2f}",
                         text_color=DARK)
                 else:
                     cost_lbl_ref[0].configure(
@@ -5177,14 +5177,14 @@ class CanteenApp(ctk.CTk):
                             (today_str, round(total_raw_cost, 2),
                              "Raw Material",
                              f"Batch: {nm} | {today_str}"))
-                msg = "Created '" + nm + "' @ ₹" + str(int(sp))
+                msg = "Created '" + nm + "' @ Rs. " + str(int(sp))
                 if valid_ings:
                     wc_total  = sum(i["waste_cost"] for i in valid_ings)
                     profit    = sp - total_cogs
                     margin    = (profit / sp * 100) if sp > 0 else 0
-                    msg += (f"  |  Cost ₹{total_cogs:.1f}  |  "
-                            f"Profit ₹{profit:.1f} ({margin:.0f}%)  |  "
-                            f"Waste ₹{wc_total:.1f}")
+                    msg += (f"  |  Cost Rs. {total_cogs:.1f}  |  "
+                            f"Profit Rs. {profit:.1f} ({margin:.0f}%)  |  "
+                            f"Waste Rs. {wc_total:.1f}")
                 self._toast(msg)
                 overlay.destroy()
                 if callback:
@@ -5341,7 +5341,7 @@ class CanteenApp(ctk.CTk):
                     lines.append(f"  +{len(details)-8} more")
                 # Show total cost
                 total_cost = sum(d["qpu"] * qty * d["cp"] for d in details)
-                lines.append(f"\n  💰 Total raw cost: ₹{f_in(total_cost)}")
+                lines.append(f"\n  💰 Total raw cost: Rs. {f_in(total_cost)}")
                 pl.configure(text="\n".join(lines))
                 pf.pack(fill="x", pady=(8,0))
             elif details and qty == 0:
@@ -5691,7 +5691,7 @@ class CanteenApp(ctk.CTk):
         # Current info row
         info_row = ctk.CTkFrame(body, fg_color=STRIPE, corner_radius=8)
         info_row.pack(fill="x", pady=(0,12))
-        lbl(info_row, f"  Current Price: ₹{sp:.0f}", size=11, color=MID
+        lbl(info_row, f"  Current Price: Rs. {sp:.0f}", size=11, color=MID
             ).pack(side="left", padx=14, pady=8)
         status_txt = "✓ Active" if active else "✗ Inactive"
         status_clr = GREEN if active else RED
@@ -5705,7 +5705,7 @@ class CanteenApp(ctk.CTk):
         e_name.insert(0, name); e_name.pack(fill="x")
 
         # New price
-        lbl(body, "New Selling Price (₹)", size=11, weight="bold",
+        lbl(body, "New Selling Price (Rs.)", size=11, weight="bold",
             color=ARMY_BG).pack(anchor="w", pady=(12,4))
         e_sp = entry(body, ph="e.g., 70", h=42)
         e_sp.insert(0, str(int(sp))); e_sp.pack(fill="x")
@@ -5764,7 +5764,7 @@ class CanteenApp(ctk.CTk):
 
                 conn.execute("UPDATE menu SET sp=?,active=?,default_staff=? WHERE id=?",
                              (new_sp, new_ac, new_staff, mid))
-            self._toast(f"'{new_name}' updated  •  ₹{new_sp:.0f}  •  Staff: {new_staff}  •  {status_m.get()}")
+            self._toast(f"'{new_name}' updated  •  Rs. {new_sp:.0f}  •  Staff: {new_staff}  •  {status_m.get()}")
             close(); self._switch_master_tab("menu")
 
         btn(card, "✅  Save Changes", save, fg=GREEN, hv=DGREEN, h=46).pack(
@@ -6259,8 +6259,8 @@ class CanteenApp(ctk.CTk):
             profit_now = sp_now - new_cogs
             margin_now = (profit_now / sp_now * 100) if sp_now > 0 else 0
             toast_msg  = (f"🔄  {menu_name} updated  |  "
-                          f"Cost ₹{new_cogs:.1f}  |  "
-                          f"Profit ₹{profit_now:.1f} ({margin_now:.0f}%)")
+                          f"Cost Rs. {new_cogs:.1f}  |  "
+                          f"Profit Rs. {profit_now:.1f} ({margin_now:.0f}%)")
             if parts: toast_msg += "  |  " + "  ".join(parts)
             self._toast(toast_msg)
             overlay.destroy()
@@ -6490,7 +6490,7 @@ class CanteenApp(ctk.CTk):
                 if len(details) > 8:
                     lines.append(f"  +{len(details)-8} more ingredients")
                 cost = sum(d["qpu"] * qty * (d["cp"] or 0) for d in details)
-                lines.append(f"  💰 Raw cost: ₹{f_in(cost)}")
+                lines.append(f"  💰 Raw cost: Rs. {f_in(cost)}")
                 pl.configure(text="\n".join(lines))
                 pf.pack(fill="x", pady=(6, 0))
             elif not details and qty > 0:
@@ -7270,7 +7270,7 @@ class CanteenApp(ctk.CTk):
         # Weekly table
         sc = card(wrap); sc.pack(fill="both", expand=True, pady=(0,14))
         band(sc, "📅  Weekly Menu Schedule  •  AWWA Lunch Programme")
-        thead(sc,[("Day",2),("Lunch — ₹70",3),("Paratha — ₹40",3),("Mini Meal — ₹50",3)],bg=STRIPE,tc=MID)
+        thead(sc,[("Day",2),("Lunch — Rs. 70",3),("Paratha — Rs. 40",3),("Mini Meal — Rs. 50",3)],bg=STRIPE,tc=MID)
         for ix, day in enumerate(DAYS):
             lunch   = sched_map.get(day,{}).get("Lunch","—")
             paratha = sched_map.get(day,{}).get("Paratha","—")
@@ -7522,8 +7522,8 @@ class CanteenApp(ctk.CTk):
             # Header
             hf = ctk.CTkFrame(sc, fg_color=STRIPE, corner_radius=0, height=30)
             hf.pack(fill="x"); hf.pack_propagate(False)
-            for txt, w in [("Meal",260),("Rate ₹",70),("Prepared",80),("Sold",60),
-                           ("Wastage",70),("Expenditure ₹",110),("Payment",70),("Actions",0)]:
+            for txt, w in [("Meal",260),("Rate Rs. ",70),("Prepared",80),("Sold",60),
+                           ("Wastage",70),("Expenditure Rs. ",110),("Payment",70),("Actions",0)]:
                 lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
                 if w > 0:
                     ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-80)).pack(side="left")
@@ -7541,9 +7541,9 @@ class CanteenApp(ctk.CTk):
                         (d, r["meal"])).fetchone()
                 prep_qty = bp["qty_prepared"] if bp else (r["sold"] + r["wastage"])
 
-                for val, w2 in [(r["meal"],260),(f"₹{f_in(r['sp'])}",70),
+                for val, w2 in [(r["meal"],260),(f"Rs. {f_in(r['sp'])}",70),
                                 (str(prep_qty),80),(str(r["sold"]),60),
-                                (str(r["wastage"]),70),(f"₹{f_in(r['cogs'])}",110),
+                                (str(r["wastage"]),70),(f"Rs. {f_in(r['cogs'])}",110),
                                 (r["payment"],70)]:
                     cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2)
                     cf.pack(side="left", fill="y"); cf.pack_propagate(False)
@@ -7627,7 +7627,7 @@ class CanteenApp(ctk.CTk):
             # Rate
             row_sp = ctk.CTkFrame(body, fg_color="transparent")
             row_sp.pack(fill="x", pady=4)
-            lbl(row_sp, "Rate (₹)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
+            lbl(row_sp, "Rate (Rs.)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
             sp_e = ctk.CTkEntry(row_sp, height=36, corner_radius=8)
             sp_e.insert(0, str(int(sp)))
             sp_e.pack(side="left", fill="x", expand=True, padx=(8,0))
@@ -7669,7 +7669,7 @@ class CanteenApp(ctk.CTk):
             # Payment Splits
             row_splits = ctk.CTkFrame(body, fg_color="transparent")
             row_splits.pack(fill="x", pady=4)
-            lbl(row_splits, "Split Payments (₹)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
+            lbl(row_splits, "Split Payments (Rs.)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
             splits_f = ctk.CTkFrame(row_splits, fg_color="transparent")
             splits_f.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
@@ -7776,7 +7776,7 @@ class CanteenApp(ctk.CTk):
                 total_payment = cash_val + upi_val + card_val
                 expected_total = new_sp * new_sold
                 if abs(total_payment - expected_total) > 1e-2:
-                    self._popup("⚠️ Payment Mismatch", f"Split payments sum to ₹{total_payment:.1f}, but expected total is ₹{expected_total:.1f} (Rate ₹{new_sp:.1f} × Sold {new_sold}).")
+                    self._popup("⚠️ Payment Mismatch", f"Split payments sum to Rs. {total_payment:.1f}, but expected total is Rs. {expected_total:.1f} (Rate Rs. {new_sp:.1f} × Sold {new_sold}).")
                     return
 
                 new_pmt  = f"Cash: {int(cash_val)}, UPI: {int(upi_val)}, Card: {int(card_val)}"
@@ -7979,7 +7979,7 @@ class CanteenApp(ctk.CTk):
             # Rate
             row_sp = ctk.CTkFrame(body, fg_color="transparent")
             row_sp.pack(fill="x", pady=4)
-            lbl(row_sp, "Rate (₹)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
+            lbl(row_sp, "Rate (Rs.)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
             sp_e = ctk.CTkEntry(row_sp, height=36, corner_radius=8)
             sp_e.insert(0, "70")
             sp_e.pack(side="left", fill="x", expand=True, padx=(8,0))
@@ -8021,7 +8021,7 @@ class CanteenApp(ctk.CTk):
             # Payment Splits
             row_splits = ctk.CTkFrame(body, fg_color="transparent")
             row_splits.pack(fill="x", pady=4)
-            lbl(row_splits, "Split Payments (₹)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
+            lbl(row_splits, "Split Payments (Rs.)", size=11, weight="bold", color=DARK, width=140).pack(side="left")
             splits_f = ctk.CTkFrame(row_splits, fg_color="transparent")
             splits_f.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
@@ -8126,7 +8126,7 @@ class CanteenApp(ctk.CTk):
                 total_payment = cash_val + upi_val + card_val
                 expected_total = new_sp * new_sold
                 if abs(total_payment - expected_total) > 1e-2:
-                    self._popup("⚠️ Payment Mismatch", f"Split payments sum to ₹{total_payment:.1f}, but expected total is ₹{expected_total:.1f} (Rate ₹{new_sp:.1f} × Sold {new_sold}).")
+                    self._popup("⚠️ Payment Mismatch", f"Split payments sum to Rs. {total_payment:.1f}, but expected total is Rs. {expected_total:.1f} (Rate Rs. {new_sp:.1f} × Sold {new_sold}).")
                     return
 
                 new_pmt  = f"Cash: {int(cash_val)}, UPI: {int(upi_val)}, Card: {int(card_val)}"
@@ -8265,7 +8265,7 @@ class CanteenApp(ctk.CTk):
             # Header
             hf = ctk.CTkFrame(ic, fg_color=STRIPE, corner_radius=0, height=30)
             hf.pack(fill="x"); hf.pack_propagate(False)
-            for txt, w in [("Item",220),("Cat",80),("Unit",70),("Rate ₹",90),("Received",100),("Actions",0)]:
+            for txt, w in [("Item",220),("Cat",80),("Unit",70),("Rate Rs. ",90),("Received",100),("Actions",0)]:
                 lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
                 if w > 0:
                     ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-70)).pack(side="left")
@@ -8276,7 +8276,7 @@ class CanteenApp(ctk.CTk):
                 rf.pack(fill="x"); rf.pack_propagate(False)
 
                 for val, w2 in [(r["item"],220),(r["cat"],80),(r["unit"],70),
-                                (f"₹{f_in(r['cp'], 2)}",90),(f"{r['received']:.2f}",100)]:
+                                (f"Rs. {f_in(r['cp'], 2)}",90),(f"{r['received']:.2f}",100)]:
                     cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2)
                     cf.pack(side="left", fill="y"); cf.pack_propagate(False)
                     lbl(cf, val, size=10, color=DARK).pack(anchor="w", padx=10, pady=4)
@@ -8317,7 +8317,7 @@ class CanteenApp(ctk.CTk):
                 ("Item Name",   item,          "name_e"),
                 ("Category",    cat,           "cat_e"),
                 ("Unit",        unit,          "unit_e"),
-                ("Rate (₹)",    f"{cp:.2f}",   "cp_e"),
+                ("Rate (Rs.)",    f"{cp:.2f}",   "cp_e"),
                 ("Opening",     f"{opening:.3f}", "op_e"),
                 ("Received",    f"{received:.3f}","rec_e"),
                 ("Issued (Qty)", f"{issued:.3f}", "iss_e"),
@@ -8336,7 +8336,7 @@ class CanteenApp(ctk.CTk):
                                size=11, weight="bold", color=BLUE)
             closing_lbl.pack(anchor="w", pady=(4, 0))
 
-            used_amt_lbl = lbl(body, f"Amount Used = ₹{issued * cp:.2f}",
+            used_amt_lbl = lbl(body, f"Amount Used = Rs. {issued * cp:.2f}",
                                size=11, weight="bold", color=GREEN)
             used_amt_lbl.pack(anchor="w", pady=(2, 0))
 
@@ -8347,7 +8347,7 @@ class CanteenApp(ctk.CTk):
                     iss = float(widgets["iss_e"].get())
                     rate = float(widgets["cp_e"].get())
                     closing_lbl.configure(text=f"Closing = {op + rec - iss:.3f}")
-                    used_amt_lbl.configure(text=f"Amount Used = ₹{iss * rate:.2f}")
+                    used_amt_lbl.configure(text=f"Amount Used = Rs. {iss * rate:.2f}")
                 except Exception:
                     pass
 
@@ -8419,7 +8419,7 @@ class CanteenApp(ctk.CTk):
                 ("Item Name",  "",    "name_e"),
                 ("Category",   "Dry", "cat_e"),
                 ("Unit",       "Kgs", "unit_e"),
-                ("Rate (₹)",   "0",   "cp_e"),
+                ("Rate (Rs.)",   "0",   "cp_e"),
                 ("Opening",    "0",   "op_e"),
                 ("Received",   "0",   "rec_e"),
                 ("Issued (Qty)", "0", "iss_e"),
@@ -8438,7 +8438,7 @@ class CanteenApp(ctk.CTk):
             closing_lbl = lbl(body, "Closing = 0.000", size=11, weight="bold", color=BLUE)
             closing_lbl.pack(anchor="w", pady=(4, 0))
 
-            used_amt_lbl = lbl(body, "Amount Used = ₹0.00", size=11, weight="bold", color=GREEN)
+            used_amt_lbl = lbl(body, "Amount Used = Rs. 0.00", size=11, weight="bold", color=GREEN)
             used_amt_lbl.pack(anchor="w", pady=(2, 0))
 
             def _on_change(*_):
@@ -8448,7 +8448,7 @@ class CanteenApp(ctk.CTk):
                     iss = float(widgets["iss_e"].get() or 0.0)
                     rate = float(widgets["cp_e"].get() or 0.0)
                     closing_lbl.configure(text=f"Closing = {op + rec - iss:.3f}")
-                    used_amt_lbl.configure(text=f"Amount Used = ₹{iss * rate:.2f}")
+                    used_amt_lbl.configure(text=f"Amount Used = Rs. {iss * rate:.2f}")
                 except Exception:
                     pass
 
@@ -8532,7 +8532,7 @@ class CanteenApp(ctk.CTk):
 
             hf = ctk.CTkFrame(ec, fg_color=STRIPE, corner_radius=0, height=30)
             hf.pack(fill="x"); hf.pack_propagate(False)
-            for txt, w in [("Category", 150), ("Amount ₹", 100), ("Notes", 0), ("Actions", 0)]:
+            for txt, w in [("Category", 150), ("Amount Rs. ", 100), ("Notes", 0), ("Actions", 0)]:
                 lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
                 if w > 0:
                     ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-60)).pack(side="left")
@@ -8542,7 +8542,7 @@ class CanteenApp(ctk.CTk):
                 rf = ctk.CTkFrame(ec, fg_color=bg2, corner_radius=0, height=44)
                 rf.pack(fill="x"); rf.pack_propagate(False)
 
-                for val, w2 in [(r["category"], 150), (f"₹{f_in(r['amount'])}", 100), (str(r["notes"] or ""), 0)]:
+                for val, w2 in [(r["category"], 150), (f"Rs. {f_in(r['amount'])}", 100), (str(r["notes"] or ""), 0)]:
                     cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2 if w2 else 300)
                     cf.pack(side="left", fill="y"); cf.pack_propagate(False)
                     lbl(cf, val, size=10, color=DARK).pack(anchor="w", padx=10, pady=4)
@@ -8587,7 +8587,7 @@ class CanteenApp(ctk.CTk):
             cat_menu.pack(side="left", fill="x", expand=True, padx=(8,0))
 
             row2 = ctk.CTkFrame(body, fg_color="transparent"); row2.pack(fill="x", pady=5)
-            lbl(row2, "Amount (₹)", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            lbl(row2, "Amount (Rs.)", size=11, weight="bold", color=DARK, width=100).pack(side="left")
             amt_e = ctk.CTkEntry(row2, height=36, corner_radius=8)
             amt_e.insert(0, str(amount))
             amt_e.pack(side="left", fill="x", expand=True, padx=(8,0))
@@ -8647,7 +8647,7 @@ class CanteenApp(ctk.CTk):
             cat_menu.pack(side="left", fill="x", expand=True, padx=(8,0))
 
             row2 = ctk.CTkFrame(body, fg_color="transparent"); row2.pack(fill="x", pady=5)
-            lbl(row2, "Amount (₹)", size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            lbl(row2, "Amount (Rs.)", size=11, weight="bold", color=DARK, width=100).pack(side="left")
             amt_e = ctk.CTkEntry(row2, height=36, corner_radius=8)
             amt_e.pack(side="left", fill="x", expand=True, padx=(8,0))
 
@@ -8701,7 +8701,7 @@ class CanteenApp(ctk.CTk):
             # Header
             hf = ctk.CTkFrame(sc, fg_color=STRIPE, corner_radius=0, height=30)
             hf.pack(fill="x"); hf.pack_propagate(False)
-            for txt, w in [("Item",220),("Qty",60),("Rate ₹",70),("Cost ₹",90),("Given To",130),("Notes",0),("Actions",0)]:
+            for txt, w in [("Item",220),("Qty",60),("Rate Rs. ",70),("Cost Rs. ",90),("Given To",130),("Notes",0),("Actions",0)]:
                 lbl(hf, txt, size=9, weight="bold", color=MID).pack(side="left", padx=10)
                 if w > 0:
                     ctk.CTkFrame(hf, fg_color="transparent", width=max(0,w-70)).pack(side="left")
@@ -8711,8 +8711,8 @@ class CanteenApp(ctk.CTk):
                 rf = ctk.CTkFrame(sc, fg_color=bg2, corner_radius=0, height=44)
                 rf.pack(fill="x"); rf.pack_propagate(False)
 
-                for val, w2 in [(r["meal"],220),(str(r["qty"]),60),(f"₹{f_in(r['sp'])}",70),
-                                (f"₹{f_in(r['cost'])}",90),(r["given_to"] or "General",130),
+                for val, w2 in [(r["meal"],220),(str(r["qty"]),60),(f"Rs. {f_in(r['sp'])}",70),
+                                (f"Rs. {f_in(r['cost'])}",90),(r["given_to"] or "General",130),
                                 (str(r["notes"] or ""),0)]:
                     cf = ctk.CTkFrame(rf, fg_color="transparent", width=w2 if w2 else 200)
                     cf.pack(side="left", fill="y"); cf.pack_propagate(False)
@@ -8752,9 +8752,9 @@ class CanteenApp(ctk.CTk):
 
             fields = [
                 ("Item Name",    meal,              "meal_e"),
-                ("Rate (₹)",     str(int(sp)),      "sp_e"),
+                ("Rate (Rs.)",     str(int(sp)),      "sp_e"),
                 ("Qty (samples)",str(qty),          "qty_e"),
-                ("Cost (₹)",     str(int(cost)),    "cost_e"),
+                ("Cost (Rs.)",     str(int(cost)),    "cost_e"),
                 ("Given To",     given_to or "General", "gt_e"),
                 ("Notes",        notes or "",       "notes_e"),
             ]
@@ -8810,9 +8810,9 @@ class CanteenApp(ctk.CTk):
 
             fields = [
                 ("Item Name",    "",        "meal_e"),
-                ("Rate (₹)",     "25",      "sp_e"),
+                ("Rate (Rs.)",     "25",      "sp_e"),
                 ("Qty (samples)","0",       "qty_e"),
-                ("Cost (₹)",     "0",       "cost_e"),
+                ("Cost (Rs.)",     "0",       "cost_e"),
                 ("Given To",     "General", "gt_e"),
                 ("Notes",        "",        "notes_e"),
             ]
