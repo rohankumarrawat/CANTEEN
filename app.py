@@ -3777,6 +3777,19 @@ class CanteenApp(ctk.CTk):
                 HAVING total_cost > 0
                 ORDER BY i.cat, total_cost DESC
             """, (start, end)).fetchall()
+            # Ingredient-level cost grouped by category (for single-day PDF ration view)
+            ing_rows = conn.execute("""
+                SELECT i.cat, i.item, i.unit, i.cp,
+                       ABS(SUM(sl.qty_change)) AS qty_used,
+                       ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
+                FROM stock_ledger sl
+                JOIN inventory i ON i.id = sl.inv_id
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0
+                GROUP BY i.id, i.cat, i.item, i.unit, i.cp
+                HAVING item_cost > 0
+                ORDER BY i.cat, item_cost DESC
+            """, (start, end)).fetchall()
+
             # Per-date ingredient usage for range-view PDF
             ing_by_date_rows = conn.execute("""
                 SELECT sl.date, i.cat, i.item, i.unit, i.cp,
@@ -3803,6 +3816,20 @@ class CanteenApp(ctk.CTk):
                 "qty":  row["qty_received"],
                 "cost": row["total_cost"],
                 "rate": row["total_cost"] / row["qty_received"] if row["qty_received"] > 0 else 0
+            })
+
+        # Build ing_by_cat for PDF
+        ing_by_cat = _col.OrderedDict()
+        for row in ing_rows:
+            cat = row["cat"]
+            if cat not in ing_by_cat:
+                ing_by_cat[cat] = []
+            ing_by_cat[cat].append({
+                "item": row["item"],
+                "unit": row["unit"],
+                "qty":  row["qty_used"],
+                "cp":   row["cp"],
+                "cost": row["item_cost"],
             })
 
         # Build ing_by_date for PDF
@@ -3956,6 +3983,39 @@ class CanteenApp(ctk.CTk):
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
         story.append(kpi_t2)
+        story.append(Spacer(1, 0.2*cm))
+
+        # Payment breakdown in PDF
+        cash_a = 0.0
+        upi_a  = 0.0
+        card_a = 0.0
+        for r in s_rows:
+            parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
+            cash_a += parsed.get("Cash", 0.0)
+            upi_a  += parsed.get("UPI", 0.0)
+            card_a += parsed.get("Card", 0.0)
+
+        pct_cash = f"{cash_a/rev*100:.0f}%" if rev > 0 else "0%"
+        pct_upi  = f"{upi_a/rev*100:.0f}%" if rev > 0 else "0%"
+        pct_card = f"{card_a/rev*100:.0f}%" if rev > 0 else "0%"
+
+        pay_d = [
+            [Paragraph("💵 Cash", TH), Paragraph(f"Rs. {f_in(cash_a)} ({pct_cash})", TD),
+             Paragraph("📱 UPI", TH), Paragraph(f"Rs. {f_in(upi_a)} ({pct_upi})", TD),
+             Paragraph("💳 Card", TH), Paragraph(f"Rs. {f_in(card_a)} ({pct_card})", TD)]
+        ]
+        pay_t = Table(pay_d, colWidths=[2.5*cm, 3*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm])
+        pay_t.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (0,0), TableHdr), 
+            ("BACKGROUND",    (2,0), (2,0), TableHdr),
+            ("BACKGROUND",    (4,0), (4,0), TableHdr),
+            ("TOPPADDING",    (0,0), (-1,-1), 6), 
+            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+            ("BOX",           (0,0), (-1,-1), 1, Gold),
+            ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        story.append(pay_t)
         story.append(Spacer(1, 0.4*cm))
 
         # Sales
@@ -4077,17 +4137,37 @@ class CanteenApp(ctk.CTk):
             story.append(Paragraph("No sales recorded for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
 
-        # Expenditure - show global list only for single day report (since range groups them under date)
+        # Expenditure - show list only for single day report (since range groups them under date)
         if start == end:
-            story.append(Paragraph("Expenditure", SEC)); story.append(Spacer(1, 0.15*cm))
+            story.append(Paragraph("Expenditure Summary", SEC)); story.append(Spacer(1, 0.15*cm))
             if e_rows:
                 story.append(pdf_table(
-                    ["Date","Amount"],
-                    [[r["date"],f"Rs.{f_in(r['amount'])}"] for r in e_rows],
-                    [8.5*cm, 8*cm]))
+                    ["Category", "Notes", "Amount"],
+                    [[r["category"], r["notes"] or "—", f"Rs.{f_in(r['amount'])}"] for r in e_rows],
+                    [4.5*cm, 8*cm, 4*cm]))
             else:
                 story.append(Paragraph("No expenditure recorded.", BODY))
-            story.append(Spacer(1, 0.5*cm))
+            story.append(Spacer(1, 0.4*cm))
+
+            # Expenditure Breakdown — Ingredients by Category (Ration) in PDF
+            if ing_by_cat:
+                story.append(Paragraph("Expenditure Breakdown — Ingredients by Category", SEC))
+                story.append(Spacer(1, 0.15*cm))
+                for cat_name, items in ing_by_cat.items():
+                    cat_total = sum(it["cost"] for it in items)
+                    story.append(Paragraph(
+                        f"  📂  {cat_name} Ration (Subtotal: Rs.{f_in(cat_total)})",
+                        S("IC_PDF", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)
+                    ))
+                    story.append(Spacer(1, 0.08*cm))
+                    story.append(pdf_table(
+                        ["Ingredient Name", "Unit", "Qty Used", "Rate/Unit", "Cost"],
+                        [[it["item"], it["unit"], f"{it['qty']:.2f}",
+                          f"Rs.{f_in(it['cp'], 2)}", f"Rs.{f_in(it['cost'])}"]
+                         for it in items],
+                        [6.5*cm, 1.5*cm, 2.5*cm, 3*cm, 3*cm]))
+                    story.append(Spacer(1, 0.25*cm))
+            story.append(Spacer(1, 0.25*cm))
 
         # Inventory Purchases Breakdown in PDF
         story.append(Paragraph("Inventory Purchases Breakdown", SEC)); story.append(Spacer(1, 0.15*cm))
