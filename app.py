@@ -3289,7 +3289,7 @@ class CanteenApp(ctk.CTk):
             "PARATHA": "Paratha"
         }
         with get_db() as conn:
-            s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC",
+            s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC, sp * sold DESC",
                                   (start,end)).fetchall()
             # Summary for KPI total
             e_sum_rows = conn.execute("SELECT category,SUM(amount) AS t FROM expenditure WHERE date>=? AND date<=? GROUP BY category",
@@ -3948,7 +3948,7 @@ class CanteenApp(ctk.CTk):
         out = os.path.join(docs_dir, fname)
 
         with get_db() as conn:
-            s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC",
+            s_rows = conn.execute("SELECT * FROM sales WHERE date>=? AND date<=? ORDER BY date DESC, sp * sold DESC",
                                   (start,end)).fetchall()
             e_rows = conn.execute("SELECT * FROM expenditure WHERE date>=? AND date<=? ORDER BY date DESC, amount DESC, id DESC",
                                   (start,end)).fetchall()
