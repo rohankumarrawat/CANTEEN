@@ -3710,8 +3710,8 @@ class CanteenApp(ctk.CTk):
             else:
                 band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
 
-            # Staff Update their details section
-            band(rc, "👨‍🍳  Staff Update their details", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            # Staff Update Their Details section
+            band(rc, "👨‍🍳  Staff Update Their Details", bg=ARMY_BG, tc=GOLD_LT, h=40)
             if samp_staff:
                 import collections as _col
                 import datetime as _dt
@@ -3744,7 +3744,7 @@ class CanteenApp(ctk.CTk):
                             s["notes"] or "—"
                         ], [6, 1, 2, 2, 3], bg=WHITE if ix % 2 == 0 else STRIPE)
             else:
-                band(rc, "👨‍🍳  Staff Update their details — None for this period", bg=STRIPE, tc=MID, h=36)
+                band(rc, "👨‍🍳  Staff Update Their Details — None for this period", bg=STRIPE, tc=MID, h=36)
 
             # Inventory closing stock
             self._rept_section(rc,"Inventory Closing Stock",
@@ -3776,7 +3776,7 @@ class CanteenApp(ctk.CTk):
             ft.pack_propagate(False)
             for c in (SAFFRON, WHITE, IND_GREEN):
                 tk.Frame(ft, bg=c).pack(side="left", fill="both", expand=True)
-            tk.Label(rc, text="जय हिन्द  •  RESTRICTED — For Official Use Only  •  " +
+            tk.Label(rc, text="Jai Hind  •  Restricted – For Official Use Only  •  " +
                      datetime.now().strftime("Generated: %d %b %Y %I:%M %p"),
                      bg=WHITE, fg=MID, font=("Helvetica", 9)).pack(pady=(8,14))
 
@@ -3868,7 +3868,7 @@ class CanteenApp(ctk.CTk):
                             cats = sorted(list(set(e["category"] for e in day_exps)))
                             cats_str = ", ".join(cats)
                             tk.Label(rc, text=f"   💸  Expenditures {cats_str}:", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w", pady=(6,2))
-                            thead(rc, [("Category", 3), ("Meal / Item", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
+                            thead(rc, [("Category", 3), ("Meal Item / Description", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
                             import re as _re
                             for ix, e in enumerate(day_exps):
                                 # Parse meal type out of auto-generated notes e.g. "Auto-expenditure for LUNCH batch"
@@ -4382,7 +4382,7 @@ class CanteenApp(ctk.CTk):
                                 batch_lbl = raw_note or "—"
                             exp_data.append([batch_lbl, f"Rs.{f_in(e['amount'])}"])
                         story.append(pdf_table(
-                            ["Meal / Item", "Amount"],
+                            ["Meal Item / Description", "Amount"],
                             exp_data,
                             [12.0*cm, 5.0*cm]))
                         story.append(Spacer(1, 0.15*cm))
@@ -4507,7 +4507,7 @@ class CanteenApp(ctk.CTk):
         story.append(Spacer(1, 0.5*cm))
 
         # 2. Staff Update details
-        story.append(Paragraph("Staff Update their details", SEC)); story.append(Spacer(1, 0.15*cm))
+        story.append(Paragraph("Staff Update Their Details", SEC)); story.append(Spacer(1, 0.15*cm))
         if pdf_samp_staff:
             import collections as _col
             import datetime as _dt
@@ -4563,7 +4563,7 @@ class CanteenApp(ctk.CTk):
         ]))
         story.append(sig_t)
         story.append(Spacer(1, 0.4*cm))
-        story.append(Paragraph("RESTRICTED — For Official Use Only  |  JAI HIND",
+        story.append(Paragraph("Restricted – For Official Use Only  |  Jai Hind",
                                 S("FT", fontName="Helvetica-Oblique", fontSize=8,
                                   textColor=RL_COLORS.grey, alignment=TA_CENTER)))
 
