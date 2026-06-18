@@ -3712,8 +3712,8 @@ class CanteenApp(ctk.CTk):
             else:
                 band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
 
-            # Staff Update section
-            band(rc, "👨‍🍳  Staff Update", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            # Staff Expenditure section
+            band(rc, "👨‍🍳  Staff Expenditure", bg=ARMY_BG, tc=GOLD_LT, h=40)
             if samp_staff:
                 import collections as _col
                 import datetime as _dt
@@ -3746,7 +3746,7 @@ class CanteenApp(ctk.CTk):
                             s["notes"] or "—"
                         ], [6, 1, 2, 2, 3], bg=WHITE if ix % 2 == 0 else STRIPE)
             else:
-                band(rc, "👨‍🍳  Staff Update — None for this period", bg=STRIPE, tc=MID, h=36)
+                band(rc, "👨‍🍳  Staff Expenditure — None for this period", bg=STRIPE, tc=MID, h=36)
 
             # Inventory closing stock (Note: Closing stock represents the levels as of the end date of the report range.
             # Unit abbreviations like 'Nos' represent 'Numbers' for unit-count tracking).
@@ -4506,8 +4506,8 @@ class CanteenApp(ctk.CTk):
             story.append(Paragraph("No complimentary samples recorded for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
 
-        # 2. Staff Update details
-        story.append(Paragraph("Staff Update", SEC)); story.append(Spacer(1, 0.15*cm))
+        # 2. Staff Expenditure details
+        story.append(Paragraph("Staff Expenditure", SEC)); story.append(Spacer(1, 0.15*cm))
         if pdf_samp_staff:
             import collections as _col
             import datetime as _dt
