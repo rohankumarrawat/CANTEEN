@@ -4151,6 +4151,8 @@ class CanteenApp(ctk.CTk):
                 ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
                 ("TOPPADDING",    (0,0), (-1,-1), 4),
                 ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+                ("LEFTPADDING",   (0,0), (-1,-1), 2),
+                ("RIGHTPADDING",  (0,0), (-1,-1), 2),
                 ("ROWBACKGROUNDS",(0,1), (-1,-1), [RL_COLORS.white, AltRow]),
                 ("GRID",          (0,0), (-1,-1), 0.3, RL_COLORS.HexColor("#CCCCBB")),
                 ("LINEABOVE",     (0,0), (-1,0),  1.5, Gold),
@@ -4290,7 +4292,7 @@ class CanteenApp(ctk.CTk):
                 story.append(pdf_table(
                     ["Date","Meal Item","Sold","Wastage","Sample","Staff","Cost of Goods Sold","Revenue","Cash","UPI"],
                     single_day_rows,
-                    [1.8*cm, 2.5*cm, 1.2*cm, 1.6*cm, 1.5*cm, 1.2*cm, 2.4*cm, 1.8*cm, 1.5*cm, 1.5*cm]))
+                    [1.8*cm, 2.3*cm, 1.2*cm, 1.8*cm, 1.7*cm, 1.2*cm, 2.2*cm, 1.8*cm, 1.5*cm, 1.5*cm]))
             else:
                 # Group sales by date
                 import collections as _col
@@ -4359,7 +4361,7 @@ class CanteenApp(ctk.CTk):
                         story.append(pdf_table(
                             ["Meal Item", "Sold", "Wastage", "Sample", "Staff", "Cost of Goods Sold", "Revenue", "Cash", "UPI"],
                             day_table_rows,
-                            [3.2*cm, 1.2*cm, 1.7*cm, 1.5*cm, 1.2*cm, 2.6*cm, 1.8*cm, 1.9*cm, 1.9*cm]))
+                            [3.0*cm, 1.2*cm, 1.9*cm, 1.7*cm, 1.2*cm, 2.4*cm, 1.8*cm, 1.9*cm, 1.9*cm]))
                         story.append(Spacer(1, 0.15*cm))
 
                     # 2. Expenditure Table
