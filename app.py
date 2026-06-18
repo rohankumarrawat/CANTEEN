@@ -3296,6 +3296,8 @@ class CanteenApp(ctk.CTk):
                                   (start,end)).fetchall()
             e_rows = conn.execute("SELECT * FROM expenditure WHERE date>=? AND date<=? ORDER BY date DESC, amount DESC, id DESC",
                                   (start,end)).fetchall()
+            # Note: Wastage cost is calculated only from manual raw ingredients wastage logged in waste_tracker.
+            # Automatic meal wastage is already absorbed in COGS and Raw Materials expenditure.
             w_row  = conn.execute("SELECT COALESCE(SUM(cost_lost),0) AS t FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchone()
             # Build lookup: (day_name, meal_type) → specific menu name
@@ -3746,7 +3748,8 @@ class CanteenApp(ctk.CTk):
             else:
                 band(rc, "👨‍🍳  Staff Update Their Details — None for this period", bg=STRIPE, tc=MID, h=36)
 
-            # Inventory closing stock
+            # Inventory closing stock (Note: Closing stock represents the levels as of the end date of the report range.
+            # Unit abbreviations like 'Nos' represent 'Numbers' for unit-count tracking).
             self._rept_section(rc,"Inventory Closing Stock",
                 [("Item",4),("Category",2),("Unit",2),("Opening",2),("Received",2),("Closing",2),("Status",2)],
                 [[i["item"],i["cat"],i["unit"],f"{i['opening']:.1f}",f"{i['received']:.1f}",
@@ -4105,9 +4108,11 @@ class CanteenApp(ctk.CTk):
 
         rev    = sum(r["sp"]*r["sold"] for r in s_rows)
         meals  = sum(r["sold"] for r in s_rows)
+        # Note: waste represents manual raw material wastage from waste_tracker. 
+        # Automatic meal wastage is already accounted for in exp (via raw materials).
         waste  = sum(w["cost_lost"] or 0 for w in w_rows)
         exp    = sum(r["amount"] for r in e_rows)
-        net    = rev - exp - waste   # matches dashboard: Revenue - Expenditure - WasteCost
+        net    = rev - exp - waste   # Net Income = Revenue - Expenditure - WasteCost
 
         samp_complimentary = [s for s in samp_rows if (s["given_to"] or "").strip().lower() != "staff"]
         samp_staff         = [s for s in samp_rows if (s["given_to"] or "").strip().lower() == "staff"]
@@ -4537,7 +4542,7 @@ class CanteenApp(ctk.CTk):
             story.append(Paragraph("No staff consumption records for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
 
-        # Inventory
+        # Inventory (Note: Closing stock represents levels as of the end date of the report range)
         story.append(Paragraph("Inventory Closing Stock", SEC)); story.append(Spacer(1, 0.15*cm))
         story.append(pdf_table(
             ["Item","Category","Unit","Opening","Received","Closing","Status"],
