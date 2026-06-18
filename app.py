@@ -3712,8 +3712,8 @@ class CanteenApp(ctk.CTk):
             else:
                 band(rc, "🎁  Sample Complimentary — None for this period", bg=STRIPE, tc=MID, h=36)
 
-            # Staff Update Their Details section
-            band(rc, "👨‍🍳  Staff Update Their Details", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            # Staff Update section
+            band(rc, "👨‍🍳  Staff Update", bg=ARMY_BG, tc=GOLD_LT, h=40)
             if samp_staff:
                 import collections as _col
                 import datetime as _dt
@@ -3746,7 +3746,7 @@ class CanteenApp(ctk.CTk):
                             s["notes"] or "—"
                         ], [6, 1, 2, 2, 3], bg=WHITE if ix % 2 == 0 else STRIPE)
             else:
-                band(rc, "👨‍🍳  Staff Update Their Details — None for this period", bg=STRIPE, tc=MID, h=36)
+                band(rc, "👨‍🍳  Staff Update — None for this period", bg=STRIPE, tc=MID, h=36)
 
             # Inventory closing stock (Note: Closing stock represents the levels as of the end date of the report range.
             # Unit abbreviations like 'Nos' represent 'Numbers' for unit-count tracking).
@@ -3761,17 +3761,12 @@ class CanteenApp(ctk.CTk):
             sf = tk.Frame(rc, bg=_get_bg(rc))
             sf.pack(fill="x", padx=PAD, pady=(20,16))
             sf.grid_rowconfigure(0,weight=1)
-            for i,(role,name) in enumerate([
-                ("NCO I/C", "Canteen NCO In-Charge"),
-                ("JCO I/C", "Junior Commissioned Officer"),
-                ("OIC", "Officer In-Charge (Captain)"),
-            ]):
+            for i, role in enumerate(["NCO I/C", "JCO I/C", "OIC"]):
                 sc = tk.Frame(sf, bg=WHITE, highlightbackground=BORDER, highlightthickness=1)
                 sc.grid(row=0,column=i,padx=(0 if i==0 else 14),sticky="nsew")
                 sf.grid_columnconfigure(i,weight=1)
                 tk.Label(sc, text=role, bg=WHITE, fg=MID, font=("Helvetica", 10, "bold"), anchor="w").pack(padx=14,pady=(12,2),anchor="w")
-                tk.Label(sc, text=name, bg=WHITE, fg=DARK, font=("Helvetica", 11), anchor="w").pack(padx=14,anchor="w")
-                tk.Label(sc, text="Signature: ________________________", bg=WHITE, fg=MID, font=("Helvetica", 10), anchor="w").pack(padx=14,pady=(8,4),anchor="w")
+                tk.Label(sc, text="Signature: ________________________", bg=WHITE, fg=MID, font=("Helvetica", 10), anchor="w").pack(padx=14,pady=(12,4),anchor="w")
                 tk.Label(sc, text=f"Date: {end}", bg=WHITE, fg=MID, font=("Helvetica", 10), anchor="w").pack(padx=14,pady=(0,12),anchor="w")
 
             ft = tk.Frame(rc, bg=_get_bg(rc), height=6)
@@ -4512,7 +4507,7 @@ class CanteenApp(ctk.CTk):
         story.append(Spacer(1, 0.5*cm))
 
         # 2. Staff Update details
-        story.append(Paragraph("Staff Update Their Details", SEC)); story.append(Spacer(1, 0.15*cm))
+        story.append(Paragraph("Staff Update", SEC)); story.append(Spacer(1, 0.15*cm))
         if pdf_samp_staff:
             import collections as _col
             import datetime as _dt
@@ -4554,9 +4549,9 @@ class CanteenApp(ctk.CTk):
 
         # Signature
         sig_d = [[
-            Paragraph("<b>NCO I/C</b><br/>Canteen NCO In-Charge<br/><br/>Signature: ________________________<br/>Date: "+end, BODY),
-            Paragraph("<b>JCO I/C</b><br/>Junior Commissioned Officer<br/><br/>Signature: ________________________<br/>Date: "+end, BODY),
-            Paragraph("<b>OIC</b><br/>Officer In-Charge (Captain)<br/><br/>Signature: ________________________<br/>Date: "+end, BODY),
+            Paragraph("<b>NCO I/C</b><br/><br/>Signature: ________________________<br/>Date: "+end, BODY),
+            Paragraph("<b>JCO I/C</b><br/><br/>Signature: ________________________<br/>Date: "+end, BODY),
+            Paragraph("<b>OIC</b><br/><br/>Signature: ________________________<br/>Date: "+end, BODY),
         ]]
         sig_t = Table(sig_d, colWidths=[(W_A4-4*cm)/3]*3)
         sig_t.setStyle(TableStyle([
