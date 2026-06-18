@@ -191,7 +191,8 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 date TEXT NOT NULL DEFAULT CURRENT_DATE,
                 menu_id INTEGER NOT NULL REFERENCES menu(id),
-                qty_prepared INTEGER NOT NULL DEFAULT 0
+                qty_prepared INTEGER NOT NULL DEFAULT 0,
+                custom_name TEXT
             );
             CREATE TABLE IF NOT EXISTS expenditure (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -273,6 +274,8 @@ def init_db():
             c.execute("ALTER TABLE batch_prep ADD COLUMN staff INTEGER DEFAULT 0")
         if not _has_col(c, "batch_prep", "samples"):
             c.execute("ALTER TABLE batch_prep ADD COLUMN samples INTEGER DEFAULT 0")
+        if not _has_col(c, "batch_prep", "custom_name"):
+            c.execute("ALTER TABLE batch_prep ADD COLUMN custom_name TEXT")
         if not _has_col(c, "sales", "staff"):
             c.execute("ALTER TABLE sales ADD COLUMN staff INTEGER DEFAULT 0")
         if not _has_col(c, "sales", "samples"):
@@ -6858,32 +6861,72 @@ class CanteenApp(ctk.CTk):
         # ──────────────────────────────────────────────────────────────────
         # INGREDIENT PREVIEW
         # ──────────────────────────────────────────────────────────────────
+        def _recalc_cost(meal_type, sw):
+            if not sw or "ingredient_entries" not in sw or "cost_lbl" not in sw: return
+            total_cost = 0.0
+            for ie in sw["ingredient_entries"]:
+                try:
+                    val = float(ie["entry"].get() or 0.0)
+                except ValueError:
+                    val = 0.0
+                total_cost += val * (ie["cp"] or 0.0)
+            sw["cost_lbl"].configure(text=f"💰 Total raw cost: Rs. {f_in(total_cost)}")
+
         def _update_preview(meal_type, sw):
             sel = sw["dropdown"].get()
             if sel.startswith("⭐ "):
                 sel = sel[2:]
             m  = menu_state["menu_by_name"].get(sel)
             pf = sw["preview_frame"]
-            pl = sw["preview_lbl"]
-            if not m:
+
+            # Clear old widgets inside preview frame
+            for child in pf.winfo_children():
+                child.destroy()
+
+            sw["ingredient_entries"] = []
+
+            if not m or sel == "— Skip —":
+                sw["custom_name_entry"].delete(0, "end")
                 pf.pack_forget(); return
+
             details = menu_state["recipe_detail"].get(m["id"], [])
             try:
                 qty = int(sw["qty_entry"].get() or 0)
             except ValueError:
                 qty = 0
+
             if details and qty > 0:
-                lines = [f"⚡ {sel}  ×{qty} plates:"]
-                for d in details[:8]:
-                    lines.append(f"  {d['item']}: {d['qpu']*qty:.2f} {d['unit']}")
-                if len(details) > 8:
-                    lines.append(f"  +{len(details)-8} more ingredients")
-                cost = sum(d["qpu"] * qty * (d["cp"] or 0) for d in details)
-                lines.append(f"  💰 Raw cost: Rs. {f_in(cost)}")
-                pl.configure(text="\n".join(lines))
+                title = lbl(pf, f"⚡ Ingredients for {qty} plates (editable for this batch only):", size=10, weight="bold", color=ARMY_BG)
+                title.pack(padx=10, pady=(6,4), anchor="w")
+
+                grid_f = ctk.CTkFrame(pf, fg_color="transparent")
+                grid_f.pack(fill="x", padx=10, pady=4)
+                grid_f.grid_columnconfigure(0, weight=2)
+                grid_f.grid_columnconfigure(1, weight=1)
+                grid_f.grid_columnconfigure(2, weight=2)
+
+                for idx, d in enumerate(details):
+                    lbl(grid_f, f"• {d['item']} ({d['unit']})", size=10, color=ARMY_BG).grid(row=idx, column=0, sticky="w", padx=(4,10), pady=4)
+
+                    e = ctk.CTkEntry(grid_f, width=80, height=28, corner_radius=6, border_color=BORDER, justify="center", font=ctk.CTkFont(size=11, weight="bold"))
+                    e.grid(row=idx, column=1, padx=10, pady=4)
+                    e.insert(0, f"{d['qpu'] * qty:.2f}")
+                    e.bind("<KeyRelease>", lambda e_evt, mt=meal_type, s=sw: _recalc_cost(mt, s))
+
+                    lbl(grid_f, f"@ Rs. {d['cp']:.1f}/{d['unit']}", size=10, color=MID).grid(row=idx, column=2, sticky="w", padx=10, pady=4)
+
+                    sw["ingredient_entries"].append({
+                        "inv_id": d["inv_id"], "item": d["item"], "unit": d["unit"], "cp": d["cp"], "entry": e
+                    })
+
+                cost_lbl = lbl(pf, "", size=10, weight="bold", color=TEAL)
+                cost_lbl.pack(padx=10, pady=(4,6), anchor="w")
+                sw["cost_lbl"] = cost_lbl
+                _recalc_cost(meal_type, sw)
                 pf.pack(fill="x", pady=(6, 0))
             elif not details and qty > 0:
-                pl.configure(text="⚠️ No recipes linked — stock won't auto-deduct for this item.")
+                pl = lbl(pf, "⚠️ No recipes linked — stock won't auto-deduct for this item.", size=10, color=MID)
+                pl.pack(padx=10, pady=6, anchor="w")
                 pf.pack(fill="x", pady=(6, 0))
             else:
                 pf.pack_forget()
@@ -6900,6 +6943,9 @@ class CanteenApp(ctk.CTk):
                 )
                 return
             sel = val[2:] if val.startswith("⭐ ") else val
+            sw["custom_name_entry"].delete(0, "end")
+            if sel != "— Skip —":
+                sw["custom_name_entry"].insert(0, sel)
             m   = menu_state["menu_by_name"].get(sel)
             if m:
                 ds  = m.get("default_samples", 0) or 0
@@ -6992,6 +7038,11 @@ class CanteenApp(ctk.CTk):
                                    fg_color=ARMY_BG, button_color=ARMY_HVR, text_color=WHITE)
             dd.pack(fill="x", pady=1)
 
+            custom_name_e = ctk.CTkEntry(ddf, height=28, corner_radius=6,
+                                         font=ctk.CTkFont(size=10),
+                                         border_color=BORDER, placeholder_text="Custom name for record...")
+            custom_name_e.pack(fill="x", pady=(4,0))
+
             # Plates
             qf = ctk.CTkFrame(r1, fg_color="transparent")
             qf.grid(row=0, column=1, sticky="nsew", padx=(0,8))
@@ -7022,16 +7073,16 @@ class CanteenApp(ctk.CTk):
             # Ingredient preview strip
             pf = ctk.CTkFrame(body, fg_color="#F0FDF4", corner_radius=8,
                               border_width=1, border_color="#BBF7D0")
-            pl = lbl(pf, "", size=9, color=ARMY_BG, wraplength=680)
-            pl.pack(padx=8, pady=5, anchor="w")
 
-            sw = {"dropdown": dd, "qty_entry": qty_e, "samp_entry": samp_e,
-                  "staff_entry": staff_e, "preview_frame": pf, "preview_lbl": pl}
+            sw = {"dropdown": dd, "custom_name_entry": custom_name_e, "qty_entry": qty_e, "samp_entry": samp_e,
+                  "staff_entry": staff_e, "preview_frame": pf}
             sw_holder["sw"] = sw  # allow remove button to find it
 
             # Pre-fill from schedule
             if scheduled_name and scheduled_name in menu_state["menu_by_name"]:
                 dd.set(f"⭐ {scheduled_name}")
+                custom_name_e.delete(0, "end")
+                custom_name_e.insert(0, scheduled_name)
                 m_obj = menu_state["menu_by_name"][scheduled_name]
                 ds  = m_obj.get("default_samples", 0) or 0
                 dst = m_obj.get("default_staff",   0) or 0
@@ -7040,6 +7091,7 @@ class CanteenApp(ctk.CTk):
                 self.after(120, lambda mt=meal_type, s=sw: _update_preview(mt, s))
             else:
                 dd.set("— Skip —")
+                custom_name_e.delete(0, "end")
 
             dd.configure(command=lambda val, mt=meal_type, s=sw: _on_dd_change(val, mt, s))
             qty_e.bind("<KeyRelease>", lambda e, mt=meal_type, s=sw: _update_preview(mt, s))
@@ -7330,27 +7382,51 @@ class CanteenApp(ctk.CTk):
                     except ValueError:
                         staff_qty = 0
 
+                    custom_name = sw["custom_name_entry"].get().strip() or sel
+
                     # 1. batch_prep
                     conn.execute(
-                        "INSERT INTO batch_prep (date, menu_id, qty_prepared, samples, staff) "
-                        "VALUES (?,?,?,?,?)",
-                        (date_str, mid, qty, samp_qty, staff_qty))
+                        "INSERT INTO batch_prep (date, menu_id, qty_prepared, samples, staff, custom_name) "
+                        "VALUES (?,?,?,?,?,?)",
+                        (date_str, mid, qty, samp_qty, staff_qty, custom_name))
 
                     # 2. Auto-deduct stock + ledger
-                    details   = menu_state["recipe_detail"].get(mid, [])
+                    ingredient_entries = sw.get("ingredient_entries", [])
                     total_raw = 0.0
-                    for d in details:
-                        deduct = d["qpu"] * qty
-                        conn.execute(
-                            "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
-                            (deduct, d["inv_id"]))
-                        conn.execute(
-                            "INSERT INTO stock_ledger "
-                            "(date, inv_id, transaction_type, qty_change, notes) "
-                            "VALUES (?,?,?,?,?)",
-                            (date_str, d["inv_id"], "DAILY_MENU", -deduct,
-                             f"Daily menu: {sel} ({meal_type}) x{qty}"))
-                        total_raw += deduct * (d["cp"] or 0.0)
+                    if ingredient_entries:
+                        for ie in ingredient_entries:
+                            try:
+                                deduct = float(ie["entry"].get() or 0.0)
+                            except ValueError:
+                                deduct = 0.0
+                            if deduct <= 0:
+                                continue
+                            conn.execute(
+                                "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
+                                (deduct, ie["inv_id"]))
+                            conn.execute(
+                                "INSERT INTO stock_ledger "
+                                "(date, inv_id, transaction_type, qty_change, notes) "
+                                "VALUES (?,?,?,?,?)",
+                                (date_str, ie["inv_id"], "DAILY_MENU", -deduct,
+                                 f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
+                            total_raw += deduct * (ie["cp"] or 0.0)
+                    else:
+                        details   = menu_state["recipe_detail"].get(mid, [])
+                        for d in details:
+                            deduct = d["qpu"] * qty
+                            if deduct <= 0:
+                                continue
+                            conn.execute(
+                                "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
+                                (deduct, d["inv_id"]))
+                            conn.execute(
+                                "INSERT INTO stock_ledger "
+                                "(date, inv_id, transaction_type, qty_change, notes) "
+                                "VALUES (?,?,?,?,?)",
+                                (date_str, d["inv_id"], "DAILY_MENU", -deduct,
+                                 f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
+                            total_raw += deduct * (d["cp"] or 0.0)
 
                     # 3. Expenditure entry
                     if total_raw > 0:
@@ -7358,7 +7434,7 @@ class CanteenApp(ctk.CTk):
                             "INSERT INTO expenditure (date, amount, category, notes) "
                             "VALUES (?,?,?,?)",
                             (date_str, round(total_raw, 2), "Raw Material",
-                             f"Auto: {sel} x{qty}"))
+                             f"Auto-expenditure for {custom_name} batch x{qty}"))
 
                     # 4. General samples
                     if samp_qty > 0:
@@ -7368,7 +7444,7 @@ class CanteenApp(ctk.CTk):
                             "VALUES (?,?,?,?,?,?,?,?)",
                             (date_str, mid, meal_type, sp, samp_qty,
                              round(cogs_per * samp_qty, 2), "General",
-                             f"Auto from daily menu: {sel}"))
+                             f"Auto from daily menu: {custom_name}"))
 
                     # 5. Staff meals
                     if staff_qty > 0:
@@ -7378,7 +7454,7 @@ class CanteenApp(ctk.CTk):
                             "VALUES (?,?,?,?,?,?,?,?)",
                             (date_str, mid, meal_type, sp, staff_qty,
                              round(cogs_per * staff_qty, 2), "Staff",
-                             f"Auto from daily menu: {sel}"))
+                             f"Auto from daily menu: {custom_name}"))
 
                     logs.append(f"{meal_type}: {sel} ×{qty}")
                     saved += 1
