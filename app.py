@@ -3512,16 +3512,27 @@ class CanteenApp(ctk.CTk):
 
         # Meal Sales Table — show specific meal name (e.g. KADHI CHAWAL) from daily_menu
         if start == end:
+            rows_data = []
+            for r in s_rows:
+                parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
+                cash_amt = parsed.get("Cash", 0.0)
+                upi_amt = parsed.get("UPI", 0.0)
+                rows_data.append([
+                    r["date"],
+                    _resolve_meal_name(r["date"], r["meal"]),
+                    str(r["sold"]),
+                    str(r["wastage"]),
+                    str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
+                    str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
+                    f"Rs. {f_in(r['cogs'])}",
+                    f"Rs. {f_in(r['sp']*r['sold'])}",
+                    f"Rs. {f_in(cash_amt)}" if cash_amt > 0 else "—",
+                    f"Rs. {f_in(upi_amt)}" if upi_amt > 0 else "—"
+                ])
             self._rept_section(rc, "Meal Sales Summary",
-                [("Date",3),("Meal",5),("Sold",1),("Wastage",2),("Sample",2),("Staff",2),("Cost of Goods Sold",4),("Revenue",2),("Payment",2)],
-                [[r["date"],
-                  _resolve_meal_name(r["date"], r["meal"]),
-                  str(r["sold"]),str(r["wastage"]),
-                  str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                  str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                  f"Rs. {f_in(r['cogs'])}",f"Rs. {f_in(r['sp']*r['sold'])}",r["payment"]]
-                 for r in s_rows],
-                [3,5,1,2,2,2,4,2,2])
+                [("Date",3),("Meal",5),("Sold",1),("Wastage",2),("Sample",2),("Staff",2),("Cost of Goods Sold",4),("Revenue",2),("Cash",2),("UPI",2)],
+                rows_data,
+                [3,5,1,2,2,2,4,2,2,2])
         def render_trailing_parts():
             # Payment breakdown
             pmf = tk.Frame(rc, bg=_get_bg(rc))
@@ -3835,8 +3846,11 @@ class CanteenApp(ctk.CTk):
 
                         # 1. Render Meal Sales Table
                         if day_rows:
-                            thead(rc, [("Meal Item", 8), ("Sold", 2), ("Wastage", 2), ("Sample", 2), ("Staff", 2), ("Cost of Goods Sold", 5), ("Revenue", 3), ("Payment", 3)], bg=STRIPE, tc=MID)
+                            thead(rc, [("Meal Item", 8), ("Sold", 2), ("Wastage", 2), ("Sample", 2), ("Staff", 2), ("Cost of Goods Sold", 5), ("Revenue", 3), ("Cash", 3), ("UPI", 3)], bg=STRIPE, tc=MID)
                             for ix, r in enumerate(day_rows):
+                                parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
+                                cash_amt = parsed.get("Cash", 0.0)
+                                upi_amt = parsed.get("UPI", 0.0)
                                 trow(rc, [
                                     _resolve_meal_name(r["date"], r["meal"]),
                                     str(r["sold"]),
@@ -3845,8 +3859,9 @@ class CanteenApp(ctk.CTk):
                                     str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
                                     f"Rs. {f_in(r['cogs'])}",
                                     f"Rs. {f_in(r['sp']*r['sold'])}",
-                                    r["payment"]
-                                ], [8,2,2,2,2,5,3,3], bg=WHITE if ix % 2 == 0 else STRIPE)
+                                    f"Rs. {f_in(cash_amt)}" if cash_amt > 0 else "—",
+                                    f"Rs. {f_in(upi_amt)}" if upi_amt > 0 else "—"
+                                ], [8,2,2,2,2,5,3,3,3], bg=WHITE if ix % 2 == 0 else STRIPE)
 
                         # 2. Render Expenditure Table
                         if day_exps:
@@ -4255,14 +4270,27 @@ class CanteenApp(ctk.CTk):
         story.append(Spacer(1, 0.15*cm))
         if s_rows:
             if start == end:
+                single_day_rows = []
+                for r in s_rows:
+                    parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
+                    cash_amt = parsed.get("Cash", 0.0)
+                    upi_amt = parsed.get("UPI", 0.0)
+                    single_day_rows.append([
+                        r["date"],
+                        _resolve_meal_name(r["date"], r["meal"]),
+                        str(r["sold"]),
+                        str(r["wastage"]),
+                        str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
+                        str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
+                        f"Rs.{f_in(r['cogs'])}",
+                        f"Rs.{f_in(r['sp']*r['sold'])}",
+                        f"Rs.{f_in(cash_amt)}" if cash_amt > 0 else "—",
+                        f"Rs.{f_in(upi_amt)}" if upi_amt > 0 else "—"
+                    ])
                 story.append(pdf_table(
-                    ["Date","Meal Item","Sold","Wastage","Sample","Staff","Cost of Goods Sold","Revenue","Payment"],
-                    [[r["date"],_resolve_meal_name(r["date"], r["meal"]),str(r["sold"]),str(r["wastage"]),
-                      str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                      str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                      f"Rs.{f_in(r['cogs'])}",f"Rs.{f_in(r['sp']*r['sold'])}",r["payment"]]
-                     for r in s_rows],
-                    [2.0*cm, 2.7*cm, 1.0*cm, 1.5*cm, 1.4*cm, 1.1*cm, 3.3*cm, 2.0*cm, 2.0*cm]))
+                    ["Date","Meal Item","Sold","Wastage","Sample","Staff","Cost of Goods Sold","Revenue","Cash","UPI"],
+                    single_day_rows,
+                    [1.8*cm, 2.5*cm, 1.2*cm, 1.6*cm, 1.5*cm, 1.2*cm, 2.4*cm, 1.8*cm, 1.5*cm, 1.5*cm]))
             else:
                 # Group sales by date
                 import collections as _col
@@ -4312,14 +4340,26 @@ class CanteenApp(ctk.CTk):
 
                     # 1. Meal Sales Table
                     if day_rows:
+                        day_table_rows = []
+                        for r in day_rows:
+                            parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
+                            cash_amt = parsed.get("Cash", 0.0)
+                            upi_amt = parsed.get("UPI", 0.0)
+                            day_table_rows.append([
+                                _resolve_meal_name(r["date"], r["meal"]),
+                                str(r["sold"]),
+                                str(r["wastage"]),
+                                str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
+                                str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
+                                f"Rs.{f_in(r['cogs'])}",
+                                f"Rs.{f_in(r['sp']*r['sold'])}",
+                                f"Rs.{f_in(cash_amt)}" if cash_amt > 0 else "—",
+                                f"Rs.{f_in(upi_amt)}" if upi_amt > 0 else "—"
+                            ])
                         story.append(pdf_table(
-                            ["Meal Item", "Sold", "Wastage", "Sample", "Staff", "Cost of Goods Sold", "Revenue", "Payment"],
-                            [[_resolve_meal_name(r["date"], r["meal"]), str(r["sold"]), str(r["wastage"]),
-                              str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                              str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                              f"Rs.{f_in(r['cogs'])}", f"Rs.{f_in(r['sp']*r['sold'])}", r["payment"]]
-                             for r in day_rows],
-                            [4.2*cm, 1.0*cm, 1.6*cm, 1.4*cm, 1.1*cm, 3.7*cm, 2.0*cm, 2.0*cm]))
+                            ["Meal Item", "Sold", "Wastage", "Sample", "Staff", "Cost of Goods Sold", "Revenue", "Cash", "UPI"],
+                            day_table_rows,
+                            [3.2*cm, 1.2*cm, 1.7*cm, 1.5*cm, 1.2*cm, 2.6*cm, 1.8*cm, 1.9*cm, 1.9*cm]))
                         story.append(Spacer(1, 0.15*cm))
 
                     # 2. Expenditure Table
