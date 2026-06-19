@@ -9284,10 +9284,24 @@ class CanteenApp(ctk.CTk):
                 new_wast = max(0, new_prep - (new_sold + new_staff + new_samp))
 
                 with get_db() as conn:
-                    m = conn.execute("SELECT id, cogs FROM menu WHERE name=? COLLATE NOCASE", (new_meal,)).fetchone()
+                    m = conn.execute("SELECT id, cogs, meal_type FROM menu WHERE name=? COLLATE NOCASE", (new_meal,)).fetchone()
                     if m:
                         menu_id = m["id"]
                         cogs_per = m["cogs"] if m["cogs"] else 0.0
+                        _raw_mt = (m["meal_type"] or "").strip().upper()
+                        _MT_DISP = {"LUNCH": "Lunch", "MINI": "Mini Meal", "MINI MEAL": "Mini Meal",
+                                    "PARATHA": "Paratha", "BREAKFAST": "Breakfast",
+                                    "DINNER": "Dinner", "SNACK": "Snack"}
+                        _mt_disp = _MT_DISP.get(_raw_mt)
+                        # Fallback: look up daily_menu schedule if meal_type is not on menu row
+                        if not _mt_disp:
+                            _sched = conn.execute(
+                                "SELECT meal_type FROM daily_menu WHERE menu_id=? AND meal_type IS NOT NULL LIMIT 1",
+                                (menu_id,)).fetchone()
+                            if _sched:
+                                _mt_disp = _MT_DISP.get((_sched["meal_type"] or "").strip().upper())
+                        _inner = new_meal.replace("(", "[").replace(")", "]")
+                        exp_label = f"{_mt_disp}({_inner})" if _mt_disp else new_meal
                     else:
                         self._popup("⚠️ Error", "Selected menu item does not exist.")
                         return
@@ -9325,7 +9339,7 @@ class CanteenApp(ctk.CTk):
                     if new_cogs > 0:
                         conn.execute(
                             "INSERT INTO expenditure (date, amount, category, notes) VALUES (?,?,?,?)",
-                            (d, new_cogs, "Raw Materials", f"Auto-expenditure for {new_meal} batch"))
+                            (d, new_cogs, "Raw Materials", exp_label))
 
                     # 5. Insert General / Staff samples into samples table
                     if new_samp > 0:
