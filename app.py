@@ -6368,34 +6368,34 @@ class CanteenApp(ctk.CTk):
                                 total_raw_cost += deduct * (d["cp"] or 0.0)
 
 
-                    # Log cost as Expenditure
-                    if total_raw_cost > 0:
-                        conn.execute(
-                            "INSERT INTO expenditure (date, amount, category, notes) "
-                            "VALUES (?,?,?,?)",
-                            (date_str, round(total_raw_cost, 2), "Raw Materials",
-                             f"Auto-expenditure for {custom_name} batch x{qty}"))
+                        # Log cost as Expenditure — inside loop, one entry per slot
+                        if total_raw_cost > 0:
+                            conn.execute(
+                                "INSERT INTO expenditure (date, amount, category, notes) "
+                                "VALUES (?,?,?,?)",
+                                (date_str, round(total_raw_cost, 2), "Raw Materials",
+                                 f"Auto-expenditure for {custom_name} batch x{qty}"))
 
-                    # 3. Samples table (given_to='General')
-                    if samp_qty > 0:
-                        conn.execute(
-                            "INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes) "
-                            "VALUES (?,?,?,?,?,?,?,?)",
-                            (date_str, mid, meal_type, sp, samp_qty,
-                             round(cogs_per * samp_qty, 2), "General",
-                             f"Auto from daily menu: {custom_name}"))
+                        # 3. Samples table (given_to='General')
+                        if samp_qty > 0:
+                            conn.execute(
+                                "INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes) "
+                                "VALUES (?,?,?,?,?,?,?,?)",
+                                (date_str, mid, meal_type, sp, samp_qty,
+                                 round(cogs_per * samp_qty, 2), "General",
+                                 f"Auto from daily menu: {custom_name}"))
 
-                    # 4. Samples table for Staff (given_to='Staff')
-                    if staff_qty > 0:
-                        conn.execute(
-                            "INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes) "
-                            "VALUES (?,?,?,?,?,?,?,?)",
-                            (date_str, mid, meal_type, sp, staff_qty,
-                             round(cogs_per * staff_qty, 2), "Staff",
-                             f"Auto from daily menu: {custom_name}"))
+                        # 4. Samples table for Staff (given_to='Staff')
+                        if staff_qty > 0:
+                            conn.execute(
+                                "INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes) "
+                                "VALUES (?,?,?,?,?,?,?,?)",
+                                (date_str, mid, meal_type, sp, staff_qty,
+                                 round(cogs_per * staff_qty, 2), "Staff",
+                                 f"Auto from daily menu: {custom_name}"))
 
-                    logs.append(f"{meal_type}: {sel} x{qty}")
-                    saved += 1
+                        logs.append(f"{meal_type}: {sel} x{qty}")
+                        saved += 1
             except RuntimeError as e:
                 self._popup("⚠️ Insufficient Stock", str(e))
                 return
@@ -8089,37 +8089,36 @@ class CanteenApp(ctk.CTk):
                                      f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
                                 total_raw += deduct * (d["cp"] or 0.0)
 
+                        # 3. Expenditure entry — one per slot, inside the loop
+                        if total_raw > 0:
+                            conn.execute(
+                                "INSERT INTO expenditure (date, amount, category, notes) "
+                                "VALUES (?,?,?,?)",
+                                (date_str, round(total_raw, 2), "Raw Materials",
+                                 f"Auto-expenditure for {custom_name} batch x{qty}"))
 
-                    # 3. Expenditure entry
-                    if total_raw > 0:
-                        conn.execute(
-                            "INSERT INTO expenditure (date, amount, category, notes) "
-                            "VALUES (?,?,?,?)",
-                            (date_str, round(total_raw, 2), "Raw Material",
-                             f"Auto-expenditure for {custom_name} batch x{qty}"))
+                        # 4. General samples
+                        if samp_qty > 0:
+                            conn.execute(
+                                "INSERT INTO samples "
+                                "(date, menu_id, meal, sp, qty, cost, given_to, notes) "
+                                "VALUES (?,?,?,?,?,?,?,?)",
+                                (date_str, mid, meal_type, sp, samp_qty,
+                                 round(cogs_per * samp_qty, 2), "General",
+                                 f"Auto from daily menu: {custom_name}"))
 
-                    # 4. General samples
-                    if samp_qty > 0:
-                        conn.execute(
-                            "INSERT INTO samples "
-                            "(date, menu_id, meal, sp, qty, cost, given_to, notes) "
-                            "VALUES (?,?,?,?,?,?,?,?)",
-                            (date_str, mid, meal_type, sp, samp_qty,
-                             round(cogs_per * samp_qty, 2), "General",
-                             f"Auto from daily menu: {custom_name}"))
+                        # 5. Staff meals
+                        if staff_qty > 0:
+                            conn.execute(
+                                "INSERT INTO samples "
+                                "(date, menu_id, meal, sp, qty, cost, given_to, notes) "
+                                "VALUES (?,?,?,?,?,?,?,?)",
+                                (date_str, mid, meal_type, sp, staff_qty,
+                                 round(cogs_per * staff_qty, 2), "Staff",
+                                 f"Auto from daily menu: {custom_name}"))
 
-                    # 5. Staff meals
-                    if staff_qty > 0:
-                        conn.execute(
-                            "INSERT INTO samples "
-                            "(date, menu_id, meal, sp, qty, cost, given_to, notes) "
-                            "VALUES (?,?,?,?,?,?,?,?)",
-                            (date_str, mid, meal_type, sp, staff_qty,
-                             round(cogs_per * staff_qty, 2), "Staff",
-                             f"Auto from daily menu: {custom_name}"))
-
-                    logs.append(f"{meal_type}: {sel} ×{qty}")
-                    saved += 1
+                        logs.append(f"{meal_type}: {sel} ×{qty}")
+                        saved += 1
             except RuntimeError as e:
                 self._popup("⚠️ Insufficient Stock", str(e))
                 return
