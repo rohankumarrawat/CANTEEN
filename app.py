@@ -270,6 +270,8 @@ def init_db():
             c.execute("ALTER TABLE menu ADD COLUMN default_samples INTEGER DEFAULT 0")
         if not _has_col(c, "menu", "default_staff"):
             c.execute("ALTER TABLE menu ADD COLUMN default_staff INTEGER DEFAULT 0")
+        if not _has_col(c, "menu", "meal_type"):
+            c.execute("ALTER TABLE menu ADD COLUMN meal_type TEXT DEFAULT NULL")
         if not _has_col(c, "batch_prep", "staff"):
             c.execute("ALTER TABLE batch_prep ADD COLUMN staff INTEGER DEFAULT 0")
         if not _has_col(c, "batch_prep", "samples"):
@@ -281,6 +283,20 @@ def init_db():
         if not _has_col(c, "sales", "samples"):
             c.execute("ALTER TABLE sales ADD COLUMN samples INTEGER DEFAULT 0")
 
+        # One-time merge of duplicate 'Mix Veg Paratha' into 'Mixed Veg Paratha'
+        mix_veg = c.execute("SELECT id FROM menu WHERE name = 'Mix Veg Paratha'").fetchone()
+        mixed_veg = c.execute("SELECT id FROM menu WHERE name = 'Mixed Veg Paratha'").fetchone()
+        if mix_veg and mixed_veg:
+            mix_id = mix_veg["id"]
+            mixed_id = mixed_veg["id"]
+            c.execute("UPDATE daily_menu SET menu_id = ? WHERE menu_id = ?", (mixed_id, mix_id))
+            c.execute("UPDATE recipes SET menu_id = ? WHERE menu_id = ?", (mixed_id, mix_id))
+            c.execute("UPDATE batch_prep SET menu_id = ? WHERE menu_id = ?", (mixed_id, mix_id))
+            c.execute("UPDATE sales SET menu_id = ?, meal = 'Paratha (Mixed Veg Parantha)' WHERE menu_id = ?", (mixed_id, mix_id))
+            c.execute("UPDATE samples SET menu_id = ?, meal = 'Paratha (Mixed Veg Parantha)' WHERE menu_id = ?", (mixed_id, mix_id))
+            c.execute("UPDATE waste_tracker SET reason = REPLACE(reason, 'Mix Veg Paratha', 'Mixed Veg Paratha') WHERE reason LIKE '%Mix Veg Paratha%'")
+            c.execute("UPDATE expenditure SET notes = REPLACE(notes, 'Mix Veg Paratha', 'Mixed Veg Paratha') WHERE notes LIKE '%Mix Veg Paratha%'")
+            c.execute("DELETE FROM menu WHERE id = ?", (mix_id,))
 
         # ── Samples migration: move misclassified wastage rows into samples table ──
         # Items prepared but sold=0 (AMUL KOOL, LAHARI JEERA, LASSI etc.) were stored
@@ -455,7 +471,7 @@ def trow(parent, cols_vals, col_weights, colors=None, bolds=None,
     for j, (v, wt, c, b) in enumerate(zip(cols_vals, col_weights, clr, bld)):
         # Clip long text with ellipsis to prevent overflow
         text = str(v)
-        limit = max(10, int(130 * wt / total_wt))
+        limit = max(10, int(200 * wt / total_wt))
         if len(text) > limit:
             text = text[:limit-1] + "…"
             
@@ -722,6 +738,65 @@ class CanteenApp(ctk.CTk):
         lbl(win, message, size=12, color=DARK, justify="center", wraplength=420).pack(pady=(0,16))
         btn(win, "Close", win.destroy, fg=ARMY_BG, hv=ARMY_HVR, h=40).pack(padx=60, fill="x")
         lbl(win, "जय हिन्द", size=10, color=MID).pack(pady=(8,16))
+
+    def _show_search_popup(self, title, values, current_val, callback):
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("360x420")
+        popup.resizable(False, False)
+        popup.configure(fg_color=WHITE)
+        popup.transient(self)
+        popup.grab_set()
+        popup.lift()
+        popup.focus_set()
+
+        # Center popup relative to main window
+        popup.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() - 360) // 2
+        y = self.winfo_y() + (self.winfo_height() - 420) // 2
+        popup.geometry(f"+{x}+{y}")
+
+        search_f = ctk.CTkFrame(popup, fg_color="transparent")
+        search_f.pack(fill="x", padx=12, pady=10)
+
+        search_e = ctk.CTkEntry(search_f, placeholder_text="🔍 Type to search item...", height=36, font=ctk.CTkFont(size=12))
+        search_e.pack(fill="x")
+        search_e.focus()
+
+        scroll = ctk.CTkScrollableFrame(popup, fg_color=WHITE)
+        scroll.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+        buttons = []
+
+        def on_select(val):
+            callback(val)
+            popup.destroy()
+
+        def filter_list(evt=None):
+            q = search_e.get().strip().lower()
+            for val, btn_w in buttons:
+                if not q or q in val.lower():
+                    btn_w.pack(fill="x", pady=2)
+                else:
+                    btn_w.pack_forget()
+
+        def on_enter(evt):
+            for val, btn_w in buttons:
+                if btn_w.winfo_ismapped():
+                    on_select(val)
+                    break
+
+        search_e.bind("<KeyRelease>", filter_list)
+        search_e.bind("<Return>", on_enter)
+
+        for val in values:
+            is_sel = (val == current_val)
+            bg = ARMY_BG if is_sel else WHITE
+            fg_col = WHITE if is_sel else ARMY_BG
+            hvr = ARMY_HVR if is_sel else "#F3F4F6"
+            b = ctk.CTkButton(scroll, text=val, fg_color=bg, hover_color=hvr, text_color=fg_col, anchor="w", height=32, font=ctk.CTkFont(size=11, weight="bold" if is_sel else "normal"), command=lambda v=val: on_select(v), cursor="hand2")
+            b.pack(fill="x", pady=2)
+            buttons.append((val, b))
 
     def _confirm(self, title, message):
         """Show a Yes / No dialog; returns True if user clicks Yes."""
@@ -1076,16 +1151,18 @@ class CanteenApp(ctk.CTk):
             today_sales = conn.execute("SELECT * FROM sales WHERE date=? ORDER BY id", (today,)).fetchall()
 
         if not meals:
-            empty_f = ctk.CTkFrame(self._area, fg_color=WHITE, corner_radius=16,
-                                   border_width=1, border_color=BORDER)
+            empty_f = ctk.CTkFrame(self._area, fg_color="transparent")
             empty_f.pack(fill="both", expand=True, padx=PAD, pady=PAD)
 
             content_f = ctk.CTkFrame(empty_f, fg_color="transparent")
             content_f.place(relx=0.5, rely=0.5, anchor="center")
 
-            lbl(content_f, "⚠️  Daily Menu Required", size=18, weight="bold", color=ARMY_BG).pack(pady=(0, 8))
-            lbl(content_f, "No daily menu batches have been created/saved for today yet.\nYou must set up and save today's daily menu before adding sales entries.",
-                size=12, color=MID, justify="center").pack(pady=(0, 10))
+            lbl(content_f, "Create menu first", size=22, weight="bold", color=ARMY_BG).pack(pady=(0, 10))
+            lbl(content_f, "No daily menu has been created for today yet.\nYou must set up the daily menu before adding sales entries.",
+                size=13, color=MID, justify="center").pack(pady=(0, 20))
+            
+            btn(content_f, "Go to Daily Menu", lambda: self._switch_master_tab("daily"), 
+                fg=SAFFRON, hv="#D97706", h=40, w=180).pack()
             return
 
         # Aggregate totals per menu item (multiple records = multiple transactions)
@@ -1208,28 +1285,14 @@ class CanteenApp(ctk.CTk):
         if today_sales:
             sc = card(wrap); sc.pack(fill="x", pady=(14,0))
             band(sc, f"📊  Today's Sales Log  •  {today_disp}")
-            COLS2 = [("Meal",4),("Sold",1),("COGS",1),("Revenue",1),("Payment",1),("Ingredients Deducted",3)]
+            COLS2 = [("Meal",4),("Sold",1),("COGS",1),("Revenue",1),("Payment",1)]
             thead(sc, COLS2, bg=STRIPE, tc=MID)
             tot_cogs = 0
-            with get_db() as conn:
-                for ix, r in enumerate(today_sales):
-                    rev2 = r["sp"]*r["sold"]; tot_cogs += r["cogs"]
-                    ledger_rows = conn.execute(
-                        "SELECT sl.qty_change, i.item, i.unit "
-                        "FROM stock_ledger sl JOIN inventory i ON i.id=sl.inv_id "
-                        "WHERE sl.notes LIKE ? AND sl.date=?",
-                        (f"Sale:{r['id']}%", r["date"])).fetchall()
-                    if ledger_rows:
-                        parts = [f"{lr['item']} {-lr['qty_change']:.2f}{lr['unit']}"
-                                 for lr in ledger_rows[:2]]
-                        if len(ledger_rows) > 2:
-                            parts.append(f"+{len(ledger_rows)-2} more")
-                        deduct_cell = ", ".join(parts)
-                    else:
-                        deduct_cell = "⚠ No recipe"
-                    trow(sc,[r["meal"],str(r["sold"]),
-                             f"Rs. {f_in(r['cogs'])}",f"Rs. {f_in(rev2)}",r["payment"],deduct_cell],
-                         [4,1,1,1,1,3], bg=WHITE if ix%2==0 else STRIPE)
+            for ix, r in enumerate(today_sales):
+                rev2 = r["sp"]*r["sold"]; tot_cogs += r["cogs"]
+                trow(sc,[r["meal"],str(r["sold"]),
+                         f"Rs. {f_in(r['cogs'])}",f"Rs. {f_in(rev2)}",r["payment"]],
+                     [4,1,1,1,1], bg=WHITE if ix%2==0 else STRIPE)
             totf = ctk.CTkFrame(sc, fg_color=BG_GRN, corner_radius=0, height=38)
             totf.pack(fill="x"); totf.pack_propagate(False)
             lbl(totf, "  TOTAL", size=11, weight="bold", color=GREEN).grid(
@@ -1238,7 +1301,7 @@ class CanteenApp(ctk.CTk):
                 color=GREEN).grid(row=0, column=2, sticky="w", padx=14)
             lbl(totf, f"Rs. {f_in(tot_rev)}", size=13, weight="bold",
                 color=GREEN).grid(row=0, column=3, sticky="w", padx=14)
-            for i,w in enumerate([4,1,1,1,1,3]):
+            for i,w in enumerate([4,1,1,1,1]):
                 totf.grid_columnconfigure(i, weight=w)
 
     def _filter_sale_cards(self):
@@ -3307,40 +3370,68 @@ class CanteenApp(ctk.CTk):
             sched_name_map = {}
             for row in conn.execute("SELECT dm.day, dm.meal_type, m.name FROM daily_menu dm JOIN menu m ON m.id=dm.menu_id"):
                 sched_name_map[(row["day"], row["meal_type"])] = row["name"]
+            # Build menu_id → {meal_type, name} lookups
+            menu_meal_type_map = {}
+            menu_name_map = {}
+            for row in conn.execute("SELECT id, meal_type, name FROM menu"):
+                menu_meal_type_map[row["id"]] = row["meal_type"]
+                menu_name_map[row["id"]] = row["name"]
+            menu_sched_type_map = {}
+            for row in conn.execute("SELECT DISTINCT menu_id, meal_type FROM daily_menu WHERE meal_type IS NOT NULL"):
+                menu_sched_type_map[row["menu_id"]] = row["meal_type"]
 
-        MEAL_TYPE_MAP = {
-            "LUNCH": "Lunch",
-            "MINI": "Mini Meal",
-            "MINI MEAL": "Mini Meal",
-            "PARATHA": "Paratha"
-        }
-        def _resolve_meal_name(date_str, meal_str):
-            """Return specific name like 'Paratha (Aalo Paratha)' if found in daily_menu."""
-            import datetime as _dt
+        def _resolve_meal_name(date_str, meal_str, menu_id=None):
+            """Return the display name for a sale row.
+            Rule: MealType(MenuName) if meal_type is set, else plain MenuName.
+            Inner () in the menu name are shown as [ ] to avoid ambiguity with the outer wrapper.
+            Source of truth is the menu table, not the stored sales.meal string.
+            """
+            _MT_DISP = {
+                "LUNCH":     "Lunch",
+                "MINI":      "Mini Meal",
+                "MINI MEAL": "Mini Meal",
+                "PARATHA":   "Paratha",
+                "BREAKFAST": "Breakfast",
+                "DINNER":    "Dinner",
+                "SNACK":     "Snack",
+            }
+
+            def _bracket_inner(s):
+                """Convert () inside the specific meal name to [] for clarity."""
+                return s.replace("(", "[").replace(")", "]")
+
+            if menu_id is not None:
+                name = menu_name_map.get(menu_id)
+                if name:
+                    mt = (menu_meal_type_map.get(menu_id) or "").strip().upper()
+                    mt_disp = _MT_DISP.get(mt)
+                    # Fallback to daily_menu schedule if menu.meal_type is NULL
+                    if not mt_disp:
+                        sched_mt = menu_sched_type_map.get(menu_id)
+                        if sched_mt:
+                            mt_disp = _MT_DISP.get(sched_mt.strip().upper())
+                    if mt_disp:
+                        return f"{mt_disp}({_bracket_inner(name)})"
+                    return name
+
+            # Fallback: no menu_id — try resolving by date and meal type name
             import re as _re
-            try:
-                base_match = _re.match(r"^([^\(]+)(?:\((.*)\))?$", meal_str.strip())
-                if base_match:
-                    mtype_raw = base_match.group(1).strip()
-                    specific_raw = base_match.group(2).strip() if base_match.group(2) else None
-                else:
-                    mtype_raw = meal_str.strip()
-                    specific_raw = None
-
-                d = _dt.date.fromisoformat(date_str)
-                dow = d.strftime("%A")
-                mtype = MEAL_TYPE_MAP.get(mtype_raw.upper())
-                if mtype:
-                    specific = sched_name_map.get((dow, mtype))
+            import datetime as _dt
+            
+            clean_str = meal_str.strip()
+            norm_str = clean_str.upper()
+            mt_disp = _MT_DISP.get(norm_str)
+            if mt_disp:
+                try:
+                    d_obj = _dt.date.fromisoformat(date_str)
+                    dow = d_obj.strftime("%A")
+                    specific = sched_name_map.get((dow, mt_disp))
                     if specific:
-                        return f"{mtype} ({specific})"
-                    if specific_raw:
-                        return f"{mtype} ({specific_raw})"
-                    return mtype
-            except Exception:
-                pass
-            title_str = meal_str.strip()
-            title_str = _re.sub(r"([^\s])\(", r"\1 (", title_str)
+                        return f"{mt_disp}({_bracket_inner(specific)})"
+                except Exception:
+                    pass
+            
+            title_str = _re.sub(r"\s*\(", "(", clean_str)
             return title_str
 
         with get_db() as conn:
@@ -3517,27 +3608,50 @@ class CanteenApp(ctk.CTk):
 
         # Meal Sales Table — show specific meal name (e.g. KADHI CHAWAL) from daily_menu
         if start == end:
-            rows_data = []
+            sales_groups = {}
             for r in s_rows:
+                key = (r["date"], r["menu_id"])
                 parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
                 cash_amt = parsed.get("Cash", 0.0)
                 upi_amt = parsed.get("UPI", 0.0)
+                if key not in sales_groups:
+                    sales_groups[key] = {
+                        "date": r["date"],
+                        "menu_id": r["menu_id"],
+                        "meal": r["meal"],
+                        "sold": 0,
+                        "wastage": 0,
+                        "cogs": 0.0,
+                        "revenue": 0.0,
+                        "cash": 0.0,
+                        "upi": 0.0
+                    }
+                g = sales_groups[key]
+                g["sold"] += r["sold"]
+                g["wastage"] += r["wastage"]
+                g["cogs"] += r["cogs"]
+                g["revenue"] += r["sp"] * r["sold"]
+                g["cash"] += cash_amt
+                g["upi"] += upi_amt
+
+            rows_data = []
+            for key, g in sorted(sales_groups.items(), key=lambda x: x[1]["revenue"], reverse=True):
                 rows_data.append([
-                    r["date"],
-                    _resolve_meal_name(r["date"], r["meal"]),
-                    str(r["sold"]),
-                    str(r["wastage"]),
-                    str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                    str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                    f"Rs. {f_in(r['cogs'])}",
-                    f"Rs. {f_in(r['sp']*r['sold'])}",
-                    f"Rs. {f_in(cash_amt)}" if cash_amt > 0 else "—",
-                    f"Rs. {f_in(upi_amt)}" if upi_amt > 0 else "—"
+                    g["date"],
+                    _resolve_meal_name(g["date"], g["meal"], g["menu_id"]),
+                    str(g["sold"]),
+                    str(g["wastage"]),
+                    str(samples_lookup.get((g["date"], g["menu_id"]), 0)),
+                    str(staff_lookup.get((g["date"], g["menu_id"]), 0)),
+                    f"Rs. {f_in(g['cogs'])}",
+                    f"Rs. {f_in(g['revenue'])}",
+                    f"Rs. {f_in(g['cash'])}" if g["cash"] > 0 else "—",
+                    f"Rs. {f_in(g['upi'])}" if g["upi"] > 0 else "—"
                 ])
             self._rept_section(rc, "Meal Sales Summary",
-                [("Date",3),("Meal",5),("Sold",1),("Wastage",2),("Sample",2),("Staff",2),("Cost of Goods Sold",4),("Revenue",2),("Cash",2),("UPI",2)],
+                [("Date",3),("Meal",8),("Sold",1),("Wastage",2),("Sample",2),("Staff",2),("Cost of Goods Sold",4),("Revenue",2),("Cash",2),("UPI",2)],
                 rows_data,
-                [3,5,1,2,2,2,4,2,2,2])
+                [3,8,1,2,2,2,4,2,2,2])
         def render_trailing_parts():
             # Payment breakdown
             pmf = tk.Frame(rc, bg=_get_bg(rc))
@@ -3706,7 +3820,7 @@ class CanteenApp(ctk.CTk):
                     thead(rc, [("Item", 6), ("Qty", 1), ("Rate Rs. ", 2), ("Cost Rs. ", 2), ("Given To", 3)], bg=STRIPE, tc=MID)
                     for ix, s in enumerate(items):
                         trow(rc, [
-                            _resolve_meal_name(s["date"], s["meal"]),
+                            _resolve_meal_name(s["date"], s["meal"], s["menu_id"]),
                             str(s["qty"]),
                             f"Rs. {f_in(s['sp'])}",
                             f"Rs. {f_in(s['cost'])}",
@@ -3742,7 +3856,7 @@ class CanteenApp(ctk.CTk):
                     thead(rc, [("Item", 6), ("Qty", 1), ("Rate Rs. ", 2), ("Cost Rs. ", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
                     for ix, s in enumerate(items):
                         trow(rc, [
-                            _resolve_meal_name(s["date"], s["meal"]),
+                            _resolve_meal_name(s["date"], s["meal"], s["menu_id"]),
                             str(s["qty"]),
                             f"Rs. {f_in(s['sp'])}",
                             f"Rs. {f_in(s['cost'])}",
@@ -3805,124 +3919,146 @@ class CanteenApp(ctk.CTk):
             # Combine and sort all unique dates descending
             all_dates = sorted(list(set(sales_by_date.keys()) | set(exp_by_date.keys())), reverse=True)
 
-            band(rc, "Operations Summary by Date (Meal Sales & Expenditures)", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            band(rc, f"Operations Summary by Date  ({len(all_dates)} days)", bg=ARMY_BG, tc=GOLD_LT, h=40)
 
             if not all_dates:
                 band(rc, "No records found for this period", bg=STRIPE, tc=MID, h=36)
-                render_trailing_parts()
             else:
-                def render_dates_chunk(start_idx):
-                    if not rc.winfo_exists():
+                # ── Collapsible date cards (click to expand) ───────────────
+                expanded_dates = {}  # date_str -> detail_frame
+
+                def _toggle_date(date_str, detail_container, arrow_lbl):
+                    """Show/hide the detailed tables for a date."""
+                    if date_str in expanded_dates:
+                        # Collapse
+                        expanded_dates[date_str].destroy()
+                        del expanded_dates[date_str]
+                        arrow_lbl.configure(text="▶")
                         return
-                    end_idx = min(start_idx + 2, len(all_dates))
-                    for idx in range(start_idx, end_idx):
-                        date_str = all_dates[idx]
-                        day_rows = sales_by_date.get(date_str, [])
-                        day_exps = exp_by_date.get(date_str, [])
 
-                        day_sold = sum(r["sold"] for r in day_rows)
-                        day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
-                        day_exp = sum(e["amount"] for e in day_exps)
+                    # Expand — build detail widgets inside the container
+                    df = tk.Frame(detail_container, bg=WHITE)
+                    df.pack(fill="x")
+                    expanded_dates[date_str] = df
 
-                        try:
-                            d_obj = _dt.date.fromisoformat(date_str)
-                            date_display = d_obj.strftime("%A, %d %b %Y")
-                        except Exception:
-                            date_display = date_str
+                    arrow_lbl.configure(text="▼")
 
-                        # Date header sub-band (with day totals on the right)
-                        dh = tk.Frame(rc, bg="#253D27", height=32)
-                        dh.pack(fill="x")
-                        dh.pack_propagate(False)
-                        tk.Frame(dh, bg=SAFFRON, width=4).pack(side="left", fill="y")
-                        tk.Label(dh, text=f"  📅  {date_display}", bg="#253D27", fg=GOLD_LT, font=("Helvetica", 11, "bold")).pack(side="left", padx=8)
+                    day_rows = sales_by_date.get(date_str, [])
+                    day_exps = exp_by_date.get(date_str, [])
 
-                        # Prepare summary text for the header
-                        info_parts = []
-                        if day_rows:
-                            info_parts.append(f"Sold: {day_sold} (Rs. {f_in(day_rev)})")
-                        if day_exps:
-                            info_parts.append(f"Exp: Rs. {f_in(day_exp)}")
-                        tk.Label(dh, text="  |  ".join(info_parts), bg="#253D27", fg=SAFFRON, font=("Helvetica", 10)).pack(side="right", padx=14)
+                    # 1. Meal Sales
+                    if day_rows:
+                        thead(df, [("Meal Item", 8), ("Sold", 2), ("Wastage", 2), ("Sample", 2), ("Staff", 2), ("COGS", 5), ("Revenue", 3), ("Cash", 3), ("UPI", 3)], bg=STRIPE, tc=MID)
+                        for ix, r in enumerate(day_rows):
+                            parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
+                            cash_amt = parsed.get("Cash", 0.0)
+                            upi_amt = parsed.get("UPI", 0.0)
+                            trow(df, [
+                                _resolve_meal_name(r["date"], r["meal"], r["menu_id"]),
+                                str(r["sold"]),
+                                str(r["wastage"]),
+                                str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
+                                str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
+                                f"Rs. {f_in(r['cogs'])}",
+                                f"Rs. {f_in(r['sp']*r['sold'])}",
+                                f"Rs. {f_in(cash_amt)}" if cash_amt > 0 else "—",
+                                f"Rs. {f_in(upi_amt)}" if upi_amt > 0 else "—"
+                            ], [8,2,2,2,2,5,3,3,3], bg=WHITE if ix % 2 == 0 else STRIPE)
 
-                        # 1. Render Meal Sales Table
-                        if day_rows:
-                            thead(rc, [("Meal Item", 8), ("Sold", 2), ("Wastage", 2), ("Sample", 2), ("Staff", 2), ("Cost of Goods Sold", 5), ("Revenue", 3), ("Cash", 3), ("UPI", 3)], bg=STRIPE, tc=MID)
-                            for ix, r in enumerate(day_rows):
-                                parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
-                                cash_amt = parsed.get("Cash", 0.0)
-                                upi_amt = parsed.get("UPI", 0.0)
-                                trow(rc, [
-                                    _resolve_meal_name(r["date"], r["meal"]),
-                                    str(r["sold"]),
-                                    str(r["wastage"]),
-                                    str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                                    str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                                    f"Rs. {f_in(r['cogs'])}",
-                                    f"Rs. {f_in(r['sp']*r['sold'])}",
-                                    f"Rs. {f_in(cash_amt)}" if cash_amt > 0 else "—",
-                                    f"Rs. {f_in(upi_amt)}" if upi_amt > 0 else "—"
-                                ], [8,2,2,2,2,5,3,3,3], bg=WHITE if ix % 2 == 0 else STRIPE)
+                    # 2. Expenditure
+                    if day_exps:
+                        import re as _re
+                        tk.Label(df, text=f"   💸  Expenditures:", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w", pady=(6,2))
+                        thead(df, [("Category", 3), ("Description", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
+                        for ix, e in enumerate(day_exps):
+                            raw_note = e["notes"] or ""
+                            m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
+                            if m:
+                                batch_lbl = _resolve_meal_name(date_str, m.group(1).strip())
+                                note_txt = "Auto batch"
+                            else:
+                                batch_lbl = raw_note or "—"
+                                note_txt = ""
+                            trow(df, [
+                                e["category"],
+                                batch_lbl,
+                                f"Rs. {f_in(e['amount'])}",
+                                note_txt or "—"
+                            ], [3,5,2,3], bg=WHITE if ix % 2 == 0 else STRIPE)
 
-                        # 2. Render Expenditure Table
-                        if day_exps:
-                            cats = sorted(list(set(e["category"] for e in day_exps)))
-                            cats_str = ", ".join(cats)
-                            tk.Label(rc, text=f"   💸  Expenditures {cats_str}:", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w", pady=(6,2))
-                            thead(rc, [("Category", 3), ("Meal Item / Description", 5), ("Amount", 2), ("Notes", 3)], bg=STRIPE, tc=MID)
-                            import re as _re
-                            for ix, e in enumerate(day_exps):
-                                # Parse meal type out of auto-generated notes e.g. "Auto-expenditure for LUNCH batch"
-                                raw_note = e["notes"] or ""
-                                m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
-                                if m:
-                                    meal_token = m.group(1)
-                                    resolved   = _resolve_meal_name(date_str, meal_token)
-                                    batch_lbl  = resolved
-                                    note_txt   = "Auto batch"
-                                else:
-                                    batch_lbl = raw_note or "—"
-                                    note_txt  = ""
-                                trow(rc, [
-                                    e["category"],
-                                    batch_lbl,
-                                    f"Rs. {f_in(e['amount'])}",
-                                    note_txt or "—"
-                                ], [3,5,2,3], bg=WHITE if ix % 2 == 0 else STRIPE)
+                    # 3. Ingredients
+                    day_ings = ing_by_date.get(date_str, {})
+                    if day_ings:
+                        tk.Label(df, text="   🧂  Ingredients Used:", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w", pady=(6,2))
+                        for cat_name, items in day_ings.items():
+                            cat_hdr = tk.Frame(df, bg="#E8F0E8", height=22)
+                            cat_hdr.pack(fill="x")
+                            cat_hdr.pack_propagate(False)
+                            tk.Frame(cat_hdr, bg=SAFFRON, width=3).pack(side="left", fill="y")
+                            cat_total = sum(it["cost"] for it in items)
+                            tk.Label(cat_hdr, text=f"  {cat_name}", bg="#E8F0E8", fg=ARMY_BG, font=("Helvetica", 9, "bold")).pack(side="left", padx=6)
+                            tk.Label(cat_hdr, text=f"Rs. {f_in(cat_total)}", bg="#E8F0E8", fg=ARMY_BG, font=("Helvetica", 9, "bold")).pack(side="right", padx=10)
+                            thead(df, [("Item", 6), ("Qty Used", 2), ("Unit", 2), ("Rate/Unit", 2), ("Cost", 2)], bg=STRIPE, tc=MID)
+                            for jx, it in enumerate(items):
+                                trow(df, [
+                                    it["item"],
+                                    f"{it['qty']:.2f}",
+                                    it["unit"],
+                                    f"Rs. {f_in(it['cp'], 2)}",
+                                    f"Rs. {f_in(it['cost'], 2)}"
+                                ], [6,2,2,2,2], bg=WHITE if jx % 2 == 0 else STRIPE)
 
-                        # 3. Ingredients used this day (grouped by category)
-                        day_ings = ing_by_date.get(date_str, {})
-                        if day_ings:
-                            tk.Label(rc, text="   🧂  Ingredients Used:", fg=ARMY_BG, font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w", pady=(6,2))
-                            for cat_name, items in day_ings.items():
-                                # Category sub-header
-                                cat_hdr = tk.Frame(rc, bg="#E8F0E8", height=22)
-                                cat_hdr.pack(fill="x")
-                                cat_hdr.pack_propagate(False)
-                                tk.Frame(cat_hdr, bg=SAFFRON, width=3).pack(side="left", fill="y")
-                                cat_total = sum(it["cost"] for it in items)
-                                tk.Label(cat_hdr, text=f"  {cat_name}", bg="#E8F0E8", fg=ARMY_BG, font=("Helvetica", 9, "bold")).pack(side="left", padx=6)
-                                tk.Label(cat_hdr, text=f"Rs. {f_in(cat_total)}", bg="#E8F0E8", fg=ARMY_BG, font=("Helvetica", 9, "bold")).pack(side="right", padx=10)
-                                # Items under this category
-                                thead(rc, [("Item", 6), ("Qty Used", 2), ("Unit", 2), ("Rate/Unit", 2), ("Cost", 2)], bg=STRIPE, tc=MID)
-                                for jx, it in enumerate(items):
-                                    trow(rc, [
-                                        it["item"],
-                                        f"{it['qty']:.2f}",
-                                        it["unit"],
-                                        f"Rs. {f_in(it['cp'], 2)}",
-                                        f"Rs. {f_in(it['cost'], 2)}"
-                                    ], [6,2,2,2,2], bg=WHITE if jx % 2 == 0 else STRIPE)
+                for date_str in all_dates:
+                    day_rows = sales_by_date.get(date_str, [])
+                    day_exps = exp_by_date.get(date_str, [])
 
-                        # Small spacer between days
-                        tk.Frame(rc, bg=_get_bg(rc), height=10).pack(fill="x")
+                    day_sold = sum(r["sold"] for r in day_rows)
+                    day_rev = sum(r["sp"] * r["sold"] for r in day_rows)
+                    day_exp = sum(e["amount"] for e in day_exps)
 
-                    if end_idx < len(all_dates):
-                        self.after(10, lambda: render_dates_chunk(end_idx))
-                    else:
-                        render_trailing_parts()
+                    try:
+                        d_obj = _dt.date.fromisoformat(date_str)
+                        date_display = d_obj.strftime("%A, %d %b %Y")
+                    except Exception:
+                        date_display = date_str
 
-                render_dates_chunk(0)
+                    # Container for this date (header + hidden detail)
+                    date_container = tk.Frame(rc, bg=WHITE)
+                    date_container.pack(fill="x")
+
+                    # Summary header row (always visible)
+                    dh = tk.Frame(date_container, bg="#253D27", height=36, cursor="hand2")
+                    dh.pack(fill="x")
+                    dh.pack_propagate(False)
+                    tk.Frame(dh, bg=SAFFRON, width=4).pack(side="left", fill="y")
+
+                    arrow_lbl = tk.Label(dh, text="▶", bg="#253D27", fg=GOLD_LT, font=("Helvetica", 10))
+                    arrow_lbl.pack(side="left", padx=(8, 4))
+
+                    tk.Label(dh, text=f"📅  {date_display}", bg="#253D27", fg=GOLD_LT,
+                             font=("Helvetica", 11, "bold")).pack(side="left", padx=4)
+
+                    # Summary numbers on right side
+                    info_parts = []
+                    if day_rows:
+                        info_parts.append(f"🍽 Sold: {day_sold}")
+                        info_parts.append(f"💰 Rev: Rs. {f_in(day_rev)}")
+                    if day_exps:
+                        info_parts.append(f"💸 Exp: Rs. {f_in(day_exp)}")
+                    tk.Label(dh, text="   |   ".join(info_parts), bg="#253D27", fg=SAFFRON,
+                             font=("Helvetica", 10)).pack(side="right", padx=14)
+
+                    # Detail container (initially empty)
+                    detail_container = tk.Frame(date_container, bg=WHITE)
+                    detail_container.pack(fill="x")
+
+                    # Bind click on entire header row
+                    def _bind_toggle(widget, ds=date_str, dc=detail_container, al=arrow_lbl):
+                        widget.bind("<Button-1>", lambda e: _toggle_date(ds, dc, al))
+                    for w in [dh, arrow_lbl] + list(dh.winfo_children()):
+                        _bind_toggle(w)
+
+            render_trailing_parts()
 
     def _rept_section(self, parent, title, cols, rows, wts):
         band(parent, title, bg=ARMY_BG, tc=GOLD_LT, h=40)
@@ -3974,6 +4110,14 @@ class CanteenApp(ctk.CTk):
             sched_name_map = {}
             for row in conn.execute("SELECT dm.day, dm.meal_type, m.name FROM daily_menu dm JOIN menu m ON m.id=dm.menu_id"):
                 sched_name_map[(row["day"], row["meal_type"])] = row["name"]
+            menu_meal_type_map = {}
+            menu_name_map = {}
+            for row in conn.execute("SELECT id, meal_type, name FROM menu"):
+                menu_meal_type_map[row["id"]] = row["meal_type"]
+                menu_name_map[row["id"]] = row["name"]
+            menu_sched_type_map = {}
+            for row in conn.execute("SELECT DISTINCT menu_id, meal_type FROM daily_menu WHERE meal_type IS NOT NULL"):
+                menu_sched_type_map[row["menu_id"]] = row["meal_type"]
             gr_rows = conn.execute("""
                 SELECT i.cat, i.item, i.unit, 
                        SUM(gr.qty) AS qty_received,
@@ -4070,39 +4214,60 @@ class CanteenApp(ctk.CTk):
             else:
                 samples_lookup[(d, mid)] = samples_lookup.get((d, mid), 0) + q
 
-        MEAL_TYPE_MAP = {
-            "LUNCH": "Lunch",
-            "MINI": "Mini Meal",
-            "MINI MEAL": "Mini Meal",
-            "PARATHA": "Paratha"
-        }
-        def _resolve_meal_name(date_str, meal_str):
-            import datetime as _dt
-            import re as _re
-            try:
-                base_match = _re.match(r"^([^\(]+)(?:\((.*)\))?$", meal_str.strip())
-                if base_match:
-                    mtype_raw = base_match.group(1).strip()
-                    specific_raw = base_match.group(2).strip() if base_match.group(2) else None
-                else:
-                    mtype_raw = meal_str.strip()
-                    specific_raw = None
+        def _resolve_meal_name(date_str, meal_str, menu_id=None):
+            """Return the display name for a sale row.
+            Rule: MealType(MenuName) if meal_type is set, else plain MenuName.
+            Inner () in the menu name are shown as [ ] to avoid ambiguity with the outer wrapper.
+            Source of truth is the menu table, not the stored sales.meal string.
+            """
+            _MT_DISP = {
+                "LUNCH":     "Lunch",
+                "MINI":      "Mini Meal",
+                "MINI MEAL": "Mini Meal",
+                "PARATHA":   "Paratha",
+                "BREAKFAST": "Breakfast",
+                "DINNER":    "Dinner",
+                "SNACK":     "Snack",
+            }
 
-                d = _dt.date.fromisoformat(date_str)
-                dow = d.strftime("%A")
-                mtype = MEAL_TYPE_MAP.get(mtype_raw.upper())
-                if mtype:
-                    specific = sched_name_map.get((dow, mtype))
+            def _bracket_inner(s):
+                """Convert () inside the specific meal name to [] for clarity."""
+                return s.replace("(", "[").replace(")", "]")
+
+            if menu_id is not None:
+                name = menu_name_map.get(menu_id)
+                if name:
+                    mt = (menu_meal_type_map.get(menu_id) or "").strip().upper()
+                    mt_disp = _MT_DISP.get(mt)
+                    # Fallback to daily_menu schedule if menu.meal_type is NULL
+                    if not mt_disp:
+                        sched_mt = menu_sched_type_map.get(menu_id)
+                        if sched_mt:
+                            mt_disp = _MT_DISP.get(sched_mt.strip().upper())
+                    if mt_disp:
+                        return f"{mt_disp}({_bracket_inner(name)})"
+                    return name
+
+            # Fallback: no menu_id — try resolving by date and meal type name
+            import re as _re
+            import datetime as _dt
+            
+            clean_str = meal_str.strip()
+            norm_str = clean_str.upper()
+            mt_disp = _MT_DISP.get(norm_str)
+            if mt_disp:
+                try:
+                    d_obj = _dt.date.fromisoformat(date_str)
+                    dow = d_obj.strftime("%A")
+                    specific = sched_name_map.get((dow, mt_disp))
                     if specific:
-                        return f"{mtype} ({specific})"
-                    if specific_raw:
-                        return f"{mtype} ({specific_raw})"
-                    return mtype
-            except Exception:
-                pass
-            title_str = meal_str.strip()
-            title_str = _re.sub(r"([^\s])\(", r"\1 (", title_str)
+                        return f"{mt_disp}({_bracket_inner(specific)})"
+                except Exception:
+                    pass
+            
+            title_str = _re.sub(r"\s*\(", "(", clean_str)
             return title_str
+
 
         rev    = sum(r["sp"]*r["sold"] for r in s_rows)
         meals  = sum(r["sold"] for r in s_rows)
@@ -4275,22 +4440,45 @@ class CanteenApp(ctk.CTk):
         story.append(Spacer(1, 0.15*cm))
         if s_rows:
             if start == end:
-                single_day_rows = []
+                single_day_groups = {}
                 for r in s_rows:
+                    key = (r["date"], r["menu_id"])
                     parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
                     cash_amt = parsed.get("Cash", 0.0)
                     upi_amt = parsed.get("UPI", 0.0)
+                    if key not in single_day_groups:
+                        single_day_groups[key] = {
+                            "date": r["date"],
+                            "menu_id": r["menu_id"],
+                            "meal": r["meal"],
+                            "sold": 0,
+                            "wastage": 0,
+                            "cogs": 0.0,
+                            "revenue": 0.0,
+                            "cash": 0.0,
+                            "upi": 0.0
+                        }
+                    g = single_day_groups[key]
+                    g["sold"] += r["sold"]
+                    g["wastage"] += r["wastage"]
+                    g["cogs"] += r["cogs"]
+                    g["revenue"] += r["sp"] * r["sold"]
+                    g["cash"] += cash_amt
+                    g["upi"] += upi_amt
+
+                single_day_rows = []
+                for key, g in sorted(single_day_groups.items(), key=lambda x: x[1]["revenue"], reverse=True):
                     single_day_rows.append([
-                        r["date"],
-                        _resolve_meal_name(r["date"], r["meal"]),
-                        str(r["sold"]),
-                        str(r["wastage"]),
-                        str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                        str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                        f"Rs.{f_in(r['cogs'])}",
-                        f"Rs.{f_in(r['sp']*r['sold'])}",
-                        f"Rs.{f_in(cash_amt)}" if cash_amt > 0 else "—",
-                        f"Rs.{f_in(upi_amt)}" if upi_amt > 0 else "—"
+                        g["date"],
+                        _resolve_meal_name(g["date"], g["meal"], g["menu_id"]),
+                        str(g["sold"]),
+                        str(g["wastage"]),
+                        str(samples_lookup.get((g["date"], g["menu_id"]), 0)),
+                        str(staff_lookup.get((g["date"], g["menu_id"]), 0)),
+                        f"Rs.{f_in(g['cogs'])}",
+                        f"Rs.{f_in(g['revenue'])}",
+                        f"Rs.{f_in(g['cash'])}" if g["cash"] > 0 else "—",
+                        f"Rs.{f_in(g['upi'])}" if g["upi"] > 0 else "—"
                     ])
                 story.append(pdf_table(
                     ["Date","Meal Item","Sold","Wastage","Sample","Staff","Cost of Goods Sold","Revenue","Cash","UPI"],
@@ -4345,21 +4533,44 @@ class CanteenApp(ctk.CTk):
 
                     # 1. Meal Sales Table
                     if day_rows:
-                        day_table_rows = []
+                        day_table_groups = {}
                         for r in day_rows:
+                            key = (r["date"], r["menu_id"])
                             parsed = parse_payment_field(r["payment"], r["sp"] * r["sold"])
                             cash_amt = parsed.get("Cash", 0.0)
                             upi_amt = parsed.get("UPI", 0.0)
+                            if key not in day_table_groups:
+                                day_table_groups[key] = {
+                                    "date": r["date"],
+                                    "menu_id": r["menu_id"],
+                                    "meal": r["meal"],
+                                    "sold": 0,
+                                    "wastage": 0,
+                                    "cogs": 0.0,
+                                    "revenue": 0.0,
+                                    "cash": 0.0,
+                                    "upi": 0.0
+                                }
+                            g = day_table_groups[key]
+                            g["sold"] += r["sold"]
+                            g["wastage"] += r["wastage"]
+                            g["cogs"] += r["cogs"]
+                            g["revenue"] += r["sp"] * r["sold"]
+                            g["cash"] += cash_amt
+                            g["upi"] += upi_amt
+
+                        day_table_rows = []
+                        for key, g in sorted(day_table_groups.items(), key=lambda x: x[1]["revenue"], reverse=True):
                             day_table_rows.append([
-                                _resolve_meal_name(r["date"], r["meal"]),
-                                str(r["sold"]),
-                                str(r["wastage"]),
-                                str(samples_lookup.get((r["date"], r["menu_id"]), 0)),
-                                str(staff_lookup.get((r["date"], r["menu_id"]), 0)),
-                                f"Rs.{f_in(r['cogs'])}",
-                                f"Rs.{f_in(r['sp']*r['sold'])}",
-                                f"Rs.{f_in(cash_amt)}" if cash_amt > 0 else "—",
-                                f"Rs.{f_in(upi_amt)}" if upi_amt > 0 else "—"
+                                _resolve_meal_name(g["date"], g["meal"], g["menu_id"]),
+                                str(g["sold"]),
+                                str(g["wastage"]),
+                                str(samples_lookup.get((g["date"], g["menu_id"]), 0)),
+                                str(staff_lookup.get((g["date"], g["menu_id"]), 0)),
+                                f"Rs.{f_in(g['cogs'])}",
+                                f"Rs.{f_in(g['revenue'])}",
+                                f"Rs.{f_in(g['cash'])}" if g["cash"] > 0 else "—",
+                                f"Rs.{f_in(g['upi'])}" if g["upi"] > 0 else "—"
                             ])
                         story.append(pdf_table(
                             ["Meal Item", "Sold", "Wastage", "Sample", "Staff", "Cost of Goods Sold", "Revenue", "Cash", "UPI"],
@@ -4501,7 +4712,7 @@ class CanteenApp(ctk.CTk):
                 story.append(Spacer(1, 0.05*cm))
                 story.append(pdf_table(
                     ["Item", "Qty", "Rate", "Cost", "Given To"],
-                    [[_resolve_meal_name(s["date"], s["meal"]), str(s["qty"]), f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["given_to"] or "General"]
+                    [[_resolve_meal_name(s["date"], s["meal"], s["menu_id"]), str(s["qty"]), f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["given_to"] or "General"]
                      for s in items],
                     [6.5*cm, 1.5*cm, 2.5*cm, 2.5*cm, 4.0*cm]))
                 story.append(Spacer(1, 0.2*cm))
@@ -4532,7 +4743,7 @@ class CanteenApp(ctk.CTk):
                 story.append(Spacer(1, 0.05*cm))
                 story.append(pdf_table(
                     ["Item", "Qty", "Rate", "Cost", "Notes"],
-                    [[_resolve_meal_name(s["date"], s["meal"]), str(s["qty"]), f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["notes"] or "—"]
+                    [[_resolve_meal_name(s["date"], s["meal"], s["menu_id"]), str(s["qty"]), f"Rs.{f_in(s['sp'])}", f"Rs.{f_in(s['cost'])}", s["notes"] or "—"]
                      for s in items],
                     [6.5*cm, 1.5*cm, 2.5*cm, 2.5*cm, 4.0*cm]))
                 story.append(Spacer(1, 0.2*cm))
@@ -4948,7 +5159,7 @@ class CanteenApp(ctk.CTk):
         # ── STEP 1 ──────────────────────────────────────────────────────────
         def _step1():
             _clear(); wizard_step[0] = 1; _dots()
-            title_lbl.configure(text="  New Menu Item  Step 1 of 3")
+            title_lbl.configure(text="  New Menu Item: Step 1 of 3")
             inf = ctk.CTkFrame(content, fg_color=BG_BLU, corner_radius=10)
             inf.pack(fill="x", pady=(4,12))
             lbl(inf, "Enter the menu item name and default staff consumption details to get started.", size=12, color=BLUE
@@ -5007,7 +5218,7 @@ class CanteenApp(ctk.CTk):
 
         def _step2():
             _clear(); wizard_step[0] = 2; _dots()
-            title_lbl.configure(text="  " + menu_name[0] + "  Step 2 of 3")
+            title_lbl.configure(text="  New Menu Item: " + menu_name[0] + " — Step 2 of 3")
 
             # ── Calculation explanation banner ───────────────────────────────
             calc_info = ctk.CTkFrame(content, fg_color=BG_BLU, corner_radius=8,
@@ -5034,8 +5245,25 @@ class CanteenApp(ctk.CTk):
                                 border_width=1, border_color=BORDER)
             left.grid(row=0, column=0, sticky="nsew", padx=(0,8))
 
-            lbl(left, "📦  Select Ingredients", size=11, weight="bold",
-                color=ARMY_BG).pack(anchor="w", padx=10, pady=(10,4))
+            title_f = ctk.CTkFrame(left, fg_color="transparent")
+            title_f.pack(fill="x", padx=10, pady=(10,4))
+            lbl(title_f, "📦  Select Ingredients", size=11, weight="bold",
+                color=ARMY_BG).pack(side="left")
+            
+            def _add_new_inventory_item():
+                _save_state()
+                def _on_inventory_added():
+                    with get_db() as conn:
+                        new_inv_data = {r["item"]: {"cp": r["cp"], "stock": r["stock"], "unit": r["unit"]}
+                                        for r in conn.execute("SELECT item,cp,stock,unit FROM inventory ORDER BY item")}
+                    inv_data.clear()
+                    inv_data.update(new_inv_data)
+                    inv_items.clear()
+                    inv_items.extend(sorted(inv_data.keys()))
+                    _refresh_checkbox_list()
+                self._modal_add_inv(today, _on_inventory_added)
+
+            btn(title_f, "＋ New Item", _add_new_inventory_item, fg=BLUE, hv=BG_BLU, h=24, w=80).pack(side="right")
 
             srch = ctk.CTkEntry(left, placeholder_text="🔍 Search...", height=30,
                                 font=ctk.CTkFont(size=11))
@@ -5044,26 +5272,8 @@ class CanteenApp(ctk.CTk):
             cb_scroll = ctk.CTkScrollableFrame(left, fg_color="transparent", height=200)
             cb_scroll.pack(fill="both", expand=True, padx=6, pady=(0,8))
 
-            # Build checkbox list
-            cb_vars.clear(); cb_widgets.clear()
-            for it in inv_items:
-                var = ctk.BooleanVar(value=False)
-                # Pre-check items already in ing_rows
-                for r in ing_rows:
-                    try:
-                        if r["om"].get() == it: var.set(True)
-                    except Exception: pass
-                cb_vars[it] = var
-
-                cb_f = ctk.CTkFrame(cb_scroll, fg_color="transparent")
-                cb_f.pack(fill="x", pady=1)
-                cb = ctk.CTkCheckBox(cb_f, text=it, variable=var,
-                                     font=ctk.CTkFont(size=11), text_color=DARK,
-                                     fg_color=ARMY_BG, hover_color=ARMY_HVR,
-                                     checkbox_width=18, checkbox_height=18,
-                                     command=lambda i=it: _on_check(i))
-                cb.pack(anchor="w", padx=4)
-                cb_widgets.append((it, cb, cb_f))
+            count_lbl = lbl(left, f"{len(inv_items)} items available", size=9, color=MID)
+            count_lbl.pack(pady=(0,6))
 
             def _filter_cb(*args):
                 q = srch.get().lower()
@@ -5074,8 +5284,36 @@ class CanteenApp(ctk.CTk):
                         cb_frame.pack_forget()
             srch.bind("<KeyRelease>", _filter_cb)
 
-            lbl(left, f"{len(inv_items)} items available", size=9,
-                color=MID).pack(pady=(0,6))
+            def _refresh_checkbox_list():
+                for w in cb_scroll.winfo_children():
+                    w.destroy()
+                cb_vars.clear(); cb_widgets.clear()
+                for it in inv_items:
+                    var = ctk.BooleanVar(value=False)
+                    # Pre-check items already in ing_rows
+                    for r in ing_rows:
+                        try:
+                            if r["om"].get() == it: var.set(True)
+                        except Exception: pass
+                    # Also pre-check items from snapshot_rows
+                    for s in snapshot_rows:
+                        if s.get("name") == it:
+                            var.set(True)
+                    cb_vars[it] = var
+
+                    cb_f = ctk.CTkFrame(cb_scroll, fg_color="transparent")
+                    cb_f.pack(fill="x", pady=1)
+                    cb = ctk.CTkCheckBox(cb_f, text=it, variable=var,
+                                         font=ctk.CTkFont(size=11), text_color=DARK,
+                                         fg_color=ARMY_BG, hover_color=ARMY_HVR,
+                                         checkbox_width=18, checkbox_height=18,
+                                         command=lambda i=it: _on_check(i))
+                    cb.pack(anchor="w", padx=4)
+                    cb_widgets.append((it, cb, cb_f))
+                count_lbl.configure(text=f"{len(inv_items)} items available")
+                _filter_cb()
+
+            _refresh_checkbox_list()
 
             # ── RIGHT: Qty input rows ────────────────────────────────────────
             right = ctk.CTkFrame(two_col, fg_color="transparent")
@@ -5253,22 +5491,15 @@ class CanteenApp(ctk.CTk):
                 else:
                     _remove_row(item_name)
 
-            # Restore previous rows if coming back from step 3
-            saved = []
-            for r in ing_rows:
-                try:
-                    saved.append({"item": r["om"].get(), "raw": r["raw"].get(),
-                                  "made": r["made"].get(), "waste": r["waste"].get(),
-                                  "serve": r["serve"].get()})
-                except Exception: pass
+            # Restore previous rows from snapshot
             ing_rows.clear()
-            for s in saved:
-                iname = s.get("item","")
+            for s in snapshot_rows:
+                iname = s.get("name","")
                 if iname in cb_vars:
                     cb_vars[iname].set(True)
                 _add_row(iname, prefill=s)
 
-            def _go_step3():
+            def _save_state():
                 snapshot_rows.clear()
                 for row in ing_rows:
                     try:    raw   = float(row["raw"].get())
@@ -5285,9 +5516,18 @@ class CanteenApp(ctk.CTk):
                         "raw": raw, "made": made,
                         "waste": waste, "serve": serve   # serve = Made/Raw ratio
                     })
+
+            def _go_step1():
+                _save_state()
+                wizard_step[0] = 1
+                _step1()
+
+            def _go_step3():
+                _save_state()
+                wizard_step[0] = 3
                 _step3()
 
-            btn(foot, "<- Back", lambda: _step1(), fg=STRIPE, hv=BORDER, h=42, w=100
+            btn(foot, "<- Back", _go_step1, fg=STRIPE, hv=BORDER, h=42, w=100
                 ).pack(side="left", padx=16, pady=10)
             btn(foot, "Next ->", _go_step3, fg=ARMY_BG, hv=ARMY_HVR, h=42, w=160
                 ).pack(side="right", padx=16, pady=10)
@@ -5297,7 +5537,7 @@ class CanteenApp(ctk.CTk):
 
         def _step3():
             _clear(); wizard_step[0] = 3; _dots()
-            title_lbl.configure(text="  " + menu_name[0] + "  Step 3 of 3")
+            title_lbl.configure(text="  New Menu Item: " + menu_name[0] + " — Step 3 of 3")
             cost_piece = total_cost_per_piece[0]
             cost_plate = total_cost_per_plate[0]
 
@@ -5432,30 +5672,7 @@ class CanteenApp(ctk.CTk):
                             (new_mid, iid, ing["qpu"],
                              ing["raw"], ing["made"], ing["waste"]))
 
-                        # 2. Deduct raw stock from inventory
-                        conn.execute(
-                            "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
-                            (ing["raw"], iid))
-
-                        # 3. Log stock ledger
-                        conn.execute(
-                            "INSERT INTO stock_ledger "
-                            "(date, inv_id, transaction_type, qty_change, notes) "
-                            "VALUES (?,?,?,?,?)",
-                            (today_str, iid, "MENU_SETUP", -ing["raw"],
-                             f"New menu: {nm}"))
-
-                        # 4. Log waste to waste_tracker
-                        if ing["waste"] > 0:
-                            conn.execute(
-                                "INSERT INTO waste_tracker "
-                                "(date, item, qty_wasted, reason, cost_lost, recorded_by) "
-                                "VALUES (?,?,?,?,?,?)",
-                                (today_str, ing["name"], ing["waste"],
-                                 "Production waste - " + nm,
-                                 ing["waste_cost"], "Menu Setup"))
-
-                    # 6. Store COGS per plate in menu table
+                    # 2. Store COGS per plate in menu table
                     total_cogs = sum(
                         (max(ing["raw"] - ing["waste"], 0) *
                          inv_data.get(ing["name"], {}).get("cp", 0) / ing["made"])
@@ -5464,42 +5681,6 @@ class CanteenApp(ctk.CTk):
                     conn.execute(
                         "UPDATE menu SET cogs=? WHERE id=?",
                         (round(total_cogs, 4), new_mid))
-
-                    # 5. Log batch_prep
-                    max_made = max((ing["made"] for ing in valid_ings), default=0)
-                    if max_made > 0:
-                        conn.execute(
-                            "INSERT INTO batch_prep (date, menu_id, qty_prepared, staff, samples) VALUES (?,?,?,?,?)",
-                            (today_str, new_mid, int(max_made), default_staff_val[0], default_samples_val[0]))
-                        if default_staff_val[0] > 0:
-                            conn.execute(
-                                "INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes) "
-                                "VALUES (?,?,?,?,?,?,'Staff',?)",
-                                (today_str, new_mid, nm, 0.0, default_staff_val[0],
-                                 round(total_cogs * default_staff_val[0], 2), f"Menu setup: {nm}")
-                            )
-                        if default_samples_val[0] > 0:
-                            conn.execute(
-                                "INSERT INTO samples (date, menu_id, meal, sp, qty, cost, given_to, notes) "
-                                "VALUES (?,?,?,?,?,?,'General',?)",
-                                (today_str, new_mid, nm, sp, default_samples_val[0],
-                                 round(total_cogs * default_samples_val[0], 2), f"Menu setup: {nm}")
-                            )
-
-                    # Log total raw material cost as Expenditure so net profit
-                    # immediately reflects the spend when the menu/batch is created.
-                    # (Waste is tracked separately in waste_tracker.)
-                    total_raw_cost = sum(
-                        ing["raw"] * inv_data.get(ing["name"], {}).get("cp", 0)
-                        for ing in valid_ings
-                    )
-                    if total_raw_cost > 0:
-                        conn.execute(
-                            "INSERT INTO expenditure (date, amount, category, notes) "
-                            "VALUES (?,?,?,?)",
-                            (today_str, round(total_raw_cost, 2),
-                             "Raw Material",
-                             f"Batch: {nm} | {today_str}"))
                 msg = "Created '" + nm + "' @ Rs. " + str(int(sp))
                 if valid_ings:
                     wc_total  = sum(i["waste_cost"] for i in valid_ings)
@@ -5515,7 +5696,11 @@ class CanteenApp(ctk.CTk):
                 else:
                     self._switch_master_tab("menu")
 
-            btn(foot, "<- Back", lambda: _step2(), fg=STRIPE, hv=BORDER, h=42, w=100
+            def _go_step2():
+                wizard_step[0] = 2
+                _step2()
+
+            btn(foot, "<- Back", _go_step2, fg=STRIPE, hv=BORDER, h=42, w=100
                 ).pack(side="left",  padx=16, pady=10)
             btn(foot, "Create Menu Item", _save, fg=GREEN, hv=DGREEN, h=42, w=200
                 ).pack(side="right", padx=16, pady=10)
@@ -5551,6 +5736,9 @@ class CanteenApp(ctk.CTk):
                 "SELECT r.menu_id, i.item, r.qty_per_unit, i.unit, i.cp, i.id as inv_id "
                 "FROM recipes r JOIN inventory i ON i.id=r.inv_id"
             ).fetchall()
+            all_inventory = conn.execute(
+                "SELECT id, item, unit, cp FROM inventory ORDER BY item"
+            ).fetchall()
 
         # Build lookups
         menu_by_name = {m["name"]: dict(m) for m in all_menus}
@@ -5569,10 +5757,15 @@ class CanteenApp(ctk.CTk):
                 "inv_id": r["inv_id"]
             })
 
+        inv_map = {f"{r['item']} ({r['unit']})": dict(r) for r in all_inventory}
+        inv_dropdown_values = sorted(list(inv_map.keys()))
+
         menu_state = {
             "menu_by_name": menu_by_name,
             "menu_names": menu_names,
             "recipe_detail": recipe_detail,
+            "inventory_map": inv_map,
+            "inventory_dropdown_values": inv_dropdown_values,
         }
 
         # Overlay container
@@ -5636,6 +5829,8 @@ class CanteenApp(ctk.CTk):
             if not sw or "ingredient_entries" not in sw or "cost_lbl" not in sw: return
             total_cost = 0.0
             for ie in sw["ingredient_entries"]:
+                if ie.get("inv_id") is None:
+                    continue
                 try:
                     val = float(ie["entry"].get() or 0.0)
                 except ValueError:
@@ -5673,28 +5868,91 @@ class CanteenApp(ctk.CTk):
                 qty = 0
 
             if details and qty > 0:
-                title = lbl(pf, f"⚡ Ingredients for {qty} plates (editable for this batch only):", size=10, weight="bold", color=ARMY_BG)
-                title.pack(padx=10, pady=(6,4), anchor="w")
+                title_f = ctk.CTkFrame(pf, fg_color="transparent")
+                title_f.pack(fill="x", padx=10, pady=(6,4))
+
+                title = lbl(title_f, f"⚡ Ingredients for {qty} plates (editable for this batch only):", size=10, weight="bold", color=ARMY_BG)
+                title.pack(side="left")
 
                 grid_f = ctk.CTkFrame(pf, fg_color="transparent")
                 grid_f.pack(fill="x", padx=10, pady=4)
-                grid_f.grid_columnconfigure(0, weight=2)
-                grid_f.grid_columnconfigure(1, weight=1)
-                grid_f.grid_columnconfigure(2, weight=2)
 
-                for idx, d in enumerate(details):
-                    lbl(grid_f, f"• {d['item']} ({d['unit']})", size=10, color=ARMY_BG).grid(row=idx, column=0, sticky="w", padx=(4,10), pady=4)
+                def add_row_ui(inv_id=None, qty_val=0.0):
+                    row_f = ctk.CTkFrame(grid_f, fg_color="transparent")
+                    row_f.pack(fill="x", pady=2)
 
-                    e = ctk.CTkEntry(grid_f, width=80, height=28, corner_radius=6, border_color=BORDER, justify="center", font=ctk.CTkFont(size=11, weight="bold"))
-                    e.grid(row=idx, column=1, padx=10, pady=4)
-                    e.insert(0, f"{d['qpu'] * qty:.2f}")
-                    e.bind("<KeyRelease>", lambda e_evt, mt=meal_type: _recalc_cost(mt))
+                    default_sel = "— Select —"
+                    if inv_id is not None:
+                        for k, v in menu_state["inventory_map"].items():
+                            if v["id"] == inv_id:
+                                default_sel = k
+                                break
 
-                    lbl(grid_f, f"@ Rs. {d['cp']:.1f}/{d['unit']}", size=10, color=MID).grid(row=idx, column=2, sticky="w", padx=10, pady=4)
+                    row_data = {
+                        "inv_id": inv_id,
+                        "cp": 0.0,
+                        "entry": None,
+                        "frame": row_f
+                    }
 
-                    sw["ingredient_entries"].append({
-                        "inv_id": d["inv_id"], "item": d["item"], "unit": d["unit"], "cp": d["cp"], "entry": e
-                    })
+                    info_lbl = lbl(row_f, "", size=10, color=MID)
+
+                    def on_row_dd_change(val):
+                        item_info = menu_state["inventory_map"].get(val)
+                        if item_info:
+                            row_data["inv_id"] = item_info["id"]
+                            row_data["cp"] = item_info["cp"] or 0.0
+                            info_lbl.configure(text=f"@ Rs. {row_data['cp']:.1f}/{item_info['unit']}")
+                        else:
+                            row_data["inv_id"] = None
+                            row_data["cp"] = 0.0
+                            info_lbl.configure(text="")
+                        _recalc_cost(meal_type)
+
+                    dd_opt = ctk.CTkButton(row_f, text=default_sel,
+                                           font=ctk.CTkFont(size=10, weight="bold"), height=28, width=160,
+                                           fg_color=ARMY_BG, hover_color=ARMY_HVR, text_color=WHITE)
+                    def _make_search_cmd(btn=None):
+                        def _cmd(b=btn):
+                            self._show_search_popup(
+                                "Select Ingredient",
+                                menu_state["inventory_dropdown_values"],
+                                b.cget("text"),
+                                lambda val, b2=b: [b2.configure(text=val), on_row_dd_change(val)]
+                            )
+                        return _cmd
+                    dd_opt.configure(command=_make_search_cmd(dd_opt))
+                    dd_opt.pack(side="left", padx=(4,10))
+
+                    e = ctk.CTkEntry(row_f, width=80, height=28, corner_radius=6, border_color=BORDER, justify="center", font=ctk.CTkFont(size=11, weight="bold"))
+                    e.pack(side="left", padx=10)
+                    e.insert(0, f"{qty_val:.2f}")
+                    e.bind("<KeyRelease>", lambda e_evt: _recalc_cost(meal_type))
+                    row_data["entry"] = e
+
+                    info_lbl.pack(side="left", padx=10)
+
+                    if default_sel != "— Select —":
+                        item_info = menu_state["inventory_map"].get(default_sel)
+                        if item_info:
+                            row_data["cp"] = item_info["cp"] or 0.0
+                            info_lbl.configure(text=f"@ Rs. {row_data['cp']:.1f}/{item_info['unit']}")
+
+                    def remove_row():
+                        if row_data in sw["ingredient_entries"]:
+                            sw["ingredient_entries"].remove(row_data)
+                        row_f.destroy()
+                        _recalc_cost(meal_type)
+
+                    ctk.CTkButton(row_f, text="✕", width=24, height=24, fg_color="#EF4444", hover_color="#DC2626", text_color=WHITE, font=ctk.CTkFont(size=10, weight="bold"), command=remove_row).pack(side="right", padx=4)
+
+                    sw["ingredient_entries"].append(row_data)
+                    _recalc_cost(meal_type)
+
+                for d in details:
+                    add_row_ui(inv_id=d["inv_id"], qty_val=d["qpu"] * qty)
+
+                btn(title_f, "＋ Add Ingredient", lambda: add_row_ui(qty_val=1.0), fg=TEAL, hv=ARMY_HVR, h=24, w=120).pack(side="right", padx=10)
 
                 cost_lbl = lbl(pf, "", size=10, weight="bold", color=TEAL)
                 cost_lbl.pack(padx=10, pady=(4,6), anchor="w")
@@ -5706,8 +5964,77 @@ class CanteenApp(ctk.CTk):
                 pl.pack(padx=10, pady=6, anchor="w")
                 pf.pack(fill="x", pady=(8,0))
             elif not details:
-                pl = lbl(pf, "⚠️ No ingredient recipes for this item — it has no recipes linked", size=10, color=MID)
-                pl.pack(padx=10, pady=6, anchor="w")
+                title_f = ctk.CTkFrame(pf, fg_color="transparent")
+                title_f.pack(fill="x", padx=10, pady=(6,4))
+                lbl(title_f, "⚠️ No recipes linked — stock won't auto-deduct for this item.", size=10, color=MID).pack(side="left")
+
+                grid_f = ctk.CTkFrame(pf, fg_color="transparent")
+                grid_f.pack(fill="x", padx=10, pady=4)
+
+                def add_row_ui(qty_val=1.0):
+                    row_f = ctk.CTkFrame(grid_f, fg_color="transparent")
+                    row_f.pack(fill="x", pady=2)
+
+                    row_data = {
+                        "inv_id": None,
+                        "cp": 0.0,
+                        "entry": None,
+                        "frame": row_f
+                    }
+
+                    info_lbl = lbl(row_f, "", size=10, color=MID)
+
+                    def on_row_dd_change(val):
+                        item_info = menu_state["inventory_map"].get(val)
+                        if item_info:
+                            row_data["inv_id"] = item_info["id"]
+                            row_data["cp"] = item_info["cp"] or 0.0
+                            info_lbl.configure(text=f"@ Rs. {row_data['cp']:.1f}/{item_info['unit']}")
+                        else:
+                            row_data["inv_id"] = None
+                            row_data["cp"] = 0.0
+                            info_lbl.configure(text="")
+                        _recalc_cost(meal_type)
+
+                    dd_opt = ctk.CTkButton(row_f, text="— Select —",
+                                           font=ctk.CTkFont(size=10, weight="bold"), height=28, width=160,
+                                           fg_color=ARMY_BG, hover_color=ARMY_HVR, text_color=WHITE)
+                    def _make_search_cmd2(btn=None):
+                        def _cmd(b=btn):
+                            self._show_search_popup(
+                                "Select Ingredient",
+                                menu_state["inventory_dropdown_values"],
+                                b.cget("text"),
+                                lambda val, b2=b: [b2.configure(text=val), on_row_dd_change(val)]
+                            )
+                        return _cmd
+                    dd_opt.configure(command=_make_search_cmd2(dd_opt))
+                    dd_opt.pack(side="left", padx=(4,10))
+
+                    e = ctk.CTkEntry(row_f, width=80, height=28, corner_radius=6, border_color=BORDER, justify="center", font=ctk.CTkFont(size=11, weight="bold"))
+                    e.pack(side="left", padx=10)
+                    e.insert(0, f"{qty_val:.2f}")
+                    e.bind("<KeyRelease>", lambda e_evt: _recalc_cost(meal_type))
+                    row_data["entry"] = e
+
+                    info_lbl.pack(side="left", padx=10)
+
+                    def remove_row():
+                        if row_data in sw["ingredient_entries"]:
+                            sw["ingredient_entries"].remove(row_data)
+                        row_f.destroy()
+                        _recalc_cost(meal_type)
+
+                    ctk.CTkButton(row_f, text="✕", width=24, height=24, fg_color="#EF4444", hover_color="#DC2626", text_color=WHITE, font=ctk.CTkFont(size=10, weight="bold"), command=remove_row).pack(side="right", padx=4)
+
+                    sw["ingredient_entries"].append(row_data)
+                    _recalc_cost(meal_type)
+
+                btn(title_f, "＋ Add Ingredient", lambda: add_row_ui(qty_val=1.0), fg=TEAL, hv=ARMY_HVR, h=24, w=120).pack(side="right", padx=10)
+
+                cost_lbl = lbl(pf, "", size=10, weight="bold", color=TEAL)
+                cost_lbl.pack(padx=10, pady=(4,6), anchor="w")
+                sw["cost_lbl"] = cost_lbl
                 pf.pack(fill="x", pady=(8,0))
 
         def _on_new_item_created(m_type, new_name):
@@ -5939,87 +6266,107 @@ class CanteenApp(ctk.CTk):
             saved = 0
             logs = []
 
-            with get_db() as conn:
-                for meal_type, sw in slot_widgets.items():
-                    sel = sw["dropdown"].get()
+            try:
+                with get_db() as conn:
+                    for meal_type, sw in slot_widgets.items():
+                        sel = sw["dropdown"].get()
 
-                    if sel == "— Skip —":
-                        continue
+                        if sel == "— Skip —":
+                            continue
 
-                    if sel.startswith("⭐ "):
-                        sel = sel[2:]
+                        if sel.startswith("⭐ "):
+                            sel = sel[2:]
 
-                    m = menu_state["menu_by_name"].get(sel)
-                    if not m:
-                        continue
+                        m = menu_state["menu_by_name"].get(sel)
+                        if not m:
+                            continue
 
-                    mid = m["id"]
-                    sp = m["sp"]
-                    cogs_per = m["cogs"] if m["cogs"] else 0.0
+                        mid = m["id"]
+                        sp = m["sp"]
+                        cogs_per = m["cogs"] if m["cogs"] else 0.0
 
-                    try:
-                        qty = int(sw["qty_entry"].get() or 0)
-                    except ValueError:
-                        self._popup("⚠️ Invalid", f"Enter a valid number for {meal_type} plates.")
-                        return
-                    if qty <= 0:
-                        continue
+                        try:
+                            qty = int(sw["qty_entry"].get() or 0)
+                        except ValueError:
+                            self._popup("⚠️ Invalid", f"Enter a valid number for {meal_type} plates.")
+                            return
+                        if qty <= 0:
+                            continue
 
-                    try:
-                        samp_qty = max(0, int(sw["samp_entry"].get() or 0))
-                    except ValueError:
-                        samp_qty = 0
+                        try:
+                            samp_qty = max(0, int(sw["samp_entry"].get() or 0))
+                        except ValueError:
+                            samp_qty = 0
 
-                    try:
-                        staff_qty = max(0, int(sw["staff_entry"].get() or 0))
-                    except ValueError:
-                        staff_qty = 0
+                        try:
+                            staff_qty = max(0, int(sw["staff_entry"].get() or 0))
+                        except ValueError:
+                            staff_qty = 0
 
-                    custom_name = sw["custom_name_entry"].get().strip() or sel
+                        custom_name = sw["custom_name_entry"].get().strip() or sel
+                        if meal_type in ("Lunch", "Paratha", "Mini Meal"):
+                            custom_name = f"{meal_type}({custom_name})"
 
-                    # 1. batch_prep
-                    conn.execute(
-                        "INSERT INTO batch_prep (date, menu_id, qty_prepared, samples, staff, custom_name) "
-                        "VALUES (?,?,?,?,?,?)",
-                        (date_str, mid, qty, samp_qty, staff_qty, custom_name))
+                        # 1. batch_prep
+                        conn.execute(
+                            "INSERT INTO batch_prep (date, menu_id, qty_prepared, samples, staff, custom_name) "
+                            "VALUES (?,?,?,?,?,?)",
+                            (date_str, mid, qty, samp_qty, staff_qty, custom_name))
 
-                    # 2. Auto-deduct stock + log stock_ledger
-                    ingredient_entries = sw.get("ingredient_entries", [])
-                    total_raw_cost = 0.0
-                    if ingredient_entries:
-                        for ie in ingredient_entries:
-                            try:
-                                deduct = float(ie["entry"].get() or 0.0)
-                            except ValueError:
-                                deduct = 0.0
-                            if deduct <= 0:
-                                continue
-                            conn.execute(
-                                "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
-                                (deduct, ie["inv_id"]))
-                            conn.execute(
-                                "INSERT INTO stock_ledger "
-                                "(date, inv_id, transaction_type, qty_change, notes) "
-                                "VALUES (?,?,?,?,?)",
-                                (date_str, ie["inv_id"], "DAILY_MENU", -deduct,
-                                 f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
-                            total_raw_cost += deduct * (ie["cp"] or 0.0)
-                    else:
-                        details = menu_state["recipe_detail"].get(mid, [])
-                        for d in details:
-                            deduct = d["qpu"] * qty
-                            if deduct <= 0:
-                                continue
-                            conn.execute(
-                                "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
-                                (deduct, d["inv_id"]))
-                            conn.execute(
-                                "INSERT INTO stock_ledger "
-                                "(date, inv_id, transaction_type, qty_change, notes) "
-                                "VALUES (?,?,?,?,?)",
-                                (date_str, d["inv_id"], "DAILY_MENU", -deduct,
-                                 f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
-                            total_raw_cost += deduct * (d["cp"] or 0.0)
+                        # 2. Auto-deduct stock + log stock_ledger
+                        ingredient_entries = sw.get("ingredient_entries", [])
+                        total_raw_cost = 0.0
+                        if ingredient_entries:
+                            for ie in ingredient_entries:
+                                try:
+                                    deduct = float(ie["entry"].get() or 0.0)
+                                except ValueError:
+                                    deduct = 0.0
+                                if deduct <= 0:
+                                    continue
+                                
+                                irow = conn.execute("SELECT item, stock, unit FROM inventory WHERE id=?", (ie["inv_id"],)).fetchone()
+                                if not irow or irow["stock"] < deduct:
+                                    itm = irow["item"] if irow else "Unknown Item"
+                                    avail = irow["stock"] if irow else 0.0
+                                    unit = irow["unit"] if irow else ""
+                                    raise RuntimeError(f"Insufficient stock for '{itm}'.\n\nRequired: {deduct} {unit}\nAvailable: {avail} {unit}")
+
+                                conn.execute(
+                                    "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
+                                    (deduct, ie["inv_id"]))
+                                conn.execute(
+                                    "INSERT INTO stock_ledger "
+                                    "(date, inv_id, transaction_type, qty_change, notes) "
+                                    "VALUES (?,?,?,?,?)",
+                                    (date_str, ie["inv_id"], "DAILY_MENU", -deduct,
+                                     f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
+                                total_raw_cost += deduct * (ie["cp"] or 0.0)
+                        else:
+                            details = menu_state["recipe_detail"].get(mid, [])
+                            for d in details:
+                                deduct = d["qpu"] * qty
+                                if deduct <= 0:
+                                    continue
+                                
+                                irow = conn.execute("SELECT item, stock, unit FROM inventory WHERE id=?", (d["inv_id"],)).fetchone()
+                                if not irow or irow["stock"] < deduct:
+                                    itm = irow["item"] if irow else "Unknown Item"
+                                    avail = irow["stock"] if irow else 0.0
+                                    unit = irow["unit"] if irow else ""
+                                    raise RuntimeError(f"Insufficient stock for '{itm}'.\n\nRequired: {deduct:.2f} {unit}\nAvailable: {avail:.2f} {unit}")
+
+                                conn.execute(
+                                    "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
+                                    (deduct, d["inv_id"]))
+                                conn.execute(
+                                    "INSERT INTO stock_ledger "
+                                    "(date, inv_id, transaction_type, qty_change, notes) "
+                                    "VALUES (?,?,?,?,?)",
+                                    (date_str, d["inv_id"], "DAILY_MENU", -deduct,
+                                     f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
+                                total_raw_cost += deduct * (d["cp"] or 0.0)
+
 
                     # Log cost as Expenditure
                     if total_raw_cost > 0:
@@ -6049,6 +6396,9 @@ class CanteenApp(ctk.CTk):
 
                     logs.append(f"{meal_type}: {sel} x{qty}")
                     saved += 1
+            except RuntimeError as e:
+                self._popup("⚠️ Insufficient Stock", str(e))
+                return
 
             if saved > 0:
                 self._toast(f"✅ Daily menu saved  •  " + " | ".join(logs))
@@ -6065,10 +6415,11 @@ class CanteenApp(ctk.CTk):
 
     def _modal_edit_menu(self, mid, name, sp, active):
         with get_db() as conn:
-            row = conn.execute("SELECT default_staff FROM menu WHERE id=?", (mid,)).fetchone()
+            row = conn.execute("SELECT default_staff, meal_type FROM menu WHERE id=?", (mid,)).fetchone()
             default_staff = row["default_staff"] if row else 0
+            current_meal_type = row["meal_type"] if row and row["meal_type"] else "None"
 
-        body, card, close = self._show_modal(f"✏️  Edit Menu Item", 520, 540)
+        body, card, close = self._show_modal(f"✏️  Edit Menu Item", 520, 620)
 
         # Item name header
         ni = ctk.CTkFrame(body, fg_color=ARMY_BG, corner_radius=10)
@@ -6108,6 +6459,23 @@ class CanteenApp(ctk.CTk):
         e_staff = entry(body, ph="e.g., 5", h=42)
         e_staff.insert(0, str(default_staff)); e_staff.pack(fill="x")
 
+        # Meal Type
+        lbl(body, "🍽 Meal Type (for reports)", size=11, weight="bold",
+            color=ARMY_BG).pack(anchor="w", pady=(12,4))
+        meal_type_info = ctk.CTkFrame(body, fg_color=BG_BLU, corner_radius=8)
+        meal_type_info.pack(fill="x", pady=(0,6))
+        lbl(meal_type_info,
+            "  None = show plain name (e.g. Amul Kool, Lassi)\n"
+            "  Lunch / Mini Meal / Paratha = prefixed in reports (e.g. Lunch(Kadhi Chawal))",
+            size=10, color=BLUE, justify="left").pack(anchor="w", padx=10, pady=6)
+        meal_type_m = ctk.CTkOptionMenu(
+            body,
+            values=["None", "Lunch", "Mini Meal", "Paratha"],
+            font=ctk.CTkFont(size=12), height=40,
+            fg_color=ARMY_BG, button_color=ARMY_HVR, text_color=WHITE)
+        meal_type_m.set(current_meal_type)
+        meal_type_m.pack(fill="x")
+
         # Status
         lbl(body, "Status", size=11, weight="bold",
             color=ARMY_BG).pack(anchor="w", pady=(12,4))
@@ -6133,6 +6501,9 @@ class CanteenApp(ctk.CTk):
                 self._popup("⚠️ Invalid", "Default staff count must be a non-negative integer."); return
 
             new_ac = 1 if status_m.get() == "Active" else 0
+            sel_meal_type = meal_type_m.get()
+            new_meal_type = None if sel_meal_type == "None" else sel_meal_type
+
             with get_db() as conn:
                 if new_name != name:
                     # Check for case-insensitive duplicates
@@ -6154,9 +6525,10 @@ class CanteenApp(ctk.CTk):
                         (f"Batch update - {new_name}", f"Batch update - {name}")
                     )
 
-                conn.execute("UPDATE menu SET sp=?,active=?,default_staff=? WHERE id=?",
-                             (new_sp, new_ac, new_staff, mid))
-            self._toast(f"'{new_name}' updated  •  Rs. {new_sp:.0f}  •  Staff: {new_staff}  •  {status_m.get()}")
+                conn.execute(
+                    "UPDATE menu SET sp=?,active=?,default_staff=?,meal_type=? WHERE id=?",
+                    (new_sp, new_ac, new_staff, new_meal_type, mid))
+            self._toast(f"'{new_name}' updated  •  Rs. {new_sp:.0f}  •  Type: {sel_meal_type}  •  {status_m.get()}")
             close(); self._switch_master_tab("menu")
 
         btn(card, "✅  Save Changes", save, fg=GREEN, hv=DGREEN, h=46).pack(
@@ -6238,7 +6610,7 @@ class CanteenApp(ctk.CTk):
         ic = card(left_pane)
         ic.pack(fill="both", expand=True)
         
-        COLS = [("Item",3),("Batch Qty",2),("Qty/Plate",2),("Remove",1)]
+        COLS = [("Item",4),("Batch Qty",3),("Qty/Plate",3),("Action",2)]
         
         # Header Container with 16px right spacer for scrollbar alignment
         header_container = tk.Frame(ic, bg=STRIPE, height=36)
@@ -6257,7 +6629,7 @@ class CanteenApp(ctk.CTk):
         if not recipes:
             lbl(rows_scroll, "No ingredients mapped yet.", size=11, color=MID).pack(pady=20)
         else:
-            uid = abs(hash((3, 2, 2, 1)))
+            uid = abs(hash((4, 3, 3, 2)))
             for ix, r in enumerate(recipes):
                 bg_color = WHITE if ix%2==0 else STRIPE
                 rf = tk.Frame(rows_scroll, bg=bg_color, height=36)
@@ -6286,13 +6658,24 @@ class CanteenApp(ctk.CTk):
                                   command=lambda rid=r["rid"]: del_r(rid))
                 b.pack(side="right")
                 
-                rf.grid_columnconfigure(0, weight=3)
-                rf.grid_columnconfigure(1, weight=2)
-                rf.grid_columnconfigure(2, weight=2)
-                rf.grid_columnconfigure(3, weight=1)
+                rf.grid_columnconfigure(0, weight=4, uniform=f"grp_{uid}")
+                rf.grid_columnconfigure(1, weight=3, uniform=f"grp_{uid}")
+                rf.grid_columnconfigure(2, weight=3, uniform=f"grp_{uid}")
+                rf.grid_columnconfigure(3, weight=2, uniform=f"grp_{uid}")
 
         # --- Right Pane Contents ---
-        lbl(right_pane, "➕  Add Ingredient", size=13, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(0, 6))
+        title_f = ctk.CTkFrame(right_pane, fg_color="transparent")
+        title_f.pack(fill="x", pady=(0, 6))
+        lbl(title_f, "➕  Add Ingredient", size=13, weight="bold", color=ARMY_BG).pack(side="left")
+        
+        def _add_new_inv():
+            today = datetime.now().strftime("%Y-%m-%d")
+            def _on_save():
+                close()
+                self._modal_edit_ingredients(mid, name)
+            self._modal_add_inv(today, _on_save)
+
+        btn(title_f, "＋ New Item", _add_new_inv, fg=BLUE, hv=BG_BLU, h=24, w=80).pack(side="right")
         
         fc = card(right_pane)
         fc.pack(fill="both", expand=True)
@@ -6376,6 +6759,116 @@ class CanteenApp(ctk.CTk):
 
     def _dlg_add_menu(self):        self._modal_add_menu()
     def _dlg_edit_menu(self,m,n,s,a): self._modal_edit_menu(m,n,s,a)
+
+    def _modal_add_inv(self, d, refresh_cb):
+        overlay = tk.Frame(self._area, bg="#1E293B")
+        overlay.place(x=0, y=0, relwidth=1, relheight=1)
+        mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
+                          border_width=2, border_color=ARMY_BG, width=560, height=560)
+        mc.place(relx=0.5, rely=0.5, anchor="center")
+        mc.pack_propagate(False)
+
+        hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
+        hbar.pack(fill="x"); hbar.pack_propagate(False)
+        ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
+        lbl(hbar, f"  ＋  Add Inventory — {d}", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
+        ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
+                      fg_color="transparent", hover_color=ARMY_HVR,
+                      text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
+                      command=overlay.destroy).pack(side="right", padx=8)
+
+        body = ctk.CTkFrame(mc, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=24, pady=18)
+
+        fields = [
+            ("Item Name",  "",    "name_e"),
+            ("Category",   "Dry", "cat_e"),
+            ("Unit",       "Kgs", "unit_e"),
+            ("Rate (Rs.)",   "0",   "cp_e"),
+            ("Opening",    "0",   "op_e"),
+            ("Received",   "0",   "rec_e"),
+            ("Issued (Qty)", "0", "iss_e"),
+        ]
+        widgets = {}
+        for label_txt, default, key in fields:
+            row_f = ctk.CTkFrame(body, fg_color="transparent")
+            row_f.pack(fill="x", pady=4)
+            lbl(row_f, label_txt, size=11, weight="bold", color=DARK, width=100).pack(side="left")
+            e = ctk.CTkEntry(row_f, height=36, corner_radius=8)
+            if default:
+                e.insert(0, default)
+            e.pack(side="left", fill="x", expand=True, padx=(8, 0))
+            widgets[key] = e
+
+        closing_lbl = lbl(body, "Closing = 0.000", size=11, weight="bold", color=BLUE)
+        closing_lbl.pack(anchor="w", pady=(4, 0))
+
+        used_amt_lbl = lbl(body, "Amount Used = Rs. 0.00", size=11, weight="bold", color=GREEN)
+        used_amt_lbl.pack(anchor="w", pady=(2, 0))
+
+        def _on_change(*_):
+            try:
+                op  = float(widgets["op_e"].get() or 0.0)
+                rec = float(widgets["rec_e"].get() or 0.0)
+                iss = float(widgets["iss_e"].get() or 0.0)
+                rate = float(widgets["cp_e"].get() or 0.0)
+                closing_lbl.configure(text=f"Closing = {op + rec - iss:.3f}")
+                used_amt_lbl.configure(text=f"Amount Used = Rs. {iss * rate:.2f}")
+            except Exception:
+                pass
+
+        for key in ("op_e", "rec_e", "iss_e", "cp_e"):
+            widgets[key].bind("<KeyRelease>", _on_change)
+
+        def _save_new():
+            try:
+                new_name = widgets["name_e"].get().strip()
+                if not new_name:
+                    self._popup("⚠️ Missing", "Item name is required."); return
+                new_cat  = widgets["cat_e"].get().strip() or "Dry"
+                new_unit = widgets["unit_e"].get().strip() or "Kgs"
+                new_cp   = float(widgets["cp_e"].get() or 0.0)
+                new_op   = float(widgets["op_e"].get() or 0.0)
+                new_rec  = float(widgets["rec_e"].get() or 0.0)
+                new_iss  = float(widgets["iss_e"].get() or 0.0)
+            except ValueError:
+                self._popup("⚠️ Invalid Input", "Please enter valid numbers.")
+                return
+
+            with get_db() as conn:
+                existing = conn.execute("SELECT id FROM inventory WHERE item=? COLLATE NOCASE", (new_name,)).fetchone()
+                if existing:
+                    inv_id = existing[0]
+                    conn.execute("UPDATE inventory SET cat=?, unit=?, cp=? WHERE id=?",
+                                 (new_cat, new_unit, new_cp, inv_id))
+                else:
+                    cur = conn.execute(
+                        "INSERT INTO inventory (item, cat, unit, stock, min_lvl, opening, received, cp, updated) "
+                        "VALUES (?,?,?,0.0,0.0,?,?,?,?)",
+                        (new_name, new_cat, new_unit, new_op, new_rec, new_cp, d))
+                    inv_id = cur.lastrowid
+
+                conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
+                if new_op != 0:
+                    conn.execute(
+                        "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                        "VALUES (?,?,'Opening',?,'Opening balance BBF')", (d, inv_id, new_op))
+                if new_rec > 0:
+                    conn.execute(
+                        "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                        "VALUES (?,?,'Received',?,'Stock Received')", (d, inv_id, new_rec))
+                if new_iss > 0:
+                    conn.execute(
+                        "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                        "VALUES (?,?,'Batch_Prep',?,'Material used for production')", (d, inv_id, -new_iss))
+
+                sync_inventory_stock(conn)
+
+            overlay.destroy()
+            self._toast(f"✅ Inventory '{new_name}' added")
+            refresh_cb()
+
+        btn(body, "💾  Add Item", _save_new, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(12, 0))
 
     def _modal_update_batch(self, menu_id, menu_name):
         """
@@ -6785,6 +7278,9 @@ class CanteenApp(ctk.CTk):
                 saved_dates = conn.execute(
                     "SELECT DISTINCT date FROM batch_prep ORDER BY date DESC LIMIT 60"
                 ).fetchall()
+                all_inventory = conn.execute(
+                    "SELECT id, item, unit, cp FROM inventory ORDER BY item"
+                ).fetchall()
 
             menu_state["menu_by_name"]  = {m["name"]: dict(m) for m in all_menus}
             menu_state["menu_names"]    = [m["name"] for m in all_menus]
@@ -6801,6 +7297,9 @@ class CanteenApp(ctk.CTk):
             menu_state["recipe_detail"] = rd
             menu_state["existing_batch"] = [dict(r) for r in existing_batch]
             menu_state["saved_dates"]    = [r["date"] for r in saved_dates]
+            inv_map = {f"{r['item']} ({r['unit']})": dict(r) for r in all_inventory}
+            menu_state["inventory_map"] = inv_map
+            menu_state["inventory_dropdown_values"] = sorted(list(inv_map.keys()))
 
         # ──────────────────────────────────────────────────────────────────
         # SIDEBAR REFRESH
@@ -6863,14 +7362,25 @@ class CanteenApp(ctk.CTk):
         # ──────────────────────────────────────────────────────────────────
         def _recalc_cost(meal_type, sw):
             if not sw or "ingredient_entries" not in sw or "cost_lbl" not in sw: return
+            cost_lbl = sw.get("cost_lbl")
+            if cost_lbl is None: return
+            try:
+                if not cost_lbl.winfo_exists(): return
+            except Exception:
+                return
             total_cost = 0.0
             for ie in sw["ingredient_entries"]:
+                if ie.get("inv_id") is None:
+                    continue
                 try:
                     val = float(ie["entry"].get() or 0.0)
                 except ValueError:
                     val = 0.0
                 total_cost += val * (ie["cp"] or 0.0)
-            sw["cost_lbl"].configure(text=f"💰 Total raw cost: Rs. {f_in(total_cost)}")
+            try:
+                cost_lbl.configure(text=f"💰 Total raw cost: Rs. {f_in(total_cost)}")
+            except Exception:
+                pass
 
         def _update_preview(meal_type, sw):
             sel = sw["dropdown"].get()
@@ -6896,28 +7406,91 @@ class CanteenApp(ctk.CTk):
                 qty = 0
 
             if details and qty > 0:
-                title = lbl(pf, f"⚡ Ingredients for {qty} plates (editable for this batch only):", size=10, weight="bold", color=ARMY_BG)
-                title.pack(padx=10, pady=(6,4), anchor="w")
+                title_f = ctk.CTkFrame(pf, fg_color="transparent")
+                title_f.pack(fill="x", padx=10, pady=(6,4))
+
+                title = lbl(title_f, f"⚡ Ingredients for {qty} plates (editable for this batch only):", size=10, weight="bold", color=ARMY_BG)
+                title.pack(side="left")
 
                 grid_f = ctk.CTkFrame(pf, fg_color="transparent")
                 grid_f.pack(fill="x", padx=10, pady=4)
-                grid_f.grid_columnconfigure(0, weight=2)
-                grid_f.grid_columnconfigure(1, weight=1)
-                grid_f.grid_columnconfigure(2, weight=2)
 
-                for idx, d in enumerate(details):
-                    lbl(grid_f, f"• {d['item']} ({d['unit']})", size=10, color=ARMY_BG).grid(row=idx, column=0, sticky="w", padx=(4,10), pady=4)
+                def add_row_ui(inv_id=None, qty_val=0.0):
+                    row_f = ctk.CTkFrame(grid_f, fg_color="transparent")
+                    row_f.pack(fill="x", pady=2)
 
-                    e = ctk.CTkEntry(grid_f, width=80, height=28, corner_radius=6, border_color=BORDER, justify="center", font=ctk.CTkFont(size=11, weight="bold"))
-                    e.grid(row=idx, column=1, padx=10, pady=4)
-                    e.insert(0, f"{d['qpu'] * qty:.2f}")
-                    e.bind("<KeyRelease>", lambda e_evt, mt=meal_type, s=sw: _recalc_cost(mt, s))
+                    default_sel = "— Select —"
+                    if inv_id is not None:
+                        for k, v in menu_state["inventory_map"].items():
+                            if v["id"] == inv_id:
+                                default_sel = k
+                                break
 
-                    lbl(grid_f, f"@ Rs. {d['cp']:.1f}/{d['unit']}", size=10, color=MID).grid(row=idx, column=2, sticky="w", padx=10, pady=4)
+                    row_data = {
+                        "inv_id": inv_id,
+                        "cp": 0.0,
+                        "entry": None,
+                        "frame": row_f
+                    }
 
-                    sw["ingredient_entries"].append({
-                        "inv_id": d["inv_id"], "item": d["item"], "unit": d["unit"], "cp": d["cp"], "entry": e
-                    })
+                    info_lbl = lbl(row_f, "", size=10, color=MID)
+
+                    def on_row_dd_change(val):
+                        item_info = menu_state["inventory_map"].get(val)
+                        if item_info:
+                            row_data["inv_id"] = item_info["id"]
+                            row_data["cp"] = item_info["cp"] or 0.0
+                            info_lbl.configure(text=f"@ Rs. {row_data['cp']:.1f}/{item_info['unit']}")
+                        else:
+                            row_data["inv_id"] = None
+                            row_data["cp"] = 0.0
+                            info_lbl.configure(text="")
+                        _recalc_cost(meal_type, sw)
+
+                    dd_opt = ctk.CTkButton(row_f, text=default_sel,
+                                           font=ctk.CTkFont(size=10, weight="bold"), height=28, width=160,
+                                           fg_color=ARMY_BG, hover_color=ARMY_HVR, text_color=WHITE)
+                    def _make_srch1(btn=None):
+                        def _cmd(b=btn):
+                            self._show_search_popup(
+                                "Select Ingredient",
+                                menu_state["inventory_dropdown_values"],
+                                b.cget("text"),
+                                lambda val, b2=b: [b2.configure(text=val), on_row_dd_change(val)]
+                            )
+                        return _cmd
+                    dd_opt.configure(command=_make_srch1(dd_opt))
+                    dd_opt.pack(side="left", padx=(4,10))
+
+                    e = ctk.CTkEntry(row_f, width=80, height=28, corner_radius=6, border_color=BORDER, justify="center", font=ctk.CTkFont(size=11, weight="bold"))
+                    e.pack(side="left", padx=10)
+                    e.insert(0, f"{qty_val:.2f}")
+                    e.bind("<KeyRelease>", lambda e_evt: _recalc_cost(meal_type, sw))
+                    row_data["entry"] = e
+
+                    info_lbl.pack(side="left", padx=10)
+
+                    if default_sel != "— Select —":
+                        item_info = menu_state["inventory_map"].get(default_sel)
+                        if item_info:
+                            row_data["cp"] = item_info["cp"] or 0.0
+                            info_lbl.configure(text=f"@ Rs. {row_data['cp']:.1f}/{item_info['unit']}")
+
+                    def remove_row():
+                        if row_data in sw["ingredient_entries"]:
+                            sw["ingredient_entries"].remove(row_data)
+                        row_f.destroy()
+                        _recalc_cost(meal_type, sw)
+
+                    ctk.CTkButton(row_f, text="✕", width=24, height=24, fg_color="#EF4444", hover_color="#DC2626", text_color=WHITE, font=ctk.CTkFont(size=10, weight="bold"), command=remove_row).pack(side="right", padx=4)
+
+                    sw["ingredient_entries"].append(row_data)
+                    _recalc_cost(meal_type, sw)
+
+                for d in details:
+                    add_row_ui(inv_id=d["inv_id"], qty_val=d["qpu"] * qty)
+
+                btn(title_f, "＋ Add Ingredient", lambda: add_row_ui(qty_val=1.0), fg=TEAL, hv=ARMY_HVR, h=24, w=120).pack(side="right", padx=10)
 
                 cost_lbl = lbl(pf, "", size=10, weight="bold", color=TEAL)
                 cost_lbl.pack(padx=10, pady=(4,6), anchor="w")
@@ -6925,8 +7498,77 @@ class CanteenApp(ctk.CTk):
                 _recalc_cost(meal_type, sw)
                 pf.pack(fill="x", pady=(6, 0))
             elif not details and qty > 0:
-                pl = lbl(pf, "⚠️ No recipes linked — stock won't auto-deduct for this item.", size=10, color=MID)
-                pl.pack(padx=10, pady=6, anchor="w")
+                title_f = ctk.CTkFrame(pf, fg_color="transparent")
+                title_f.pack(fill="x", padx=10, pady=(6,4))
+                lbl(title_f, "⚠️ No recipes linked — stock won't auto-deduct for this item.", size=10, color=MID).pack(side="left")
+
+                grid_f = ctk.CTkFrame(pf, fg_color="transparent")
+                grid_f.pack(fill="x", padx=10, pady=4)
+
+                def add_row_ui(qty_val=1.0):
+                    row_f = ctk.CTkFrame(grid_f, fg_color="transparent")
+                    row_f.pack(fill="x", pady=2)
+
+                    row_data = {
+                        "inv_id": None,
+                        "cp": 0.0,
+                        "entry": None,
+                        "frame": row_f
+                    }
+
+                    info_lbl = lbl(row_f, "", size=10, color=MID)
+
+                    def on_row_dd_change(val):
+                        item_info = menu_state["inventory_map"].get(val)
+                        if item_info:
+                            row_data["inv_id"] = item_info["id"]
+                            row_data["cp"] = item_info["cp"] or 0.0
+                            info_lbl.configure(text=f"@ Rs. {row_data['cp']:.1f}/{item_info['unit']}")
+                        else:
+                            row_data["inv_id"] = None
+                            row_data["cp"] = 0.0
+                            info_lbl.configure(text="")
+                        _recalc_cost(meal_type, sw)
+
+                    dd_opt = ctk.CTkButton(row_f, text="— Select —",
+                                           font=ctk.CTkFont(size=10, weight="bold"), height=28, width=160,
+                                           fg_color=ARMY_BG, hover_color=ARMY_HVR, text_color=WHITE)
+                    def _make_srch2(btn=None):
+                        def _cmd(b=btn):
+                            self._show_search_popup(
+                                "Select Ingredient",
+                                menu_state["inventory_dropdown_values"],
+                                b.cget("text"),
+                                lambda val, b2=b: [b2.configure(text=val), on_row_dd_change(val)]
+                            )
+                        return _cmd
+                    dd_opt.configure(command=_make_srch2(dd_opt))
+                    dd_opt.pack(side="left", padx=(4,10))
+
+                    e = ctk.CTkEntry(row_f, width=80, height=28, corner_radius=6, border_color=BORDER, justify="center", font=ctk.CTkFont(size=11, weight="bold"))
+                    e.pack(side="left", padx=10)
+                    e.insert(0, f"{qty_val:.2f}")
+                    e.bind("<KeyRelease>", lambda e_evt: _recalc_cost(meal_type, sw))
+                    row_data["entry"] = e
+
+                    info_lbl.pack(side="left", padx=10)
+
+                    def remove_row():
+                        if row_data in sw["ingredient_entries"]:
+                            sw["ingredient_entries"].remove(row_data)
+                        row_f.destroy()
+                        _recalc_cost(meal_type, sw)
+
+                    ctk.CTkButton(row_f, text="✕", width=24, height=24, fg_color="#EF4444", hover_color="#DC2626", text_color=WHITE, font=ctk.CTkFont(size=10, weight="bold"), command=remove_row).pack(side="right", padx=4)
+
+                    sw["ingredient_entries"].append(row_data)
+                    _recalc_cost(meal_type, sw)
+
+                btn(title_f, "＋ Add Ingredient", lambda: add_row_ui(qty_val=1.0), fg=TEAL, hv=ARMY_HVR, h=24, w=120).pack(side="right", padx=10)
+
+                cost_lbl = lbl(pf, "", size=10, weight="bold", color=TEAL)
+                cost_lbl.pack(padx=10, pady=(4,6), anchor="w")
+                sw["cost_lbl"] = cost_lbl
                 pf.pack(fill="x", pady=(6, 0))
             else:
                 pf.pack_forget()
@@ -7353,80 +7995,100 @@ class CanteenApp(ctk.CTk):
             saved = 0
             logs  = []
 
-            with get_db() as conn:
-                for meal_type, sw in all_sources:
-                    sel = sw["dropdown"].get()
-                    if sel in ("— Skip —", ""):
-                        continue
-                    if sel.startswith("⭐ "):
-                        sel = sel[2:]
-                    m = menu_state["menu_by_name"].get(sel)
-                    if not m:
-                        continue
-                    mid      = m["id"]
-                    sp       = m["sp"]
-                    cogs_per = m["cogs"] if m["cogs"] else 0.0
-                    try:
-                        qty = int(sw["qty_entry"].get() or 0)
-                    except ValueError:
-                        self._popup("⚠️ Invalid", f"Enter a valid number for {meal_type}.")
-                        return
-                    if qty <= 0:
-                        continue
-                    try:
-                        samp_qty  = max(0, int(sw["samp_entry"].get()  or 0))
-                    except ValueError:
-                        samp_qty = 0
-                    try:
-                        staff_qty = max(0, int(sw["staff_entry"].get() or 0))
-                    except ValueError:
-                        staff_qty = 0
+            try:
+                with get_db() as conn:
+                    for meal_type, sw in all_sources:
+                        sel = sw["dropdown"].get()
+                        if sel in ("— Skip —", ""):
+                            continue
+                        if sel.startswith("⭐ "):
+                            sel = sel[2:]
+                        m = menu_state["menu_by_name"].get(sel)
+                        if not m:
+                            continue
+                        mid      = m["id"]
+                        sp       = m["sp"]
+                        cogs_per = m["cogs"] if m["cogs"] else 0.0
+                        try:
+                            qty = int(sw["qty_entry"].get() or 0)
+                        except ValueError:
+                            self._popup("⚠️ Invalid", f"Enter a valid number for {meal_type}.")
+                            return
+                        if qty <= 0:
+                            continue
+                        try:
+                            samp_qty  = max(0, int(sw["samp_entry"].get()  or 0))
+                        except ValueError:
+                            samp_qty = 0
+                        try:
+                            staff_qty = max(0, int(sw["staff_entry"].get() or 0))
+                        except ValueError:
+                            staff_qty = 0
 
-                    custom_name = sw["custom_name_entry"].get().strip() or sel
+                        custom_name = sw["custom_name_entry"].get().strip() or sel
+                        if meal_type in ("Lunch", "Paratha", "Mini Meal"):
+                            custom_name = f"{meal_type}({custom_name})"
 
-                    # 1. batch_prep
-                    conn.execute(
-                        "INSERT INTO batch_prep (date, menu_id, qty_prepared, samples, staff, custom_name) "
-                        "VALUES (?,?,?,?,?,?)",
-                        (date_str, mid, qty, samp_qty, staff_qty, custom_name))
+                        # 1. batch_prep
+                        conn.execute(
+                            "INSERT INTO batch_prep (date, menu_id, qty_prepared, samples, staff, custom_name) "
+                            "VALUES (?,?,?,?,?,?)",
+                            (date_str, mid, qty, samp_qty, staff_qty, custom_name))
 
-                    # 2. Auto-deduct stock + ledger
-                    ingredient_entries = sw.get("ingredient_entries", [])
-                    total_raw = 0.0
-                    if ingredient_entries:
-                        for ie in ingredient_entries:
-                            try:
-                                deduct = float(ie["entry"].get() or 0.0)
-                            except ValueError:
-                                deduct = 0.0
-                            if deduct <= 0:
-                                continue
-                            conn.execute(
-                                "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
-                                (deduct, ie["inv_id"]))
-                            conn.execute(
-                                "INSERT INTO stock_ledger "
-                                "(date, inv_id, transaction_type, qty_change, notes) "
-                                "VALUES (?,?,?,?,?)",
-                                (date_str, ie["inv_id"], "DAILY_MENU", -deduct,
-                                 f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
-                            total_raw += deduct * (ie["cp"] or 0.0)
-                    else:
-                        details   = menu_state["recipe_detail"].get(mid, [])
-                        for d in details:
-                            deduct = d["qpu"] * qty
-                            if deduct <= 0:
-                                continue
-                            conn.execute(
-                                "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
-                                (deduct, d["inv_id"]))
-                            conn.execute(
-                                "INSERT INTO stock_ledger "
-                                "(date, inv_id, transaction_type, qty_change, notes) "
-                                "VALUES (?,?,?,?,?)",
-                                (date_str, d["inv_id"], "DAILY_MENU", -deduct,
-                                 f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
-                            total_raw += deduct * (d["cp"] or 0.0)
+                        # 2. Auto-deduct stock + ledger
+                        ingredient_entries = sw.get("ingredient_entries", [])
+                        total_raw = 0.0
+                        if ingredient_entries:
+                            for ie in ingredient_entries:
+                                try:
+                                    deduct = float(ie["entry"].get() or 0.0)
+                                except ValueError:
+                                    deduct = 0.0
+                                if deduct <= 0:
+                                    continue
+                                
+                                irow = conn.execute("SELECT item, stock, unit FROM inventory WHERE id=?", (ie["inv_id"],)).fetchone()
+                                if not irow or irow["stock"] < deduct:
+                                    itm = irow["item"] if irow else "Unknown Item"
+                                    avail = irow["stock"] if irow else 0.0
+                                    unit = irow["unit"] if irow else ""
+                                    raise RuntimeError(f"Insufficient stock for '{itm}'.\n\nRequired: {deduct} {unit}\nAvailable: {avail} {unit}")
+
+                                conn.execute(
+                                    "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
+                                    (deduct, ie["inv_id"]))
+                                conn.execute(
+                                    "INSERT INTO stock_ledger "
+                                    "(date, inv_id, transaction_type, qty_change, notes) "
+                                    "VALUES (?,?,?,?,?)",
+                                    (date_str, ie["inv_id"], "DAILY_MENU", -deduct,
+                                     f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
+                                total_raw += deduct * (ie["cp"] or 0.0)
+                        else:
+                            details   = menu_state["recipe_detail"].get(mid, [])
+                            for d in details:
+                                deduct = d["qpu"] * qty
+                                if deduct <= 0:
+                                    continue
+                                
+                                irow = conn.execute("SELECT item, stock, unit FROM inventory WHERE id=?", (d["inv_id"],)).fetchone()
+                                if not irow or irow["stock"] < deduct:
+                                    itm = irow["item"] if irow else "Unknown Item"
+                                    avail = irow["stock"] if irow else 0.0
+                                    unit = irow["unit"] if irow else ""
+                                    raise RuntimeError(f"Insufficient stock for '{itm}'.\n\nRequired: {deduct:.2f} {unit}\nAvailable: {avail:.2f} {unit}")
+
+                                conn.execute(
+                                    "UPDATE inventory SET stock = MAX(0, stock - ?) WHERE id=?",
+                                    (deduct, d["inv_id"]))
+                                conn.execute(
+                                    "INSERT INTO stock_ledger "
+                                    "(date, inv_id, transaction_type, qty_change, notes) "
+                                    "VALUES (?,?,?,?,?)",
+                                    (date_str, d["inv_id"], "DAILY_MENU", -deduct,
+                                     f"Daily menu: {custom_name} ({meal_type}) x{qty}"))
+                                total_raw += deduct * (d["cp"] or 0.0)
+
 
                     # 3. Expenditure entry
                     if total_raw > 0:
@@ -7458,6 +8120,9 @@ class CanteenApp(ctk.CTk):
 
                     logs.append(f"{meal_type}: {sel} ×{qty}")
                     saved += 1
+            except RuntimeError as e:
+                self._popup("⚠️ Insufficient Stock", str(e))
+                return
 
             if saved > 0:
                 self._toast(f"✅ Saved {saved} item(s)  —  " + " | ".join(logs))
@@ -7474,46 +8139,68 @@ class CanteenApp(ctk.CTk):
         menu_id = row["menu_id"]
         
         # Confirm deletion
-        if not messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete the daily menu entry for '{menu_name}' on {date_str}?\n\nThis will restore ingredients to stock and delete related expenditures/samples."):
+        if not messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete the daily menu entry for '{menu_name}' on {date_str}?\n\nThis will:\n\u2022 Restore deducted ingredients back to stock\n\u2022 Delete the related expenditure record\n\u2022 Delete related samples (staff/complimentary)"):
             return
             
         with get_db() as conn:
-            # 1. Fetch menu recipes to return ingredients stock
-            recipes = conn.execute(
-                "SELECT r.inv_id, r.qty_per_unit, i.item, i.cp FROM recipes r "
-                "JOIN inventory i ON i.id = r.inv_id WHERE r.menu_id = ?", (menu_id,)
+            # 1. Restore inventory stock from actual DAILY_MENU ledger entries.
+            #    These are more accurate than recalculating from recipes because the
+            #    actual deducted amounts are recorded when the entry was saved.
+            ledger_entries = conn.execute(
+                "SELECT inv_id, SUM(qty_change) AS total_change FROM stock_ledger "
+                "WHERE date=? AND transaction_type='DAILY_MENU' AND notes LIKE ? "
+                "GROUP BY inv_id",
+                (date_str, f"%{menu_name}%")
             ).fetchall()
-            
-            for r in recipes:
-                restore_qty = r["qty_per_unit"] * qty_prepared
-                # Update inventory
-                conn.execute(
-                    "UPDATE inventory SET stock = stock + ? WHERE id = ?",
-                    (restore_qty, r["inv_id"])
-                )
-                # Log stock_ledger
-                conn.execute(
-                    "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
-                    "VALUES (?, ?, 'DAILY_MENU_DELETE', ?, ?)",
-                    (date_str, r["inv_id"], restore_qty, f"Daily menu delete: {menu_name} x{qty_prepared} (reverted)")
-                )
-                
-            # 2. Delete expenditure associated with raw cost
+
+            for le in ledger_entries:
+                restore_qty = abs(le["total_change"])
+                if restore_qty > 0:
+                    conn.execute(
+                        "UPDATE inventory SET stock = stock + ? WHERE id = ?",
+                        (restore_qty, le["inv_id"])
+                    )
+
+            # Remove DAILY_MENU and any old DAILY_MENU_DELETE ledger entries
             conn.execute(
-                "DELETE FROM expenditure WHERE date = ? AND category = 'Raw Material' AND notes = ?",
-                (date_str, f"Auto: {menu_name} x{qty_prepared}")
+                "DELETE FROM stock_ledger WHERE date=? AND transaction_type IN ('DAILY_MENU','DAILY_MENU_DELETE') AND notes LIKE ?",
+                (date_str, f"%{menu_name}%")
             )
-            
-            # 3. Delete samples entries associated with this daily menu
+
+            # Fallback: if no ledger entries, use recipe-based calculation
+            if not ledger_entries:
+                recipes = conn.execute(
+                    "SELECT r.inv_id, r.qty_per_unit FROM recipes r WHERE r.menu_id=?", (menu_id,)
+                ).fetchall()
+                for r in recipes:
+                    restore_qty = r["qty_per_unit"] * qty_prepared
+                    if restore_qty > 0:
+                        conn.execute(
+                            "UPDATE inventory SET stock = stock + ? WHERE id = ?",
+                            (restore_qty, r["inv_id"])
+                        )
+
+            # 2. Delete expenditure linked to this daily menu.
+            #    Note format used on save: "Auto-expenditure for {custom_name} batch x{qty}"
+            #    Use LIKE on menu_name to cover all note variants.
             conn.execute(
-                "DELETE FROM samples WHERE date = ? AND menu_id = ? AND notes = ?",
-                (date_str, menu_id, f"Auto from daily menu: {menu_name}")
+                "DELETE FROM expenditure WHERE date=? "
+                "AND (category='Raw Material' OR category='Raw Materials') "
+                "AND notes LIKE ?",
+                (date_str, f"%{menu_name}%")
             )
-            
+
+            # 3. Delete all samples (staff + complimentary) for this menu on this date
+            conn.execute(
+                "DELETE FROM samples WHERE date=? AND menu_id=?",
+                (date_str, menu_id)
+            )
+
             # 4. Delete the batch_prep record
-            conn.execute("DELETE FROM batch_prep WHERE id = ?", (bp_id,))
-            
-        self._toast(f"🗑️ Deleted Daily Menu entry for '{menu_name}'")
+            conn.execute("DELETE FROM batch_prep WHERE id=?", (bp_id,))
+
+        sync_inventory_stock()
+        self._toast(f"\U0001f5d1\ufe0f Deleted '{menu_name}' — stock restored, expenditure & samples removed")
         self._switch_master_tab("daily_menu")
 
     def _modal_edit_daily_menu(self, row, date_str):
@@ -8709,7 +9396,7 @@ class CanteenApp(ctk.CTk):
         def _render_inventory(d):
             ic = card(content_host); ic.pack(fill="x", pady=(0, 14))
             hb = band(ic, "📦  Inventory Records")
-            btn(hb, "＋  Add Item", lambda: _modal_add_inv(d, lambda: _render_all(d)),
+            btn(hb, "＋  Add Item", lambda: self._modal_add_inv(d, lambda: _render_all(d)),
                 fg=GREEN, hv=DGREEN, h=28, w=110).pack(side="right", padx=10)
 
             with get_db() as conn:
@@ -8862,116 +9549,7 @@ class CanteenApp(ctk.CTk):
 
             btn(body, "💾  Save Changes", _save, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(12, 0))
 
-        def _modal_add_inv(d, refresh_cb):
-            overlay = tk.Frame(self._area, bg="#1E293B")
-            overlay.place(x=0, y=0, relwidth=1, relheight=1)
-            mc = ctk.CTkFrame(overlay, fg_color=WHITE, corner_radius=20,
-                              border_width=2, border_color=ARMY_BG, width=560, height=560)
-            mc.place(relx=0.5, rely=0.5, anchor="center")
-            mc.pack_propagate(False)
 
-            hbar = ctk.CTkFrame(mc, fg_color=ARMY_BG, corner_radius=0, height=52)
-            hbar.pack(fill="x"); hbar.pack_propagate(False)
-            ctk.CTkFrame(hbar, fg_color=SAFFRON, width=4, corner_radius=0).pack(side="left", fill="y")
-            lbl(hbar, f"  ＋  Add Inventory — {d}", size=13, weight="bold", color=WHITE).pack(side="left", padx=10)
-            ctk.CTkButton(hbar, text="✕", width=36, height=36, corner_radius=8,
-                          fg_color="transparent", hover_color=ARMY_HVR,
-                          text_color=GOLD_LT, font=ctk.CTkFont(size=14, weight="bold"),
-                          command=overlay.destroy).pack(side="right", padx=8)
-
-            body = ctk.CTkFrame(mc, fg_color="transparent")
-            body.pack(fill="both", expand=True, padx=24, pady=18)
-
-            fields = [
-                ("Item Name",  "",    "name_e"),
-                ("Category",   "Dry", "cat_e"),
-                ("Unit",       "Kgs", "unit_e"),
-                ("Rate (Rs.)",   "0",   "cp_e"),
-                ("Opening",    "0",   "op_e"),
-                ("Received",   "0",   "rec_e"),
-                ("Issued (Qty)", "0", "iss_e"),
-            ]
-            widgets = {}
-            for label_txt, default, key in fields:
-                row_f = ctk.CTkFrame(body, fg_color="transparent")
-                row_f.pack(fill="x", pady=4)
-                lbl(row_f, label_txt, size=11, weight="bold", color=DARK, width=100).pack(side="left")
-                e = ctk.CTkEntry(row_f, height=36, corner_radius=8)
-                if default:
-                    e.insert(0, default)
-                e.pack(side="left", fill="x", expand=True, padx=(8, 0))
-                widgets[key] = e
-
-            closing_lbl = lbl(body, "Closing = 0.000", size=11, weight="bold", color=BLUE)
-            closing_lbl.pack(anchor="w", pady=(4, 0))
-
-            used_amt_lbl = lbl(body, "Amount Used = Rs. 0.00", size=11, weight="bold", color=GREEN)
-            used_amt_lbl.pack(anchor="w", pady=(2, 0))
-
-            def _on_change(*_):
-                try:
-                    op  = float(widgets["op_e"].get() or 0.0)
-                    rec = float(widgets["rec_e"].get() or 0.0)
-                    iss = float(widgets["iss_e"].get() or 0.0)
-                    rate = float(widgets["cp_e"].get() or 0.0)
-                    closing_lbl.configure(text=f"Closing = {op + rec - iss:.3f}")
-                    used_amt_lbl.configure(text=f"Amount Used = Rs. {iss * rate:.2f}")
-                except Exception:
-                    pass
-
-            for key in ("op_e", "rec_e", "iss_e", "cp_e"):
-                widgets[key].bind("<KeyRelease>", _on_change)
-
-            def _save_new():
-                try:
-                    new_name = widgets["name_e"].get().strip()
-                    if not new_name:
-                        self._popup("⚠️ Missing", "Item name is required."); return
-                    new_cat  = widgets["cat_e"].get().strip() or "Dry"
-                    new_unit = widgets["unit_e"].get().strip() or "Kgs"
-                    new_cp   = float(widgets["cp_e"].get() or 0.0)
-                    new_op   = float(widgets["op_e"].get() or 0.0)
-                    new_rec  = float(widgets["rec_e"].get() or 0.0)
-                    new_iss  = float(widgets["iss_e"].get() or 0.0)
-                    new_bcf  = new_op + new_rec - new_iss
-                except ValueError:
-                    self._popup("⚠️ Invalid Input", "Please enter valid numbers.")
-                    return
-
-                with get_db() as conn:
-                    existing = conn.execute("SELECT id FROM inventory WHERE item=? COLLATE NOCASE", (new_name,)).fetchone()
-                    if existing:
-                        inv_id = existing[0]
-                        conn.execute("UPDATE inventory SET cat=?, unit=?, cp=? WHERE id=?",
-                                     (new_cat, new_unit, new_cp, inv_id))
-                    else:
-                        cur = conn.execute(
-                            "INSERT INTO inventory (item, cat, unit, stock, min_lvl, opening, received, cp, updated) "
-                            "VALUES (?,?,?,0.0,0.0,?,?,?,?)",
-                            (new_name, new_cat, new_unit, new_op, new_rec, new_cp, d))
-                        inv_id = cur.lastrowid
-
-                    conn.execute("DELETE FROM stock_ledger WHERE inv_id=? AND date=?", (inv_id, d))
-                    if new_op != 0:
-                        conn.execute(
-                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
-                            "VALUES (?,?,'Opening',?,'Opening balance BBF')", (d, inv_id, new_op))
-                    if new_rec > 0:
-                        conn.execute(
-                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
-                            "VALUES (?,?,'Received',?,'Stock Received')", (d, inv_id, new_rec))
-                    if new_iss > 0:
-                        conn.execute(
-                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
-                            "VALUES (?,?,'Batch_Prep',?,'Material used for production')", (d, inv_id, -new_iss))
-
-                    sync_inventory_stock(conn)
-
-                overlay.destroy()
-                self._toast(f"✅ Inventory '{new_name}' added")
-                refresh_cb()
-
-            btn(body, "💾  Add Item", _save_new, fg=GREEN, hv=DGREEN, h=42).pack(fill="x", pady=(12, 0))
         def _delete_inv(d, inv_id, item, refresh_cb):
             if self._confirm("Delete Inventory Record",
                              f"Remove all stock_ledger entries for '{item}' on {d}?\n"
