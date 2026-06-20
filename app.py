@@ -928,13 +928,15 @@ class CanteenApp(ctk.CTk):
         scroll = ctk.CTkScrollableFrame(self._area, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=0, pady=0)
 
+        wasted_plates = sum(r["wastage"] for r in sales)
+
         # KPI cards ------------------------------------------------------------
         KPI = [
             ("\U0001f4b0", "Revenue",        f"Rs. {f_in(rev)}",   SAFFRON, BG_SAF, T_SAF),
             ("\U0001f35b", "Meals Served",    str(meals),          GREEN,   BG_GRN, T_GRN),
             ("\U0001f4c8", "Net Profit",      f"Rs. {f_in(profit)}", BLUE,    BG_BLU, T_BLU),
             ("\U0001f4b8", "Expenditure",     f"Rs. {f_in(exp)}",    PURPLE,  BG_PUR, T_PUR),
-            ("\u267b\ufe0f", "Wastage Cost",  f"Rs. {f_in(wcost)}",  ORANGE,  BG_SAF, T_SAF),
+            ("\u267b\ufe0f", "Wastage",       f"{wasted_plates} Meals",  ORANGE,  BG_SAF, T_SAF),
             ("\U0001f381", f"Samples ({sqty})", f"Rs. {f_in(scost)}", TEAL,  BG_TEA, T_TEA),
             ("👨‍🍳", f"Staff ({stf_qty})", f"Rs. {f_in(stf_cost)}", ARMY_BG, "#f1f5f9", ARMY_BG),
             ("\u26a0\ufe0f", "Low Stock",     str(len(low)),       RED,     BG_RED, T_RED),
@@ -3492,6 +3494,7 @@ class CanteenApp(ctk.CTk):
         rev   = sum(r["sp"]*r["sold"] for r in s_rows)
         meals = sum(r["sold"] for r in s_rows)
         waste = int(w_row["t"] or 0)
+        wasted_plates = sum(r["wastage"] for r in s_rows)
         exp   = sum(r["t"] or 0 for r in e_sum_rows)
         samp_complimentary = [s for s in samp_rows if (s["given_to"] or "").strip().lower() != "staff"]
         samp_staff         = [s for s in samp_rows if (s["given_to"] or "").strip().lower() == "staff"]
@@ -3593,7 +3596,7 @@ class CanteenApp(ctk.CTk):
         for i,(icon,t,v,tc,bg_c,br) in enumerate([
             ("💰","Revenue",f"Rs. {f_in(rev)}",GREEN,BG_GRN,T_GRN),
             ("🍽","Meals",f_in(meals),SAFFRON,BG_SAF,T_SAF),
-            ("♻️","Wastage Cost",f"Rs. {f_in(waste)}",ORANGE,BG_SAF,T_SAF),
+            ("♻️","Wastage",f"{wasted_plates} Meals",ORANGE,BG_SAF,T_SAF),
             ("🎁",f"Samples ({f_in(samp_qty)})",f"Rs. {f_in(samp_cost)}",TEAL,BG_TEA,T_TEA),
             ("👨‍🍳",f"Staff ({f_in(stf_qty)})",f"Rs. {f_in(stf_cost)}",ARMY_BG,"#f1f5f9",ARMY_BG),
             ("💸","Expenditure",f"Rs. {f_in(exp)}",PURPLE,BG_PUR,T_PUR),
@@ -4274,6 +4277,7 @@ class CanteenApp(ctk.CTk):
         # Note: waste represents manual raw material wastage from waste_tracker. 
         # Automatic meal wastage is already accounted for in exp (via raw materials).
         waste  = sum(w["cost_lost"] or 0 for w in w_rows)
+        wasted_plates_pdf = sum(r["wastage"] for r in s_rows)
         exp    = sum(r["amount"] for r in e_rows)
         net    = rev - exp - waste   # Net Income = Revenue - Expenditure - WasteCost
 
@@ -4356,7 +4360,7 @@ class CanteenApp(ctk.CTk):
         kpi_d1 = [
             [Paragraph("Total Revenue", TH_kpi), Paragraph(f"Rs. {f_in(rev)}", TD_kpi),
              Paragraph("Expenditure",   TH_kpi), Paragraph(f"Rs. {f_in(exp)}", TD_kpi),
-             Paragraph("Wastage Cost", TH_kpi), Paragraph(f"Rs. {f_in(waste)}", TD_kpi),
+             Paragraph("Wastage", TH_kpi), Paragraph(f"{wasted_plates_pdf} Meals", TD_kpi),
              Paragraph("Net Profit",    TH_kpi), Paragraph(f"Rs. {f_in(net)}",  TD_kpi)],
         ]
         kpi_t1 = Table(kpi_d1, colWidths=kpi_cols)
