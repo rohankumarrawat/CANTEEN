@@ -10349,7 +10349,6 @@ class CanteenApp(ctk.CTk):
         except Exception:
             pass
 
-# ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     app = CanteenApp()
     app.mainloop()
