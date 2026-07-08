@@ -3497,6 +3497,8 @@ class CanteenApp(ctk.CTk):
             # Automatic meal wastage is already absorbed in COGS and Raw Materials expenditure.
             w_row  = conn.execute("SELECT COALESCE(SUM(cost_lost),0) AS t FROM waste_tracker WHERE date>=? AND date<=?",
                                   (start,end)).fetchone()
+            w_rows = conn.execute("SELECT * FROM waste_tracker WHERE date>=? AND date<=? ORDER BY date DESC, id DESC",
+                                  (start,end)).fetchall()
             # Build lookup: (day_name, meal_type) → specific menu name
             sched_name_map = {}
             for row in conn.execute("SELECT dm.day, dm.meal_type, m.name FROM daily_menu dm JOIN menu m ON m.id=dm.menu_id"):
@@ -3996,6 +3998,60 @@ class CanteenApp(ctk.CTk):
                         ], [6, 1, 2, 2, 3], bg=WHITE if ix % 2 == 0 else STRIPE)
             else:
                 band(rc, "👨‍🍳  Staff Expenditure — None for this period", bg=STRIPE, tc=MID, h=36)
+
+            # ── Wastage Logs ──────────────────────────────────────────────────
+            band(rc, "♻️  Wastage Logs", bg=ARMY_BG, tc=GOLD_LT, h=40)
+            if w_rows:
+                import collections as _col
+                import datetime as _dt
+                waste_by_date = _col.OrderedDict()
+                for w in w_rows:
+                    d = w["date"]
+                    if d not in waste_by_date:
+                        waste_by_date[d] = []
+                    waste_by_date[d].append(w)
+
+                total_waste_cost = sum(w["cost_lost"] or 0 for w in w_rows)
+
+                for date_str, items in waste_by_date.items():
+                    try:
+                        d_obj = _dt.date.fromisoformat(date_str)
+                        date_display = d_obj.strftime("%A, %d %b %Y")
+                    except Exception:
+                        date_display = date_str
+
+                    sub_dh = tk.Frame(rc, bg="#FFF3E0", height=24)
+                    sub_dh.pack(fill="x")
+                    sub_dh.pack_propagate(False)
+                    tk.Label(sub_dh, text=f"  📅  {date_display}", bg="#FFF3E0", fg="#BF360C",
+                             font=("Helvetica", 10, "bold"), anchor="w").pack(side="left")
+                    day_total = sum(w["cost_lost"] or 0 for w in items)
+                    tk.Label(sub_dh, text=f"Total Loss: Rs. {f_in(day_total)}", bg="#FFF3E0", fg="#BF360C",
+                             font=("Helvetica", 10, "bold"), anchor="e").pack(side="right", padx=14)
+
+                    thead(rc, [("Item", 4), ("Qty Wasted", 2), ("Reason", 3), ("Cost Lost", 2), ("Recorded By", 3)],
+                          bg="#FFCCBC", tc="#BF360C")
+                    for ix, w in enumerate(items):
+                        trow(rc, [
+                            w["item"],
+                            str(w["qty_wasted"]),
+                            w["reason"] or "—",
+                            f"Rs. {f_in(w['cost_lost'] or 0)}",
+                            w["recorded_by"] or "—"
+                        ], [4, 2, 3, 2, 3],
+                        colors=[DARK, MID, MID, RED, MID],
+                        bg=WHITE if ix % 2 == 0 else "#FFF8F5")
+
+                # Total waste cost footer
+                wgt_f = tk.Frame(rc, bg="#BF360C", height=40)
+                wgt_f.pack(fill="x")
+                wgt_f.pack_propagate(False)
+                tk.Label(wgt_f, text="  ♻️  Total Wastage Loss", bg="#BF360C", fg="white",
+                         font=("Helvetica", 12, "bold"), anchor="w").pack(side="left", padx=14)
+                tk.Label(wgt_f, text=f"Rs. {f_in(total_waste_cost)}", bg="#BF360C", fg="#FFCCBC",
+                         font=("Helvetica", 15, "bold"), anchor="e").pack(side="right", padx=16)
+            else:
+                band(rc, "♻️  Wastage Logs — No wastage recorded for this period", bg=STRIPE, tc=MID, h=36)
 
             # Inventory closing stock (Note: Closing stock represents the levels as of the end date of the report range.
             # Unit abbreviations like 'Nos' represent 'Numbers' for unit-count tracking).
