@@ -3488,7 +3488,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
                 GROUP BY i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY i.cat, item_cost DESC
@@ -3500,7 +3500,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
                 GROUP BY sl.date, i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY sl.date DESC, i.cat, item_cost DESC
@@ -4166,7 +4166,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
                 GROUP BY i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY i.cat, item_cost DESC
@@ -4179,7 +4179,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
                 GROUP BY sl.date, i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY sl.date DESC, i.cat, item_cost DESC
