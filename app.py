@@ -299,11 +299,13 @@ def init_db():
             c.execute("DELETE FROM menu WHERE id = ?", (mix_id,))
 
         # ── Samples migration: move misclassified wastage rows into samples table ──
-        # Items prepared but sold=0 (AMUL KOOL, LAHARI JEERA, LASSI etc.) were stored
-        # as wastage. Move them to the samples table and zero out wastage.
+        # ONE-TIME ONLY: Items prepared but sold=0 (AMUL KOOL, LAHARI JEERA, LASSI etc.)
+        # were stored as wastage in old data. Move them to the samples table ONLY if
+        # a matching sample row (with notes='Migrated from wastage') does NOT already exist.
+        # This prevents the migration from re-running every startup and wiping user-entered data.
         sample_meal_candidates = c.execute(
             "SELECT id, date, menu_id, meal, sp, wastage, cogs FROM sales "
-            "WHERE sold = 0 AND wastage > 0"
+            "WHERE sold = 0 AND wastage > 0 AND date < '2026-06-01'"
         ).fetchall()
         for row in sample_meal_candidates:
             # Check there is no existing samples row for this date+meal already
@@ -317,8 +319,8 @@ def init_db():
                     "VALUES (?,?,?,?,?,?,'General','Migrated from wastage')",
                     (row[1], row[2], row[3], row[4], row[5], row[6])
                 )
-            # Zero out wastage on the sales row
-            c.execute("UPDATE sales SET wastage=0 WHERE id=?", (row[0],))
+                # Zero out wastage ONLY when we migrate it to samples (one-time only)
+                c.execute("UPDATE sales SET wastage=0 WHERE id=?", (row[0],))
 
         # Performance indexes (CREATE IF NOT EXISTS is idempotent)
         c.executescript("""
