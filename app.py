@@ -3321,25 +3321,51 @@ class CanteenApp(ctk.CTk):
         item = raw.split(" (")[0].strip() if " (" in raw else raw.strip()
         if not item or qty <= 0:
             self._popup("\u26a0\ufe0f Invalid","Select item and enter qty > 0."); return
+        waste_date = datetime.now().strftime("%Y-%m-%d")
         with get_db() as conn:
             conn.execute(
                 "INSERT INTO waste_tracker (date,item,qty_wasted,reason,cost_lost,recorded_by) "
                 "VALUES (?,?,?,?,?,?)",
-                (datetime.now().strftime("%Y-%m-%d"), item, qty,
-                 self._wr.get(), cost, self._user["name"]))
+                (waste_date, item, qty, self._wr.get(), cost, self._user["name"]))
             if getattr(self, "_waste_deduct", None) and self._waste_deduct.get():
                 conn.execute("UPDATE inventory SET stock=stock-? WHERE item=?", (qty, item))
+                # ✅ CRITICAL: Write to stock_ledger so sync_inventory_stock() on
+                # restart permanently reflects this waste deduction.
+                inv_row = conn.execute("SELECT id FROM inventory WHERE item=?", (item,)).fetchone()
+                if inv_row:
+                    conn.execute(
+                        "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                        "VALUES (?, ?, 'Waste', ?, ?)",
+                        (waste_date, inv_row["id"], -qty, f"Waste recorded: {self._wr.get()}")
+                    )
         self._toast(f"\u2705 Waste: {item} ({qty}) \u2014 {self._wr.get()}")
         self._live_refresh("waste")
 
     def _del_waste(self, wid):
         with get_db() as conn:
-            rec = conn.execute("SELECT item, qty_wasted FROM waste_tracker WHERE id=?", (wid,)).fetchone()
+            rec = conn.execute("SELECT item, qty_wasted, date FROM waste_tracker WHERE id=?", (wid,)).fetchone()
             conn.execute("DELETE FROM waste_tracker WHERE id=?", (wid,))
             if rec:
-                # Restore deducted stock when waste entry is deleted
-                conn.execute("UPDATE inventory SET stock = MIN(stock + ?, opening + received) WHERE item=?",
-                             (rec["qty_wasted"], rec["item"]))
+                item, qty_wasted, waste_date = rec["item"], rec["qty_wasted"], rec["date"]
+                # Restore stock directly
+                conn.execute("UPDATE inventory SET stock=stock+? WHERE item=?", (qty_wasted, item))
+                # ✅ CRITICAL: Write a reversal to stock_ledger so sync_inventory_stock()
+                # on restart correctly restores the stock permanently.
+                inv_row = conn.execute("SELECT id FROM inventory WHERE item=?", (item,)).fetchone()
+                if inv_row:
+                    # Remove the original Waste ledger entry if it exists
+                    conn.execute(
+                        "DELETE FROM stock_ledger WHERE inv_id=? AND date=? "
+                        "AND transaction_type='Waste' AND qty_change=?",
+                        (inv_row["id"], waste_date, -qty_wasted)
+                    )
+                    if conn.execute("SELECT changes()").fetchone()[0] == 0:
+                        # No exact ledger entry found — add explicit reversal
+                        conn.execute(
+                            "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?, ?, 'Waste_Reversal', ?, ?)",
+                            (waste_date, inv_row["id"], qty_wasted, f"Waste entry deleted")
+                        )
         self._go("waste")
 
     # ==============================================================================
