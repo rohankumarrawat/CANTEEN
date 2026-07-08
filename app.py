@@ -2028,14 +2028,41 @@ class CanteenApp(ctk.CTk):
             if not updates:
                 self._popup("⚠️ Nothing to update","Fill at least one field."); return
 
-            set_clause = ", ".join(f"{k}=?" for k in updates)
             with get_db() as conn:
+                # Fetch current id and stock BEFORE update
+                cur_row = conn.execute(
+                    "SELECT id, stock FROM inventory WHERE item=? COLLATE NOCASE", (item,)
+                ).fetchone()
+                if not cur_row:
+                    self._popup("⚠️ Error", f"Item '{item}' not found."); return
+                inv_id    = cur_row["id"]
+                cur_stock = cur_row["stock"] or 0.0
+
+                set_clause = ", ".join(f"{k}=?" for k in updates)
                 try:
                     conn.execute(f"UPDATE inventory SET {set_clause} WHERE item=?",
                                  (*updates.values(), item))
                 except sqlite3.IntegrityError:
                     self._popup("⚠️ Duplicate", f"An item named '{updates['item']}' already exists.")
                     return
+
+                # ── KEY FIX ──────────────────────────────────────────────────
+                # sync_inventory_stock() (called on every startup) recalculates
+                # inventory.stock from SUM(stock_ledger.qty_change).
+                # If we only write to inventory.stock directly without adding a
+                # ledger entry, the edit is erased on next restart.
+                # Fix: insert an 'Adjustment' ledger row for the stock difference.
+                if "stock" in updates:
+                    delta = updates["stock"] - cur_stock
+                    if delta != 0:
+                        today = datetime.now().strftime("%Y-%m-%d")
+                        conn.execute(
+                            "INSERT INTO stock_ledger "
+                            "(date, inv_id, transaction_type, qty_change, notes) "
+                            "VALUES (?,?,'Adjustment',?,'Manual stock correction')",
+                            (today, inv_id, delta))
+                # ─────────────────────────────────────────────────────────────
+
             self._popup("✅ Updated!", f"{item} updated.")
             close(); self._go("inventory")
 
