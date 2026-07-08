@@ -1,0 +1,174 @@
+ 89 | Packing Material     | Nos    | stock=     0.000 | cp=    4.72 | 400ml PP Box
+ 71 | Dry                  | Kgs    | stock=     7.000 | cp=  147.00 | Achar
+ 34 | Dry                  | Kgs    | stock=     0.000 | cp=    0.00 | Ajinomoto
+ 38 | Dry                  | Pkt    | stock=     0.550 | cp=  252.00 | Ajwain
+ 67 | Dry                  | Pkt    | stock=    10.000 | cp=  105.00 | Amchur Powder
+137 | Milk Based Product   | Pkt    | stock=     0.000 | cp=   20.00 | Amul Kool
+  1 | Dry                  | Kgs    | stock=  1370.000 | cp=   31.00 | Atta
+ 30 | Dry                  | Kgs    | stock=     0.120 | cp= 1995.00 | Badi Elaichi
+ 62 | Dry                  | Pkt    | stock=     2.000 | cp=   67.20 | Baking Powder
+171 | Dry                  | kgs    | stock=     0.000 | cp=    0.00 | Baking Powder(Expensive)
+ 90 | Milk Based Product   | Kgs    | stock=    15.000 | cp=  280.00 | Barfi
+101 | Fresh                | Kgs    | stock=    -0.000 | cp=  160.00 | Beans
+  8 | Dry                  | Kgs    | stock=    50.000 | cp=   90.00 | Besan
+153 | Dry                  | kg     | stock=     0.000 | cp=   94.00 | Besan Expensive
+ 83 | Packing Material     | Nos    | stock=   137.000 | cp=    3.36 | Big Foil Box (Biryani)
+ 53 | Dry                  | Pkt    | stock=    14.000 | cp=   73.50 | Biryani Masala
+ 88 | Packing Material     | Nos    | stock=     3.000 | cp=  141.60 | Black Packet
+ 69 | Dry                  | Pkt    | stock=     0.000 | cp=  120.00 | Black Pepper Powder
+105 | Fresh                | Kgs    | stock=     0.000 | cp=   20.00 | Bottle Gourd
+139 | Milk Based Product   | Pcs    | stock=     0.000 | cp=   30.00 | Brownie
+145 | Milk Based Product   | kg     | stock=     0.000 | cp=  200.00 | Bundi
+ 85 | Packing Material     | Nos    | stock=   150.000 | cp=    0.24 | Butter Roti Paper
+106 | Fresh                | Kgs    | stock=     0.000 | cp=   40.00 | Cabbage
+100 | Fresh                | Kgs    | stock=    -8.000 | cp=   48.00 | Capsicum
+102 | Fresh                | Kgs    | stock=     0.000 | cp=   80.00 | Carrot
+103 | Fresh                | Kgs    | stock=     0.000 | cp=   64.00 | Cauliflower
+114 | Dry                  | Kgs    | stock=     0.500 | cp=  752.00 | Chaat Masala
+ 37 | Dry                  | Pkt    | stock=     0.000 | cp=   75.20 | Chaat Masala (Pkt)
+136 | Milk Based Product   | Pkt    | stock=     0.000 | cp=    8.00 | Chach
+116 | Dry                  | Kgs    | stock=     1.120 | cp=  751.88 | Chana Masala
+ 29 | Dry                  | Pkt    | stock=    -0.000 | cp=  736.01 | Chana Masala (Pkt)
+ 43 | Dry                  | Pkt    | stock=     0.000 | cp=  736.00 | Chana Masala (Pkt) 2
+164 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Chana Masala(Expensive)
+ 40 | Dry                  | Kgs    | stock=     1.700 | cp=  752.00 | Chat Masala (Kgs)
+113 | Packing Material     | Pkt    | stock=     0.000 | cp=  600.00 | Cling Wrap
+ 99 | Fresh                | Kgs    | stock=    -0.450 | cp=   35.00 | Coriander
+174 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Coriander(Expensive)
+131 | Dry                  | Pkt    | stock=     0.000 | cp=   80.00 | Corn Flour
+ 72 | Dry                  | Kgs    | stock=     4.000 | cp=  220.00 | Cream
+107 | Fresh                | Kgs    | stock=    32.000 | cp=   18.00 | Cucumber
+175 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Cucumber(Expensive)
+111 | Milk Based Product   | Kgs    | stock=     0.000 | cp=   75.00 | Dahi
+  9 | Dry                  | Kgs    | stock=    50.000 | cp=  120.00 | Dal Arhar
+  7 | Dry                  | Kgs    | stock=    52.000 | cp=   80.00 | Dal Chana
+ 68 | Dry                  | Pkt    | stock=     0.000 | cp=   10.00 | Dal Makhani Masala
+ 10 | Dry                  | Pkt    | stock=    16.000 | cp=   84.00 | Dal Masoor (S)
+ 19 | Dry                  | Kgs    | stock=     0.270 | cp=  400.00 | Dalchini
+ 23 | Dry                  | Kgs    | stock=     2.710 | cp=  959.99 | Deggi Mirch
+ 35 | Dry                  | Kgs    | stock=    18.000 | cp=  504.00 | Desi Ghee
+ 27 | Dry                  | Kgs    | stock=     1.205 | cp=  199.50 | Dhaniya (S)
+ 55 | Dry                  | Kgs    | stock=     4.820 | cp=  199.50 | Dhaniya Powder
+169 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Dhaniya Powder(Expensive)
+ 54 | Dry                  | Kgs    | stock=    -0.000 | cp= 3150.00 | Elaichi Small Gr
+124 | Dry                  | Pkt    | stock=     0.000 | cp=   60.00 | Eno
+ 75 | Packing Material     | Nos    | stock=  1734.000 | cp=    1.68 | Foil Box (Rice, Sabji)
+ 51 | Dry                  | Pkt    | stock=     5.000 | cp=   68.44 | Food Colour
+167 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Food Colour(Expensive)
+ 25 | Dry                  | Kgs    | stock=     0.800 | cp=  920.00 | Garam Masala
+ 96 | Fresh                | Kgs    | stock=     0.350 | cp=  154.00 | Garlic
+ 95 | Fresh                | Kgs    | stock=     0.850 | cp=  110.00 | Ginger
+ 98 | Fresh                | Kgs    | stock=     1.325 | cp=   55.00 | Green Chilli
+146 | Dry                  | Kgs    | stock=     0.000 | cp=    0.00 | Green Chilli Sause
+104 | Fresh                | Kgs    | stock=     0.000 | cp=   35.00 | Green Onion
+ 97 | Fresh                | Kgs    | stock=     0.000 | cp=   95.00 | Green Peas
+ 73 | Dry                  | Kgs    | stock=     0.000 | cp=   80.00 | Gud
+ 42 | Dry                  | Btl    | stock=     9.000 | cp=   66.15 | Gulab Jal
+117 | Milk Based Product   | Kgs    | stock=     0.000 | cp=  250.00 | Guldana
+ 17 | Dry                  | Kgs    | stock=     0.100 | cp=  231.00 | Haldi Powder
+156 | Dry                  | kg     | stock=     8.000 | cp=  290.00 | Haldi Powder(Expensive)
+144 | Dry                  | Kgs    | stock=     0.000 | cp=    0.00 | Hara Dhaniya
+ 21 | Dry                  | Nos    | stock=     5.000 | cp=   89.25 | Hing
+158 | Dry                  | kg     | stock=     0.000 | cp=   10.00 | Hing Expensive
+125 | Dry                  | Pkt    | stock=     0.000 | cp=   45.00 | Imli
+127 | Dry                  | Pkt    | stock=     2.500 | cp=  120.00 | Imli (Expensive)
+ 66 | Dry                  | Kgs    | stock=    -0.000 | cp= 2730.00 | Javitri
+ 16 | Dry                  | Kgs    | stock=     3.450 | cp=  300.00 | Jeera (S)
+ 28 | Dry                  | Kgs    | stock=     1.700 | cp=  420.00 | Jeera Powder
+162 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Kadhai Paneer Masala
+ 44 | Dry                  | Kgs    | stock=    83.600 | cp=   78.00 | Kala Chana
+165 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Kala Chana(Expensive)
+ 56 | Dry                  | Kgs    | stock=     0.260 | cp=  882.00 | Kali Mirch (S)
+132 | Dry                  | Pkt    | stock=     0.000 | cp=   65.00 | Kali Mirch Powder
+150 | Dry                  | kgs    | stock=     0.000 | cp=  200.00 | Kali Sarson
+ 24 | Dry                  | Kgs    | stock=     0.600 | cp=  336.00 | Kasuri Methi
+159 | Dry                  | Kg     | stock=     0.000 | cp=    0.00 | Kasuri methi (Expensive)
+168 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Kevada Water
+ 52 | Dry                  | Btl    | stock=    10.000 | cp=   70.80 | Kewra Water
+ 70 | Dry                  | Pkt    | stock=     0.000 | cp= 2100.00 | Khus Khus
+ 22 | Dry                  | Kgs    | stock=     2.740 | cp=  800.01 | Kitchen King
+128 | Fresh                | Kgs    | stock=     0.000 | cp=   30.00 | Kulcha
+ 59 | Dry                  | Kgs    | stock=    32.600 | cp=   63.87 | LPG
+135 | Milk Based Product   | Btl    | stock=     0.000 | cp=    8.00 | Lahori Zeera
+141 | Dry                  | Kgs    | stock=    -0.047 | cp=    0.00 | Lal Mirch
+143 | Dry                  | Kgs    | stock=     0.000 | cp=    0.00 | Lal Mirch Powder
+138 | Milk Based Product   | Pkt    | stock=     0.000 | cp=   16.00 | Lassi
+ 20 | Dry                  | Kgs    | stock=     0.000 | cp= 1800.00 | Laung
+110 | Fresh                | Kgs    | stock=     0.000 | cp=   60.00 | Lemon
+ 15 | Dry                  | Kgs    | stock=     0.000 | cp=  100.00 | Lobia
+133 | Dry                  | Kgs    | stock=     0.000 | cp=   70.00 | Maida
+ 12 | Dry                  | Kgs    | stock=    12.000 | cp=   85.00 | Masoor Dal (Malka)
+155 | Dry                  | kg     | stock=    12.000 | cp=   84.00 | Masoor Dal Malka
+108 | Fresh                | Kgs    | stock=     0.000 | cp=  100.00 | Matar
+ 49 | Dry                  | Kgs    | stock=    12.000 | cp=   60.00 | Matar (Frozen)
+ 47 | Dry                  | Btl    | stock=     0.000 | cp=   35.00 | Matar Paneer Masala
+ 31 | Dry                  | Kgs    | stock=     0.240 | cp=  105.00 | Methi Dana
+160 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Methi Dana(Expensive)
+ 39 | Dry                  | Kgs    | stock=     0.500 | cp=  367.50 | Mirchi (S)
+ 18 | Dry                  | Kgs    | stock=     5.900 | cp=  300.00 | Mirchi Powder
+157 | Dry                  | kg     | stock=     0.000 | cp=  315.00 | Mirchi Powder(Expensive)
+ 13 | Dry                  | Kgs    | stock=    12.000 | cp=  115.00 | Moong Dal Chilka
+ 57 | Dry                  | Kgs    | stock=     8.000 | cp=  168.00 | Moongphali Dana
+170 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Mungfali Dana
+142 | Dry                  | Kgs    | stock=    -0.010 | cp=    0.00 | Mustard Seed
+ 79 | Packing Material     | Nos    | stock=  9178.000 | cp=    0.35 | Napkin Tissue Paper
+ 93 | Fresh                | Kgs    | stock=    -0.500 | cp=   24.00 | Onion
+ 74 | Packing Material     | Nos    | stock=  3577.000 | cp=    3.19 | PP Box (Dal) Mini Meal
+151 | Dry                  | kg     | stock=     0.000 | cp=  400.00 | Panch Phuran
+109 | Fresh                | Kgs    | stock=    -6.500 | cp=  250.00 | Paneer
+ 84 | Packing Material     | Nos    | stock=  2486.000 | cp=    4.96 | Paper Box (Lunch)
+ 86 | Packing Material     | Nos    | stock=  2943.000 | cp=    3.36 | Paratha Box
+120 | Dry                  | Kgs    | stock=     9.000 | cp=   10.00 | Paratha Masala
+ 87 | Packing Material     | Nos    | stock=    47.000 | cp=    6.96 | Partition Box
+129 | Fresh                | Nos    | stock=     0.000 | cp=   35.00 | Pav
+112 | Fresh                | Kgs    | stock=     0.000 | cp=   35.00 | Pav / Kulcha
+ 48 | Dry                  | Btl    | stock=     0.000 | cp=   90.00 | Pav Bhaji Masala
+ 91 | Milk Based Product   | Kgs    | stock=    -3.000 | cp=  150.00 | Petha
+ 81 | Packing Material     | Nos    | stock=   885.000 | cp=    0.90 | Pickle & Paratha
+140 | Milk Based Product   | Pcs    | stock=     0.000 | cp=   15.00 | Plum Cake
+ 92 | Fresh                | Kgs    | stock=    -2.000 | cp=   13.00 | Potato
+118 | Fresh                | Kgs    | stock=    31.000 | cp=   12.00 | Pumpkin
+ 60 | Dry                  | Pkt    | stock=     0.000 | cp=  315.00 | Rai
+  5 | Dry                  | Kgs    | stock=    13.000 | cp=  115.00 | Rajma
+152 | Dry                  | kg     | stock=    80.000 | cp=  125.00 | Rajma (Expensive)
+ 32 | Dry                  | Pkt    | stock=     0.000 | cp=   72.00 | Rajma Masala
+115 | Dry                  | Kgs    | stock=     1.350 | cp=  736.25 | Rajma Masala (Kgs)
+ 41 | Dry                  | Kgs    | stock=     1.850 | cp=  736.00 | Rajmah Masala
+163 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Rajmah Masala(Expensive)
+ 46 | Dry                  | Btl    | stock=     0.000 | cp=   90.00 | Red Chilli Sauce
+  3 | Dry                  | Ltr    | stock=   240.000 | cp=  175.00 | Refined Oil
+149 | Dry                  | ltr    | stock=     0.000 | cp=  180.92 | Refined Oil (Expensive)
+  2 | Dry                  | Kgs    | stock=   615.500 | cp=   68.00 | Rice
+126 | Dry                  | Kgs    | stock=     0.000 | cp=   30.00 | Rice (Cheaper)
+166 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Rice(Idlee)
+ 76 | Packing Material     | Nos    | stock=  6800.000 | cp=    0.24 | Roti Pouch
+172 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Sabji Masala
+130 | Dry                  | Pkt    | stock=     0.000 | cp=  105.00 | Sabudana
+119 | Dry                  | Pkt    | stock=     0.000 | cp=   70.00 | Sabzi Masala
+ 77 | Packing Material     | Nos    | stock=  6533.000 | cp=    0.18 | Salad Pkt
+ 26 | Dry                  | Kgs    | stock=    22.000 | cp=   28.00 | Salt
+ 80 | Packing Material     | Nos    | stock=  6337.000 | cp=    0.15 | Salt Pouch
+ 58 | Dry                  | Pkt    | stock=     0.000 | cp=   76.00 | Sambhar Masala
+ 36 | Dry                  | Kgs    | stock=     0.000 | cp=  210.00 | Sarson
+  4 | Dry                  | Kgs    | stock=     0.400 | cp=  120.00 | Sarson Dana
+147 | Dry                  | Kgs    | stock=     0.000 | cp=    0.00 | Schezwan Sauce
+ 64 | Dry                  | Kgs    | stock=     0.450 | cp=  880.00 | Shahi Paneer Masala (Kgs)
+ 63 | Dry                  | Pkt    | stock=     0.000 | cp=   86.50 | Shahi Paneer Masala (Pkt)
+121 | Packing Material     | Kgs    | stock=     0.300 | cp=  708.00 | Silver Foil
+ 65 | Dry                  | Kgs    | stock=    41.000 | cp=   94.50 | Soya Bean Badiya
+134 | Dry                  | Btl    | stock=     0.000 | cp=   70.00 | Soya Sauce
+ 78 | Packing Material     | Nos    | stock=  4067.000 | cp=    0.50 | Spoon / Mini Meal
+ 50 | Dry                  | Kgs    | stock=     0.000 | cp= 1600.00 | Star Phool Masala
+ 61 | Dry                  | Kgs    | stock=     0.000 | cp=   49.00 | Sugar
+ 82 | Packing Material     | Nos    | stock=     3.000 | cp=   23.60 | Tape
+ 33 | Dry                  | Kgs    | stock=     0.549 | cp=  168.00 | Tej Patta
+161 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Tej Patta(Expensive)
+ 94 | Dry                  | Kgs    | stock=    10.500 | cp=   31.00 | Tomato
+173 | Dry                  | kg     | stock=     0.000 | cp=    0.00 | Tomato 'R'
+148 | Dry                  | Kgs    | stock=     0.000 | cp=    0.00 | Tomato Sauce
+123 | Fresh                | Nos    | stock=     0.000 | cp=   25.00 | Tori
+154 | Dry                  | kg     | stock=    13.000 | cp=  120.00 | URD CRD CHILKAT (Expensive)
+  6 | Dry                  | Kgs    | stock=     0.000 | cp=  120.00 | Urad (S)
+ 11 | Dry                  | Kgs    | stock=     0.000 | cp=  110.00 | Urad Dal Chilka
+ 14 | Dry                  | Kgs    | stock=    10.000 | cp=  135.00 | Urad Dhuli
+ 45 | Dry                  | Btl    | stock=     0.000 | cp=   84.00 | Vinegar
