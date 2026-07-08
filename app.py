@@ -2857,8 +2857,75 @@ class CanteenApp(ctk.CTk):
         
         with get_db() as conn: inv_items = [r["item"] for r in conn.execute("SELECT item FROM inventory ORDER BY item")]
         lbl(invf, "Inventory Item", size=11, weight="bold", color=ARMY_BG).grid(row=0, column=0, sticky="w", padx=14, pady=(8,4))
-        exp_iom = ctk.CTkOptionMenu(invf, values=inv_items or ["(none)"], font=ctk.CTkFont(size=11))
-        exp_iom.grid(row=1, column=0, sticky="ew", padx=(14,8), pady=(0,8))
+
+        # ── Searchable autocomplete for inventory item ────────────────────────
+        _exp_item_var = ctk.StringVar()
+        _exp_search_entry = ctk.CTkEntry(invf, textvariable=_exp_item_var,
+                                         placeholder_text="🔍 Type to search item...",
+                                         font=ctk.CTkFont(size=11), height=32)
+        _exp_search_entry.grid(row=1, column=0, sticky="ew", padx=(14,8), pady=(0,8))
+
+        _exp_suggestion_win = [None]
+        _exp_selected_item = [inv_items[0] if inv_items else ""]
+
+        def _exp_get_selected(): return _exp_selected_item[0]
+
+        def _exp_hide_suggestions(e=None):
+            if _exp_suggestion_win[0]:
+                try: _exp_suggestion_win[0].destroy()
+                except: pass
+                _exp_suggestion_win[0] = None
+
+        def _exp_show_suggestions(items):
+            _exp_hide_suggestions()
+            if not items: return
+            _exp_search_entry.update_idletasks()
+            rx = _exp_search_entry.winfo_rootx()
+            ry = _exp_search_entry.winfo_rooty() + _exp_search_entry.winfo_height()
+            rw = _exp_search_entry.winfo_width()
+            top = tk.Toplevel()
+            top.wm_overrideredirect(True)
+            top.geometry(f"{rw}x{min(8,len(items))*22+4}+{rx}+{ry}")
+            top.lift(); top.attributes("-topmost", True)
+            _exp_suggestion_win[0] = top
+            sb = tk.Scrollbar(top, orient="vertical")
+            lb = tk.Listbox(top, yscrollcommand=sb.set,
+                            bg="#2b2b2b", fg="white",
+                            selectbackground=ARMY_BG, selectforeground="white",
+                            font=("Helvetica", 11), relief="flat", bd=0,
+                            height=min(8, len(items)), activestyle="none")
+            sb.config(command=lb.yview)
+            sb.pack(side="right", fill="y")
+            lb.pack(side="left", fill="both", expand=True)
+            for it in items: lb.insert("end", it)
+            def _on_select(e=None):
+                sel = lb.curselection()
+                if sel:
+                    chosen = lb.get(sel[0])
+                    _exp_selected_item[0] = chosen
+                    _exp_item_var.set(chosen)
+                    _exp_hide_suggestions()
+                    exp_qty.focus_set()
+            lb.bind("<ButtonRelease-1>", _on_select)
+            lb.bind("<Return>", _on_select)
+            top.bind("<FocusOut>", lambda e: top.after(150, _exp_hide_suggestions))
+
+        def _exp_on_type(*args):
+            query = _exp_item_var.get().strip().lower()
+            if not query:
+                _exp_hide_suggestions(); return
+            matches = [it for it in inv_items if query in it.lower()]
+            _exp_show_suggestions(matches)
+            if len(matches) == 1:
+                _exp_selected_item[0] = matches[0]
+
+        _exp_item_var.trace_add("write", _exp_on_type)
+        _exp_search_entry.bind("<Escape>", _exp_hide_suggestions)
+
+        class _SearchProxy:
+            def get(self_): return _exp_selected_item[0]
+        exp_iom = _SearchProxy()
+
         lbl(invf, "Quantity Received", size=11, weight="bold", color=ARMY_BG).grid(row=0, column=1, sticky="w", padx=(8,14), pady=(8,4))
         exp_qty = entry(invf, ph="e.g. 50", h=32); exp_qty.grid(row=1, column=1, sticky="ew", padx=(8,14), pady=(0,8))
         invf.grid_columnconfigure(0, weight=2); invf.grid_columnconfigure(1, weight=1)
