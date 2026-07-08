@@ -108,13 +108,54 @@ sweets_items = [
     ('Bundi', 'Kgs', 0.0, 0, 0.0, 250.0, 0.00, 0.0, 0.00)
 ]
 
-fresh_items = []
+fresh_items = [
+    # (item, unit, bbf, received, issue, rate, amt, bcf, bcf_amt)
+    ('Potato', 'Kgs', 355.000, 0.000, 10.000, 13.00, 130.00, 345.000, 4485.00),
+    ('Onion', 'Kgs', 73.500, 0.000, 14.000, 24.00, 336.00, 59.500, 1428.00),
+    ('Onion (Expensive)', 'Kgs', 54.000, 0.000, 0.000, 26.00, 0.00, 54.000, 1404.00),
+    ('Tomato', 'Kgs', 6.490, 0.000, 6.490, 48.00, 311.52, 0.000, 0.00),
+    ('Tomato \'R\'', 'Kgs', 28.000, 0.000, 9.000, 45.00, 405.00, 19.000, 855.00),
+    ('Ginger', 'Kgs', 4.965, 0.000, 1.000, 187.00, 187.00, 3.965, 741.46),
+    ('Ginger (Expensive)', 'Kgs', 0.000, 0.000, 0.000, 250.00, 0.00, 0.000, 0.00),
+    ('Garlic', 'Kgs', 6.590, 0.000, 0.000, 176.00, 0.00, 6.590, 1159.84),
+    ('Garlic (Expensive)', 'Kgs', 1.550, 0.000, 1.550, 150.00, 232.50, 0.000, 0.00),
+    ('Pumpkin', 'Kgs', 30.000, 0.000, 0.000, 15.00, 0.00, 30.000, 450.00),
+    ('Green Chilli', 'Kgs', 0.000, 0.000, 0.000, 65.00, 0.00, 0.000, 0.00),
+    ('Green Chilli (Expensive)', 'Kgs', 6.000, 0.000, 2.000, 65.00, 130.00, 4.000, 260.00),
+    ('Coriander', 'Kgs', 0.000, 0.000, 0.000, 35.00, 0.00, 0.000, 0.00),
+    ('Coriander (Expensive)', 'Kgs', 2.235, 0.000, 1.000, 132.00, 132.00, 1.235, 163.02),
+    ('Capsicum', 'Kgs', 17.715, 0.000, 17.715, 88.00, 1558.92, 0.000, 0.00),
+    ('Beans', 'Kgs', 0.000, 1.000, 1.000, 160.00, 160.00, 0.000, 0.00),
+    ('Carrot', 'Kgs', 0.000, 1.000, 1.000, 80.00, 80.00, 0.000, 0.00),
+    ('Cauliflower', 'Kgs', 0.000, 1.500, 1.500, 180.00, 270.00, 0.000, 0.00),
+    ('Green Onion', 'Kgs', 0.000, 0.000, 0.000, 35.00, 0.00, 0.000, 0.00),
+    ('Bottle Gourd', 'Kgs', 0.000, 0.000, 0.000, 18.00, 0.00, 0.000, 0.00),
+    ('Cabbage', 'Kgs', 0.000, 0.000, 0.000, 20.00, 0.00, 0.000, 0.00),
+    ('Cabbage (Expensive)', 'Kgs', 0.000, 0.000, 0.000, 60.00, 0.00, 0.000, 0.00),
+    ('Cucumber', 'Kgs', 0.000, 0.000, 0.000, 33.00, 0.00, 0.000, 0.00),
+    ('Cucumber (Expensive)', 'Kgs', 12.000, 0.000, 12.000, 22.00, 264.00, 0.000, 0.00),
+    ('Beans (Expensive)', 'Kgs', 0.285, 0.000, 0.000, 83.00, 0.00, 0.285, 23.66),
+    ('Brinjal', 'Kgs', 0.785, 0.000, 0.000, 37.00, 0.00, 0.785, 29.05),
+    ('Drum Stick', 'Kgs', 0.000, 0.000, 0.000, 99.00, 0.00, 0.000, 0.00),
+    ('Paneer', 'Kgs', 0.000, 0.000, 0.000, 250.00, 0.00, 0.000, 0.00),
+    ('Lemon', 'Kgs', 0.000, 0.000, 0.000, 80.00, 0.00, 0.000, 0.00),
+    ('Milk Fresh', 'Kgs', 0.000, 0.000, 0.000, 62.00, 0.00, 0.000, 0.00),
+    ('Dahi', 'Kgs', 0.000, 0.000, 0.000, 80.00, 0.00, 0.000, 0.00),
+    ('Kulcha', 'Kgs', 0.000, 0.000, 0.000, 30.00, 0.00, 0.000, 0.00),
+    ('Tori', 'Kgs', 0.000, 0.000, 0.000, 25.00, 0.00, 0.000, 0.00),
+    ('Pav', 'Kgs', 0.000, 0.000, 0.000, 35.00, 0.00, 0.000, 0.00)
+]
 
 sales_summary = [
     # (name, prepared, sold, rate, income, expdr)
-    ("LUNCH", 405, 400, 70.0, 28000.0, 20168.722),
-    ("Paratha", 72, 70, 40.0, 2800.0, 1800.920),
-    ("MINI", 40, 40, 50.0, 2000.0, 1169.964)
+    ("LUNCH", 400, 397, 70.0, 27790.0, 23543.0),
+    ("Paratha", 72, 70, 40.0, 2800.0, 2486.0),
+    ("MINI MEAL", 40, 36, 50.0, 1800.0, 1308.0),
+    ("DAHI", 240, 239, 10.0, 2390.0, 2151.0),
+    ("CHACH", 200, 193, 10.0, 1930.0, 1737.0),
+    ("AMUL COOL", 5, 5, 20.0, 100.0, 90.0),
+    ("AMUL LASSI", 0, 0, 20.0, 0.0, 0.0),
+    ("LAHORI ZEE", 4, 4, 10.0, 40.0, 36.0)
 ]
 
 def seed_db():
@@ -204,6 +245,9 @@ def seed_db():
         print("Processing Sweets items...")
         process_item_list(sweets_items, 'Milk Based Product')
 
+        print("Processing Fresh items...")
+        process_item_list(fresh_items, 'Fresh')
+
         print("Processing Sales logs & Menu updates...")
         samples_list = [
             ("LUNCH",     1, "01 X LUNCH SAMPLE",       "General"),
@@ -216,7 +260,12 @@ def seed_db():
             "LUNCH": "Lunch",
             "PARATHA": "Paratha",
             "MINI": "Mini Meal",
-            "MINI MEAL": "Mini Meal"
+            "MINI MEAL": "Mini Meal",
+            "DAHI": "Dahi",
+            "CHACH": "Chach",
+            "AMUL COOL": "Amul Cool",
+            "AMUL LASSI": "Amul Lassi",
+            "LAHORI ZEE": "Lahori Zeera"
         }
 
         for meal, prepared, sold, rate, income, expdr in sales_summary:
@@ -267,15 +316,9 @@ def seed_db():
             wastage = max(0, prepared - sold - total_sample_qty)
             if prepared > 0 or sold > 0:
                 # Add Cash/UPI split
-                if meal == "LUNCH":
-                    cash_amt, upi_amt = 20400.0, 7600.0
-                    payment_str = 'Cash: 20400, UPI: 7600, Card: 0'
-                elif meal == "Paratha":
-                    cash_amt, upi_amt = 2040.0, 760.0
-                    payment_str = 'Cash: 2040, UPI: 760, Card: 0'
-                else: # MINI
-                    cash_amt, upi_amt = 1460.0, 540.0
-                    payment_str = 'Cash: 1460, UPI: 540, Card: 0'
+                cash_amt = round(income * 0.73, 2)
+                upi_amt = round(income - cash_amt, 2)
+                payment_str = f"Cash: {int(cash_amt)}, UPI: {int(upi_amt)}, Card: 0"
 
                 cursor.execute('''
                     INSERT INTO sales (date, menu_id, meal, sp, sold, wastage, cogs, payment, cash_amt, upi_amt, card_amt)
