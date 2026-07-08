@@ -4940,6 +4940,38 @@ class CanteenApp(ctk.CTk):
             story.append(Paragraph("No staff consumption records for this period.", BODY))
         story.append(Spacer(1, 0.5*cm))
 
+        # 3. Wastage Logs
+        story.append(Paragraph("Wastage Logs", SEC)); story.append(Spacer(1, 0.15*cm))
+        if w_rows:
+            import collections as _col
+            import datetime as _dt
+            waste_by_date = _col.OrderedDict()
+            for w in w_rows:
+                d = w["date"]
+                if d not in waste_by_date:
+                    waste_by_date[d] = []
+                waste_by_date[d].append(w)
+            
+            for date_str, items in waste_by_date.items():
+                try:
+                    d_obj = _dt.date.fromisoformat(date_str)
+                    date_display = d_obj.strftime("%A, %d %b %Y")
+                except Exception:
+                    date_display = date_str
+                
+                day_total = sum(w["cost_lost"] or 0 for w in items)
+                story.append(Paragraph(f"Date: {date_display} (Total Loss: Rs.{f_in(day_total)})", S("PDF_WST_DATE", fontName="Helvetica-Bold", fontSize=9, textColor=OliveGreen)))
+                story.append(Spacer(1, 0.05*cm))
+                story.append(pdf_table(
+                    ["Item", "Qty Wasted", "Reason", "Cost Lost", "Recorded By"],
+                    [[w["item"], str(w["qty_wasted"]), w["reason"] or "—", f"Rs.{f_in(w['cost_lost'] or 0)}", w["recorded_by"] or "—"]
+                     for w in items],
+                    [5.5*cm, 2.5*cm, 3.5*cm, 2.5*cm, 3.0*cm]))
+                story.append(Spacer(1, 0.2*cm))
+        else:
+            story.append(Paragraph("No wastage records for this period.", BODY))
+        story.append(Spacer(1, 0.5*cm))
+
         # Inventory (Note: Closing stock represents levels as of the end date of the report range)
         story.append(Paragraph("Inventory Closing Stock", SEC)); story.append(Spacer(1, 0.15*cm))
         story.append(pdf_table(
