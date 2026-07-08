@@ -2903,6 +2903,13 @@ class CanteenApp(ctk.CTk):
                                  (eq, eq, new_cp, it))
                     conn.execute("INSERT INTO goods_received (date,inv_id,qty,total_cost) VALUES (?,?,?,?)",
                                  (exp_date, row["id"], eq, amt))
+                    # ✅ CRITICAL: Also write to stock_ledger so sync_inventory_stock()
+                    # on restart correctly reflects this purchase permanently.
+                    conn.execute(
+                        "INSERT INTO stock_ledger (date, inv_id, transaction_type, qty_change, notes) "
+                        "VALUES (?, ?, 'Received', ?, ?)",
+                        (exp_date, row["id"], eq, f"Purchased via expenditure: {it}")
+                    )
             self._popup("✅ Expenditure Saved!", f"Rs. {f_in(amt)} under {cat}")
             e_amt.delete(0,"end"); e_notes.delete(0,"end")
             self._toast(f"✅ Rs. {f_in(amt)} under {cat}")
