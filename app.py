@@ -10569,3 +10569,6 @@ class CanteenApp(ctk.CTk):
 if __name__ == "__main__":
     app = CanteenApp()
     app.mainloop()
+
+# Trivial update to trigger fresh GitHub Actions workflow run
+
