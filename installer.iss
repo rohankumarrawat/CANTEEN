@@ -55,8 +55,8 @@ Name: "startmenuicon"; Description: "Create a &Start Menu shortcut"; GroupDescri
 ; Main application executable
 Source: "dist\AWWA_Lunch_Project.exe";  DestDir: "{app}"; Flags: ignoreversion
 
-; Database — only copy if one does NOT already exist (preserve client data)
-Source: "canteen.db";                   DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
+; Database — always overwrite the database with the latest version from the installer
+Source: "canteen.db";                   DestDir: "{app}"; Flags: ignoreversion
 
 ; App icon for shortcuts
 Source: "app_icon.ico";                 DestDir: "{app}"; Flags: ignoreversion
