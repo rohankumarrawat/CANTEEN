@@ -3804,6 +3804,20 @@ class CanteenApp(ctk.CTk):
                 pct = f"{amt/rev*100:.0f}%" if rev else "0%"
                 tk.Label(pc, text=pct, bg=bg_c, fg=MID, font=("Helvetica", 10), anchor="w").pack(padx=16,pady=(0,14),anchor="w")
 
+            if e_rows:
+                def _format_exp_note(r):
+                    raw_note = r["notes"] or ""
+                    import re as _re
+                    m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
+                    if m:
+                        return _resolve_meal_name(r["date"], m.group(1).strip())
+                    return raw_note or "—"
+
+                self._rept_section(rc, "Expenditure Summary",
+                    [("Notes", 8), ("Amount", 2)],
+                    [[_format_exp_note(r), f"Rs. {f_in(r['amount'])}"] for r in e_rows],
+                    [8, 2])
+
             # Expenditure — Dry / Fresh / Misc ingredient-level breakdown
             CAT_CLR = {"Dry": ("#FF9933", "#253D27"), "Fresh": (TEAL, "#0E2C2B"),
                        "Misc": (PURPLE, "#1E1733")}
@@ -3908,20 +3922,6 @@ class CanteenApp(ctk.CTk):
                 gt_f.pack_propagate(False)
                 tk.Label(gt_f, text="  📦  Grand Total — All Purchases", bg=ARMY_BG, fg=GOLD_LT, font=("Helvetica", 12, "bold"), anchor="w").pack(side="left", padx=14)
                 tk.Label(gt_f, text=f"Rs. {f_in(gr_grand_total)}", bg=ARMY_BG, fg=SAFFRON, font=("Helvetica", 15, "bold"), anchor="e").pack(side="right", padx=16)
-
-            if e_rows:
-                def _format_exp_note(r):
-                    raw_note = r["notes"] or ""
-                    import re as _re
-                    m = _re.search(r"Auto-expenditure for (.+?) batch", raw_note, _re.IGNORECASE)
-                    if m:
-                        return _resolve_meal_name(r["date"], m.group(1).strip())
-                    return raw_note or "—"
-
-                self._rept_section(rc, "Expenditure Summary",
-                    [("Notes", 8), ("Amount", 2)],
-                    [[_format_exp_note(r), f"Rs. {f_in(r['amount'])}"] for r in e_rows],
-                    [8, 2])
 
             # Samples split into Complimentary and Staff
             samp_complimentary = [s for s in samp_rows if (s["given_to"] or "").strip().lower() != "staff"]
