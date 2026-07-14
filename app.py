@@ -3592,7 +3592,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type IN ('Batch_Prep', 'DAILY_MENU')
                 GROUP BY i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY i.cat, item_cost DESC
@@ -3604,7 +3604,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type IN ('Batch_Prep', 'DAILY_MENU')
                 GROUP BY sl.date, i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY sl.date DESC, i.cat, item_cost DESC
@@ -4324,7 +4324,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type IN ('Batch_Prep', 'DAILY_MENU')
                 GROUP BY i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY i.cat, item_cost DESC
@@ -4337,7 +4337,7 @@ class CanteenApp(ctk.CTk):
                        ROUND(ABS(SUM(sl.qty_change)) * i.cp, 2) AS item_cost
                 FROM stock_ledger sl
                 JOIN inventory i ON i.id = sl.inv_id
-                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type = 'Batch_Prep'
+                WHERE sl.date >= ? AND sl.date <= ? AND sl.qty_change < 0 AND sl.transaction_type IN ('Batch_Prep', 'DAILY_MENU')
                 GROUP BY sl.date, i.id, i.cat, i.item, i.unit, i.cp
                 HAVING item_cost > 0
                 ORDER BY sl.date DESC, i.cat, item_cost DESC
@@ -9638,7 +9638,7 @@ class CanteenApp(ctk.CTk):
                     "SELECT DISTINCT i.id, i.item, i.cat, i.unit, i.cp, i.stock,"
                     " COALESCE((SELECT SUM(qty_change) FROM stock_ledger WHERE inv_id=i.id AND date=? AND transaction_type='Opening'), 0) AS opening,"
                     " COALESCE((SELECT SUM(qty_change) FROM stock_ledger WHERE inv_id=i.id AND date=? AND transaction_type='Received'), 0) AS received,"
-                    " COALESCE(ABS((SELECT SUM(qty_change) FROM stock_ledger WHERE inv_id=i.id AND date=? AND transaction_type='Batch_Prep')), 0) AS issued"
+                    " COALESCE(ABS((SELECT SUM(qty_change) FROM stock_ledger WHERE inv_id=i.id AND date=? AND transaction_type IN ('Batch_Prep', 'DAILY_MENU'))), 0) AS issued"
                     " FROM inventory i"
                     " WHERE EXISTS (SELECT 1 FROM stock_ledger sl WHERE sl.inv_id=i.id AND sl.date=?)"
                     " ORDER BY i.cat, i.item",
