@@ -1737,9 +1737,9 @@ class CanteenApp(ctk.CTk):
         # Header row (widths MUST match cell widths in _inv_loadrows)
         hdr = ctk.CTkFrame(tc, fg_color=ARMY_BG, corner_radius=0, height=36)
         hdr.pack(fill="x"); hdr.pack_propagate(False)
-        INV_HDR = [("Item", 195), ("Category", 100), ("Unit", 60),
-                   ("Opening", 80), ("Received", 85), ("Stock", 80),
-                   ("Min Lvl", 75), ("Status", 75)]
+        INV_HDR = [("Item", 185), ("Category", 100), ("Unit", 55),
+                   ("Price/Unit", 80), ("Opening", 75), ("Received", 75),
+                   ("Stock", 75), ("Total Price", 95), ("Min Lvl", 70), ("Status", 70)]
         for col, w in INV_HDR:
             cf = ctk.CTkFrame(hdr, fg_color="transparent", width=w)
             cf.pack(side="left", fill="y"); cf.pack_propagate(False)
@@ -1831,9 +1831,11 @@ class CanteenApp(ctk.CTk):
                     (f"  {item['item']}",        True,  DARK),
                     (f"{cat_icon} {item['cat']}", False, MID),
                     (item["unit"],               False, MID),
+                    (f"Rs. {f_in(item['cp'] or 0.0, 2)}", False, MID),
                     (f"{item['opening']:.1f}",   False, MID),
                     (f"{item['received']:.1f}",  False, MID),
                     (f"{item['stock']:.1f}",     True,  RED if low else GREEN),
+                    (f"Rs. {f_in((item['stock'] or 0.0) * (item['cp'] or 0.0), 2)}", True, GREEN),
                     (f"{item['min_lvl']:.1f}",   False, MID),
                     ("⚠ LOW" if low else "✓ OK", True,  RED if low else GREEN),
                 ]
