@@ -1980,39 +1980,67 @@ class CanteenApp(ctk.CTk):
 
         lbl(body, "Select Item (Searchable)", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
         se = ctk.CTkEntry(body, placeholder_text="🔍 Type to search...", height=32); se.pack(fill="x", pady=(0,4))
-        iom = ctk.CTkOptionMenu(body, values=items or ["(none)"], font=ctk.CTkFont(size=12))
-        def filter_items(*args, e=se, i=iom, opts=items):
-            q = e.get().lower(); fil = [x for x in opts if q in x.lower()]
-            i.configure(values=fil or ["(none)"])
-            if fil: i.set(fil[0])
-        se.bind("<KeyRelease>", filter_items)
-        iom.set(items[0] if items else ""); iom.pack(fill="x", pady=(0,12))
 
         fields = {}
-        # New Item Name
-        lbl(body, "New Item Name  (leave blank to skip)", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
+        # Item Name
+        lbl(body, "Item Name", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
         e_name = entry(body, ph="e.g., Mustard Oil", h=38); e_name.pack(fill="x", pady=(0,4))
         fields["item"] = e_name
 
-        # New Category dropdown
-        lbl(body, "New Category  (leave blank to skip)", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
+        # Category dropdown
+        lbl(body, "Category", size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
         cat_menu = ctk.CTkOptionMenu(
             body,
-            values=["— Skip —", "Dry", "Fresh", "Milk Based Product", "Misc", "Packing Material", "Misc(Civ. Payment)"],
+            values=["Dry", "Fresh", "Milk Based Product", "Misc", "Packing Material", "Misc(Civ. Payment)"],
             font=ctk.CTkFont(size=12),
             height=36
         )
-        cat_menu.set("— Skip —"); cat_menu.pack(fill="x", pady=(0,4))
+        cat_menu.pack(fill="x", pady=(0,4))
 
         # Rest of entry fields (stock, min_lvl, cp)
         for lbl_t, attr, ph in [
-            ("New Stock Level (leave blank to skip)", "stock",   "e.g., 50"),
-            ("New Min Level  (leave blank to skip)",  "min_lvl", "e.g., 10"),
-            ("New Cost Price Rs. (leave blank to skip)","cp",      "e.g., 45"),
+            ("Stock Level", "stock",   "e.g., 50"),
+            ("Min Level Alert",  "min_lvl", "e.g., 10"),
+            ("Cost Price Rs.", "cp",      "e.g., 45"),
         ]:
             lbl(body, lbl_t, size=11, weight="bold", color=ARMY_BG).pack(anchor="w", pady=(4,3))
             e = entry(body, ph=ph, h=38); e.pack(fill="x", pady=(0,4))
             fields[attr] = e
+
+        def update_fields(selected_item):
+            if not selected_item or selected_item == "(none)":
+                return
+            with get_db() as conn:
+                r = conn.execute("SELECT * FROM inventory WHERE item=?", (selected_item,)).fetchone()
+            if r:
+                # Update Item Name
+                e_name.delete(0, tk.END)
+                e_name.insert(0, r["item"])
+                # Update Category
+                cat_menu.set(r["cat"])
+                # Update Stock Level
+                fields["stock"].delete(0, tk.END)
+                fields["stock"].insert(0, f"{r['stock']:.3f}".rstrip('0').rstrip('.'))
+                # Update Min Level
+                fields["min_lvl"].delete(0, tk.END)
+                fields["min_lvl"].insert(0, f"{r['min_lvl']:.3f}".rstrip('0').rstrip('.'))
+                # Update Cost Price
+                fields["cp"].delete(0, tk.END)
+                fields["cp"].insert(0, f"{r['cp']:.2f}".rstrip('0').rstrip('.'))
+
+        iom = ctk.CTkOptionMenu(body, values=items or ["(none)"], font=ctk.CTkFont(size=12), command=update_fields)
+        def filter_items(*args, e=se, i=iom, opts=items):
+            q = e.get().lower(); fil = [x for x in opts if q in x.lower()]
+            i.configure(values=fil or ["(none)"])
+            if fil: 
+                i.set(fil[0])
+                update_fields(fil[0])
+        se.bind("<KeyRelease>", filter_items)
+        iom.set(items[0] if items else ""); iom.pack(fill="x", pady=(0,12))
+
+        # Initial load of values
+        if items:
+            update_fields(items[0])
 
         def save():
             item = iom.get(); updates = {}
@@ -2026,8 +2054,7 @@ class CanteenApp(ctk.CTk):
                         except: self._popup("⚠️ Invalid","Numeric values only."); return
             
             cat_val = cat_menu.get()
-            if cat_val != "— Skip —":
-                updates["cat"] = cat_val
+            updates["cat"] = cat_val
 
             if not updates:
                 self._popup("⚠️ Nothing to update","Fill at least one field."); return
@@ -2050,12 +2077,7 @@ class CanteenApp(ctk.CTk):
                     self._popup("⚠️ Duplicate", f"An item named '{updates['item']}' already exists.")
                     return
 
-                # ── KEY FIX ──────────────────────────────────────────────────
-                # sync_inventory_stock() (called on every startup) recalculates
-                # inventory.stock from SUM(stock_ledger.qty_change).
-                # If we only write to inventory.stock directly without adding a
-                # ledger entry, the edit is erased on next restart.
-                # Fix: insert an 'Adjustment' ledger row for the stock difference.
+                # ── Adjustment Ledger ──────────────────────────────────────────
                 if "stock" in updates:
                     delta = updates["stock"] - cur_stock
                     if delta != 0:
