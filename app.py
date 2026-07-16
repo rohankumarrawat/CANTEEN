@@ -1735,15 +1735,15 @@ class CanteenApp(ctk.CTk):
         tc.pack(fill="both", expand=True, padx=PAD, pady=(10,PAD))
 
         # Header row (widths MUST match cell widths in _inv_loadrows)
-        hdr = ctk.CTkFrame(tc, fg_color=ARMY_BG, corner_radius=0, height=36)
+        hdr = ctk.CTkFrame(tc, fg_color=ARMY_BG, corner_radius=0, height=40)
         hdr.pack(fill="x"); hdr.pack_propagate(False)
-        INV_HDR = [("Item", 185), ("Category", 100), ("Unit", 55),
-                   ("Price/Unit", 80), ("Opening", 75), ("Received", 75),
-                   ("Stock", 75), ("Total Price", 95), ("Min Lvl", 70), ("Status", 70)]
+        INV_HDR = [("Item", 200), ("Category", 110), ("Unit", 60),
+                   ("Price/Unit", 100), ("Opening", 80), ("Received", 80),
+                   ("Stock", 80), ("Total Price", 105), ("Min Lvl", 75), ("Status", 75)]
         for col, w in INV_HDR:
             cf = ctk.CTkFrame(hdr, fg_color="transparent", width=w)
             cf.pack(side="left", fill="y"); cf.pack_propagate(False)
-            lbl(cf, col, size=10, weight="bold", color=GOLD_LT).pack(anchor="w", padx=10, pady=8)
+            lbl(cf, col, size=10, weight="bold", color=GOLD_LT).pack(anchor="w", padx=6, pady=0, fill="both", expand=True)
 
         self._inv_sf = ctk.CTkScrollableFrame(tc, fg_color="transparent")
         self._inv_sf.pack(fill="both", expand=True)
@@ -1823,30 +1823,34 @@ class CanteenApp(ctk.CTk):
                 low = item["stock"] < item["min_lvl"]
                 bg2 = "#FEE2E2" if low else (WHITE if ix % 2 == 0 else STRIPE)
 
-                rf = tk.Frame(self._inv_sf, bg=bg2, height=40)
+                rf = tk.Frame(self._inv_sf, bg=bg2, height=46)
                 rf.pack(fill="x"); rf.pack_propagate(False)
 
                 cat_icon = ci.get(item["cat"], "•")
+                # Format values — keep numbers short to avoid column overflow
+                cp_val    = item['cp'] or 0.0
+                stock_val = item['stock'] or 0.0
+                total_val = stock_val * cp_val
                 vals = [
                     (f"  {item['item']}",        True,  DARK),
                     (f"{cat_icon} {item['cat']}", False, MID),
                     (item["unit"],               False, MID),
-                    (f"Rs. {f_in(item['cp'] or 0.0, 2)}", False, MID),
+                    (f"Rs.{cp_val:,.1f}",         False, MID),
                     (f"{item['opening']:.1f}",   False, MID),
                     (f"{item['received']:.1f}",  False, MID),
-                    (f"{item['stock']:.1f}",     True,  RED if low else GREEN),
-                    (f"Rs. {f_in((item['stock'] or 0.0) * (item['cp'] or 0.0), 2)}", True, GREEN),
+                    (f"{stock_val:.1f}",          True,  RED if low else GREEN),
+                    (f"Rs.{total_val:,.0f}",      True,  GREEN),
                     (f"{item['min_lvl']:.1f}",   False, MID),
                     ("⚠ LOW" if low else "✓ OK", True,  RED if low else GREEN),
                 ]
 
                 for (val, bold, color), w in zip(vals, widths):
-                    cf = tk.Frame(rf, bg=bg2, width=w)
+                    cf = tk.Frame(rf, bg=bg2, width=w, height=46)
                     cf.pack(side="left", fill="y"); cf.pack_propagate(False)
                     lbl_w = tk.Label(cf, text=str(val), bg=bg2, fg=color,
-                                     font=("Helvetica", 11, "bold" if bold else "normal"),
-                                     anchor="w")
-                    lbl_w.pack(anchor="w", padx=10, pady=6)
+                                     font=("Helvetica", 10, "bold" if bold else "normal"),
+                                     anchor="w", wraplength=0)
+                    lbl_w.pack(anchor="w", padx=6, pady=0, fill="both", expand=True)
 
             if end_idx < len(data):
                 self.after(10, lambda: render_chunk(end_idx))
